@@ -1,0 +1,26 @@
+{
+  "name": "Video Scrambler-json-server",
+  "version": "1.0.0",
+  "description": "JSON Server for Video Scrambler App development and testing",
+  "main": "server.js",
+  "scripts": {
+    "start": "json-server --watch db.json --port 3001 --host 0.0.0.0",
+    "dev": "json-server --watch db.json --port 3001 --host 0.0.0.0 --delay 500",
+    "server": "node server.js",
+    "seed": "node seed-data.js"
+  },
+  "keywords": [
+    "json-server",
+    "api",
+    "mock",
+    "development"
+  ],
+  "author": "Video Scrambler Team",
+  "license": "MIT",
+  "dependencies": {
+    "json-server": "^0.17.4"
+  },
+  "devDependencies": {
+    "cors": "^2.8.5"
+  }
+}

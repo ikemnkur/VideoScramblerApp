@@ -1,0 +1,548 @@
+// App.jsx — Simple Video Scrambler (React)
+// Notes:
+// - Drop this into a Vite React project and set as the default export in src/App.jsx.
+// - The UI and logic come from your original HTML/JS, reorganized into React with hooks.
+// - “Subscription-ready”: a tiny gate is included (isPro) to demo how you’d disable ads / waiting for paid users.
+// - Replace the mock auth/subscription bits in the "// SUBSCRIPTION HOOKS" area with your real auth and Stripe/etc.
+
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
+
+export default function App() {
+  // =============================
+  // THEME STYLES (ported as-is)
+  // =============================
+  const styles = `
+    :root { --gap: 12px; --bg: #0f172a; --card: #111827; --muted: #94a3b8; --text: #e5e7eb; --accent: #22d3ee; --border: #1f2937 }
+    html, body { height: 100% }
+    body { margin: 0; font-family: system-ui,-apple-system,Segoe UI,Roboto,Ubuntu,Cantarell,Noto Sans,sans-serif; background: linear-gradient(180deg,#0b1220,#0f172a); color: var(--text) }
+    h1,h2 { margin: .2rem 0 .6rem }
+    h1 { font-size: 1.6rem }
+    h2 { font-size: 1.2rem; color: #cbd5e1 }
+    .wrap { max-width: 1200px; margin: 0 auto; padding: 20px }
+    .grid { display: grid; gap: var(--gap) }
+    .card { background: var(--card); border: 1px solid var(--border); border-radius: 16px; padding: 20px }
+    .row { display: flex; gap: var(--gap); flex-wrap: wrap; align-items: center; margin-bottom: 8px }
+    .row:last-child { margin-bottom: 0 }
+    label { display:block; font-size:.85rem; color:var(--muted); margin-bottom:4px; margin-top:8px }
+    label:first-child { margin-top: 0 }
+    input, textarea, select, button { background:#0b1020; border:1px solid var(--border); color:var(--text); padding:10px 12px; border-radius:10px; outline:none; box-sizing:border-box }
+    input[type=number] { width:110px; margin-right:8px }
+    textarea { width:100%; min-height:110px; resize:vertical; margin-bottom:12px }
+    .form-group { margin-bottom:16px }
+    .form-group:last-child { margin-bottom:0 }
+    .btn { cursor:pointer; border:1px solid #1f2b45; margin:4px 6px 4px 0; white-space:nowrap }
+    .btn:hover { border-color:#334155 }
+    .btn-accent { background:linear-gradient(90deg,#06b6d4,#22d3ee); color:#001018; border:none; margin:4px 6px 4px 0 }
+    .icon-btn { padding:8px 10px; line-height:1; border-radius:10px; border:1px solid #1f2b45; background:#0b1020; margin-left:8px }
+    .pill { padding:4px 8px; border-radius:999px; background:#0b1220; border:1px solid #1e293b; color:#93c5fd; font-size:.78rem; margin:2px 4px }
+    .hint { font-size:.85rem; color:var(--muted); margin:4px 0 8px 0 }
+    .media-row { display:grid; grid-template-columns:1fr 1fr; gap:20px; margin:16px 0 }
+    video, canvas { width:100%; height:auto; background:#0b1020; border:1px dashed #1f2937; border-radius:10px; margin-bottom:8px }
+    .kpi { display:flex; gap:8px; flex-wrap:wrap; align-items:center; margin-top:8px }
+    .kpi .pill { margin:2px }
+    .kpi .pill b { color:#e2e8f0 }
+    .sep { height:1px; background:#1f2937; margin:16px 0 }
+    .small { font-size:.8rem }
+    .mono { font-family: ui-monospace,SFMono-Regular,Menlo,Monaco,Consolas,"Liberation Mono","Courier New",monospace }
+    header { margin-bottom:20px }
+    header .row { align-items:flex-start; margin-bottom:0 }
+    @media (max-width: 768px) {
+      .wrap { padding:16px }
+      .card { padding:16px }
+      .media-row { grid-template-columns:1fr; gap:16px }
+      header .row { flex-direction:column; gap:16px }
+      .kpi { justify-content:flex-start }
+    }
+    /* Ad Modal */
+    .ad-modal { display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,.9); z-index:10000; align-items:center; justify-content:center }
+    .ad-modal.show { display:flex }
+    .ad-modal-content { background:var(--card); border:2px solid var(--border); border-radius:16px; padding:24px; position:relative; max-width:90vw; max-height:90vh; overflow:hidden }
+    .ad-modal-content.mobile { width:350px; height:600px }
+    .ad-modal-content.desktop { width:640px; height:480px }
+    .ad-video { width:100%; height:70%; border-radius:12px; background:#000 }
+    .ad-content { height:30%; padding:16px 0 0 0; display:flex; flex-direction:column; justify-content:space-between }
+    .ad-title { font-size:1.1rem; font-weight:600; margin-bottom:8px; color:var(--text) }
+    .ad-description { font-size:.9rem; color:var(--muted); margin-bottom:16px; line-height:1.4 }
+    .ad-controls { display:flex; gap:12px; align-items:center }
+    .ad-timer { font-size:.85rem; color:var(--accent); margin-right:auto }
+    .ad-close-btn { background:var(--accent); color:#001018; border:none; padding:8px 16px; border-radius:8px; cursor:pointer; font-weight:600; opacity:.5; pointer-events:none; transition:opacity .3s }
+    .ad-close-btn.enabled { opacity:1; pointer-events:auto }
+    .ad-close-btn:hover.enabled { background:#06b6d4 }
+  `;
+
+  // =============================
+  // SUBSCRIPTION HOOKS (mock)
+  // =============================
+  // Wire these to your auth + Stripe/LemonSqueezy/etc. later.
+  const [user] = useState({ id: "demo-user-123", email: "demo@example.com" });
+  const [isPro, setIsPro] = useState(false); // Flip to true to simulate paid users (no ad wait)
+  const togglePro = () => setIsPro((p) => !p);
+
+  // =============================
+  // STATE & REFS
+  // =============================
+  const fileRef = useRef(null);
+  const videoRef = useRef(null);
+  const canvasRef = useRef(null);
+
+  const [selectedLevel, setSelectedLevel] = useState("med"); // low|med|high
+  const [grid, setGrid] = useState({ n: 5, m: 5 });
+  const [seed, setSeed] = useState(() => genRandomSeed());
+  const [permDestToSrc0, setPermDestToSrc0] = useState([]);
+  const [base64Key, setBase64Key] = useState("");
+  const [jsonKey, setJsonKey] = useState("");
+
+  // Recording
+  const [recorder, setRecorder] = useState(null);
+  const chunksRef = useRef([]);
+  const PRESET_FPS = 30;
+
+  // Ad modal state
+  const [modalShown, setModalShown] = useState(false);
+  const [modalReady, setModalReady] = useState(false);
+  const [timerText, setTimerText] = useState("Please wait...");
+  const adIframeRef = useRef(null);
+  const timerIdRef = useRef(null);
+  const [recordingFinished, setRecordingFinished] = useState(false);
+  const [waitTimeRemaining, setWaitTimeRemaining] = useState(15);
+
+  // =============================
+  // UTILS
+  // =============================
+  function clamp(v, min, max) { return Math.max(min, Math.min(max, v)); }
+  function mulberry32(a) {
+    return function() {
+      let t = (a += 0x6D2B79F5);
+      t = Math.imul(t ^ (t >>> 15), t | 1);
+      t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
+      return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+    };
+  }
+  function genRandomSeed() {
+    if (window.crypto?.getRandomValues) {
+      const buf = new Uint32Array(1);
+      window.crypto.getRandomValues(buf);
+      return buf[0] >>> 0;
+    }
+    return (Math.floor(Math.random() * 2 ** 32) >>> 0);
+  }
+  function seededPermutation(size, seed) {
+    const rand = mulberry32(seed >>> 0);
+    const srcs = Array.from({ length: size }, (_, i) => i);
+    for (let i = size - 1; i > 0; i--) {
+      const j = Math.floor(rand() * (i + 1));
+      [srcs[i], srcs[j]] = [srcs[j], srcs[i]];
+    }
+    return srcs; // dest index i will take from source srcs[i]
+  }
+  function oneBased(a) { return a.map((x) => x + 1); }
+  function paramsToJSON(seed, n, m, perm) {
+    return {
+      version: 2,
+      seed: Number(seed),
+      n: Number(n),
+      m: Number(m),
+      perm1based: oneBased(perm),
+      semantics: "Index = destination cell (1-based), value = source cell index (1-based)",
+    };
+  }
+  function toBase64(str) { return btoa(unescape(encodeURIComponent(str))); }
+
+  function cellRects(w, h, n, m) {
+    const rects = [];
+    const cw = w / m, ch = h / n;
+    for (let r = 0; r < n; r++) {
+      for (let c = 0; c < m; c++) {
+        rects.push({ x: c * cw, y: r * ch, w: cw, h: ch });
+      }
+    }
+    return rects;
+  }
+
+  function download(filename, blob) {
+    const a = document.createElement("a");
+    a.href = URL.createObjectURL(blob);
+    a.download = filename;
+    a.click();
+    setTimeout(() => URL.revokeObjectURL(a.href), 2500);
+  }
+
+  // =============================
+  // GRID & BUTTON STATES
+  // =============================
+  useEffect(() => {
+    if (selectedLevel === "low") setGrid({ n: 3, m: 3 });
+    else if (selectedLevel === "med") setGrid({ n: 5, m: 5 });
+    else if (selectedLevel === "high") setGrid({ n: 7, m: 7 });
+  }, [selectedLevel]);
+
+  // =============================
+  // VIDEO/CANVAS SETUP
+  // =============================
+  const updateRects = useCallback(() => {
+    const video = videoRef.current;
+    const canvas = canvasRef.current;
+    if (!video || !canvas) return;
+    canvas.width = video.videoWidth || 0;
+    canvas.height = video.videoHeight || 0;
+  }, []);
+
+  useEffect(() => {
+    const video = videoRef.current;
+    if (!video) return;
+    const onLoaded = () => updateRects();
+    video.addEventListener("loadedmetadata", onLoaded);
+    return () => video.removeEventListener("loadedmetadata", onLoaded);
+  }, [updateRects]);
+
+  // =============================
+  // DRAW SCRAMBLED FRAME
+  // =============================
+  const drawScrambledFrame = useCallback(() => {
+    const video = videoRef.current;
+    const canvas = canvasRef.current;
+    if (!video || !canvas || !video.videoWidth) return;
+    const ctx = canvas.getContext("2d");
+    const N = grid.n * grid.m;
+    if (!permDestToSrc0 || permDestToSrc0.length !== N) return;
+
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    const srcRects = cellRects(video.videoWidth, video.videoHeight, grid.n, grid.m);
+    const destRects = cellRects(canvas.width, canvas.height, grid.n, grid.m);
+
+    for (let destIdx = 0; destIdx < N; destIdx++) {
+      const srcIdx = permDestToSrc0[destIdx];
+      const sR = srcRects[srcIdx];
+      const dR = destRects[destIdx];
+      if (!sR || !dR) continue;
+      ctx.drawImage(video, sR.x, sR.y, sR.w, sR.h, dR.x, dR.y, dR.w, dR.h);
+    }
+  }, [grid, permDestToSrc0]);
+
+  // Animate while playing
+  const [animating, setAnimating] = useState(false);
+  useEffect(() => {
+    let raf = 0;
+    const loop = () => {
+      if (!animating) return;
+      const video = videoRef.current;
+      if (video && !video.paused && !video.ended) drawScrambledFrame();
+      raf = requestAnimationFrame(loop);
+    };
+    if (animating) raf = requestAnimationFrame(loop);
+    return () => cancelAnimationFrame(raf);
+  }, [animating, drawScrambledFrame]);
+
+  // =============================
+  // EVENTS
+  // =============================
+  const onPickFile = useCallback((e) => {
+    const f = e.target.files?.[0];
+    if (!f) return;
+    const url = URL.createObjectURL(f);
+    if (videoRef.current) videoRef.current.src = url;
+  }, []);
+
+  const onGenerate = useCallback(() => {
+    const video = videoRef.current;
+    if (!video || !video.src) { alert("Please select a video file first"); return; }
+
+    const newSeed = genRandomSeed();
+    setSeed(newSeed);
+
+    const N = grid.n * grid.m;
+    const perm = seededPermutation(N, newSeed);
+    setPermDestToSrc0(perm);
+
+    const obj = paramsToJSON(newSeed, grid.n, grid.m, perm);
+    const pretty = JSON.stringify(obj, null, 2);
+    setJsonKey(pretty);
+    setBase64Key(toBase64(pretty));
+
+    // Draw first frame
+    drawScrambledFrame();
+  }, [grid]);
+
+  // Video play/pause/ended handlers
+  useEffect(() => {
+    const video = videoRef.current;
+    if (!video) return;
+
+    const onPlay = () => {
+      setAnimating(true);
+      if (recorder && recorder.state === "inactive") {
+        try { recorder.start(); } catch {}
+      }
+    };
+    const onPause = () => setAnimating(false);
+    const onEnded = () => {
+      setAnimating(false);
+      if (recorder && recorder.state === "recording") {
+        try { recorder.stop(); } catch {}
+      }
+    };
+    const onSeeked = () => {
+      if (!video.paused) drawScrambledFrame();
+    };
+
+    video.addEventListener("play", onPlay);
+    video.addEventListener("pause", onPause);
+    video.addEventListener("ended", onEnded);
+    video.addEventListener("seeked", onSeeked);
+    return () => {
+      video.removeEventListener("play", onPlay);
+      video.removeEventListener("pause", onPause);
+      video.removeEventListener("ended", onEnded);
+      video.removeEventListener("seeked", onSeeked);
+    };
+  }, [recorder, drawScrambledFrame]);
+
+  // =============================
+  // AD MODAL
+  // =============================
+  const isMobileLayout = () => {
+    const aspect = window.innerWidth / window.innerHeight;
+    return aspect < (10 / 16);
+  };
+
+  const showAdModal = useCallback((adUrl = "") => {
+    if (isPro) {
+      // Pro users skip modal entirely
+      setModalShown(false);
+      setModalReady(true);
+      return;
+    }
+    setModalReady(false);
+    setRecordingFinished(false);
+    setWaitTimeRemaining(15);
+    setModalShown(true);
+    setTimerText("Recording video...");
+
+    if (adIframeRef.current) {
+      if (adUrl) adIframeRef.current.src = adUrl; else {
+        adIframeRef.current.src = "about:blank";
+        adIframeRef.current.style.background = "linear-gradient(135deg, #667eea 0%, #764ba2 100%)";
+      }
+    }
+
+    // Start polling timer
+    if (timerIdRef.current) clearInterval(timerIdRef.current);
+    timerIdRef.current = setInterval(() => {
+      setTimerText((prev) => prev); // just trigger re-render
+      if (!recordingFinished) {
+        setTimerText("Recording video...");
+      } else if (waitTimeRemaining > 0) {
+        setTimerText(`Please wait ${waitTimeRemaining} seconds...`);
+        setWaitTimeRemaining((t) => Math.max(0, t - 1));
+      } else {
+        setModalReady(true);
+        clearInterval(timerIdRef.current);
+        timerIdRef.current = null;
+        setTimerText("Ready! You can close this window.");
+      }
+    }, 1000);
+  }, [isPro, recordingFinished, waitTimeRemaining]);
+
+  const hideAdModal = useCallback(() => {
+    setModalShown(false);
+    if (timerIdRef.current) { clearInterval(timerIdRef.current); timerIdRef.current = null; }
+  }, []);
+
+  const markRecordingFinished = useCallback(() => {
+    setRecordingFinished(true);
+    setWaitTimeRemaining(isPro ? 0 : 15);
+  }, [isPro]);
+
+  // =============================
+  // RECORD SCRAMBLED VIDEO
+  // =============================
+  const onRecordScrambled = useCallback(() => {
+    const canvas = canvasRef.current;
+    const video = videoRef.current;
+    if (!canvas || !video) return;
+
+    if (!video.src) { alert("Please select a video file first"); return; }
+    if (!permDestToSrc0 || permDestToSrc0.length === 0) { alert("Please scramble the video first"); return; }
+
+    // Show ad modal (no-op for Pro)
+    showAdModal();
+
+    const stream = canvas.captureStream(PRESET_FPS);
+    chunksRef.current = [];
+
+    const rec = new MediaRecorder(stream, { mimeType: "video/webm;codecs=vp9" });
+    rec.ondataavailable = (e) => { if (e.data.size) chunksRef.current.push(e.data); };
+    rec.onstop = () => {
+      const blob = new Blob(chunksRef.current, { type: "video/webm" });
+      download("scrambled.webm", blob);
+      setRecorder(null);
+      chunksRef.current = [];
+      // mark recording finished -> begin modal countdown
+      markRecordingFinished();
+    };
+
+    setRecorder(rec);
+
+    // Reset video to start and play
+    video.currentTime = 0;
+    // Start animation loop if paused
+    if (video.paused) {
+      video.play().catch((err) => {
+        console.log("Autoplay blocked; user must press play:", err);
+        alert("Please click Play on the original video to start recording.");
+      });
+    }
+  }, [permDestToSrc0, showAdModal, markRecordingFinished]);
+
+  // When user closes modal and everything is ready
+  const onCloseModal = useCallback(() => {
+    if (isPro || modalReady) hideAdModal();
+  }, [hideAdModal, isPro, modalReady]);
+
+  // Start the actual recorder when video begins playing
+  useEffect(() => {
+    const video = videoRef.current;
+    if (!video) return;
+    const maybeStart = () => {
+      if (recorder && recorder.state === "inactive") {
+        try { recorder.start(); } catch {}
+      }
+    };
+    video.addEventListener("play", maybeStart);
+    return () => video.removeEventListener("play", maybeStart);
+  }, [recorder]);
+
+  // =============================
+  // COPY & DOWNLOAD KEY
+  // =============================
+  const onCopyKey = useCallback(async () => {
+    if (!base64Key) { alert("Please scramble a video first to generate a key"); return; }
+    try {
+      await navigator.clipboard.writeText(base64Key);
+      alert("Key copied to clipboard.");
+    } catch {
+      alert("Copy failed. Please select and copy manually.");
+    }
+  }, [base64Key]);
+
+  const onDownloadKey = useCallback(() => {
+    if (!base64Key) { alert("Please scramble a video first to generate a key"); return; }
+    const blob = new Blob([base64Key], { type: "text/plain" });
+    download("unscramble_key.txt", blob);
+  }, [base64Key]);
+
+  // =============================
+  // LINKS
+  // =============================
+  const openKeyChing = useCallback(() => window.open("https://key-ching.com/register", "_blank"), []);
+  const openKeyChingInfo = useCallback(() => window.open("https://key-ching.com/info", "_blank"), []);
+
+  // =============================
+  // RENDER
+  // =============================
+  return (
+    <>
+      <style>{styles}</style>
+      <div className="wrap grid" style={{ gap: 18 }}>
+        <header className="row" style={{ justifyContent: "space-between" }}>
+          <div>
+            <h1>🎞️ Simple Video Scrambler</h1>
+            <div className="hint">Upload a video, choose scramble level, and download your unscramble key.</div>
+          </div>
+          <div className="kpi">
+            <span className="pill">Export: <b>WebM</b></span>
+            <span className="pill">Quality: <b>30 FPS</b></span>
+            <span className="pill">Plan: <b>{isPro ? "Pro" : "Free"}</b></span>
+          </div>
+        </header>
+
+        {/* SCRAMBLE CARD */}
+        <section className="card">
+          <h2>Scramble a video</h2>
+
+          <div className="row">
+            <div className="form-group">
+              <label htmlFor="srcFile">Select video file</label>
+              <input id="srcFile" type="file" accept="video/*" ref={fileRef} onChange={onPickFile} />
+            </div>
+            <div className="form-group">
+              <label>Scramble level</label>
+              <div className="row" style={{ marginBottom: 0 }}>
+                <button className={`btn ${selectedLevel === "low" ? "btn-accent" : ""}`} onClick={() => setSelectedLevel("low")}>Low (3×3)</button>
+                <button className={`btn ${selectedLevel === "med" ? "btn-accent" : ""}`} onClick={() => setSelectedLevel("med")}>Medium (5×5)</button>
+                <button className={`btn ${selectedLevel === "high" ? "btn-accent" : ""}`} onClick={() => setSelectedLevel("high")}>High (7×7)</button>
+              </div>
+              <div className="hint small">Choose how many pieces to split your video into</div>
+            </div>
+          </div>
+
+          <div className="row">
+            Step 1: <button className="btn-accent" onClick={onGenerate}>Scramble Video</button>
+            Step 2: <button className="btn" onClick={onRecordScrambled}>🎬 Download Scrambled Video</button>
+            <button className="btn" onClick={togglePro}>{isPro ? "Switch to Free (show ads)" : "Simulate Pro (no ads)"}</button>
+          </div>
+
+          <div className="sep" />
+
+          <div className="media-row">
+            <div>
+              <div className="hint">Original (100% resolution)</div>
+              <video id="srcVideo" ref={videoRef} controls playsInline />
+            </div>
+            <div>
+              <div className="hint">Scrambled canvas (100% resolution)</div>
+              <canvas id="scrambleCanvas" ref={canvasRef} />
+            </div>
+          </div>
+
+          <div className="sep" />
+
+          <div className="row" style={{ alignItems: "flex-start", marginTop: 16 }}>
+            <div className="form-group" style={{ flex: "1 1 100%" }}>
+              <label>Un-Scramble Key</label>
+              <textarea className="mono" readOnly placeholder="Your unscramble key will appear here after scrambling..." value={base64Key} />
+              <div className="row" style={{ marginBottom: 0 }}>
+                <button className="btn-accent" onClick={onDownloadKey}>📥 Download Key</button>
+                <button className="btn" onClick={onCopyKey}>📋 Copy Key</button>
+                <button className="btn-accent" style={{ background: "gold", color: "green", marginRight: 0, marginLeft: "auto" }} onClick={openKeyChingPage}>$ Sell Your Keys $</button>
+              </div>
+              <div className="hint small">Save this key to unscramble your video later!</div>
+              <div>
+                You can sell your unscramble keys here, on <strong onClick={openKeyChingInfo} style={{ background: "gold", color: "green", border: "rgb(160, 136, 0)", borderRadius: 3, padding: 2 }}>Key-Ching</strong>, a marketplace for others to buy codes/keys/passwords... so they can unscramble your videos.
+                Unscrambling videos is hard, even for computers. So scrambling videos makes it hard for people without the key to view your stuff. So you can monetize access to your content without worrying about easy mass-leaks.
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <div className="hint">Upload a short video (≤ 60s), scramble it via tile-shifting, save the unscrambling algorithm key, and export the video result. Then later share the key to unscramble and restore the video.</div>
+      </div>
+
+      {/* AD MODAL */}
+      <div className={`ad-modal ${modalShown ? "show" : ""}`} onClick={(e) => {
+        if (e.target.classList.contains("ad-modal") && (isPro || modalReady)) onCloseModal();
+      }}>
+        <div className={`ad-modal-content ${isMobileLayout() ? "mobile" : "desktop"}`}>
+          <div className="ad-video">
+            <iframe ref={adIframeRef} width="100%" height="100%" frameBorder="0" allow="autoplay; encrypted-media" style={{ borderRadius: 12 }} />
+          </div>
+          <div className="ad-content">
+            <div>
+              <div className="ad-title">🎥 Processing Your Video...</div>
+              <div className="ad-description">Your scrambled video is being generated. Please watch this short message while we prepare your download.</div>
+            </div>
+            <div className="ad-controls">
+              <div className="ad-timer">{isPro ? "Pro: no wait" : timerText}</div>
+              <button className={`ad-close-btn ${isPro || modalReady ? "enabled" : ""}`} onClick={onCloseModal}>Continue</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </>
+  );
+
+  // =============================
+  // HELPERS needing component scope
+  // =============================
+  function openKeyChingPage() { openKeyChing(); }
+}
