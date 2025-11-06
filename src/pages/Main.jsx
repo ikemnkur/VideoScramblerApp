@@ -68,76 +68,6 @@ export default function Wallet() {
         <Container sx={{ py: 4, backgroundColor: '#0a0a0a', minHeight: '100vh' }}>
             <Stack spacing={2}>
                 {/* <Typography variant="h4" sx={{ color: '#ffd700', fontWeight: 700 }}>Main</Typography> */}
-                
-                <Card variant="outlined" sx={{
-                    backgroundColor: '#1a1a1a',
-                    border: '2px solid #ffd700',
-                    borderRadius: 2
-                }}>
-                    <CardContent>
-                        <Typography variant="h6" sx={{ color: '#ffd700' }}> What do you want to do?</Typography>
-                        {/* {balance === null ? (
-                            <Skeleton variant="text" width={220} height={54} animation="wave" />
-                        ) : (
-                            <Typography variant="h3" sx={{ fontWeight: 800, color: '#2e7d32' }}>{balance} credits</Typography>
-                        )} */}
-
-                    </CardContent>
-
-                    {/* purchase button : go to purchase page */}
-
-                    <CardContent>
-                        <Divider sx={{ my: 2, borderColor: '#444' }} />
-                        
-                            <div style={{ display: 'flex', flexDirection: 'row', gap: '10px' }}>
-                                <Button
-                                    onClick={() => navigate("/scrambler")}
-                                    variant="outlined"
-                                    sx={{
-                                        borderColor: '#2e7d32',
-                                        color: '#2e7d32',
-                                        '&:hover': {
-                                            backgroundColor: '#2e7d32',
-                                            color: '#fff'
-                                        }
-                                    }}
-                                >
-                                   Scramble Video
-                                </Button>
-                                <Button
-                                    onClick={() => navigate("/studio-mode")}
-                                    variant="outlined"
-                                    sx={{
-                                        borderColor: '#2e7d32',
-                                        color: '#2e7d32',
-                                        '&:hover': {
-                                            backgroundColor: '#2e7d32',
-                                            color: '#fff'
-                                        }
-                                    }}
-                                >
-                                    Studio Mode
-                                </Button>
-                                <Button
-                                    onClick={() => navigate("/unscrambler")}
-                                    variant="outlined"
-                                    sx={{
-                                        borderColor: '#2e7d32',
-                                        color: '#2e7d32',
-                                        '&:hover': {
-                                            backgroundColor: '#2e7d32',
-                                            color: '#fff'
-                                        }
-                                    }}
-                                >
-                                    Unscramble Video
-                                </Button>
-                            </div>
-
-                            {/* <Divider sx={{ my: 2, borderColor: '#444' }} /> */}
-
-                    </CardContent>
-                </Card>
                 <Card variant="outlined" sx={{
                     backgroundColor: '#1a1a1a',
                     border: '2px solid #ffd700',
@@ -266,6 +196,195 @@ export default function Wallet() {
 
                     </CardContent>
                 </Card>
+                
+
+
+                <Card variant="outlined" sx={{
+                    backgroundColor: '#1a1a1a',
+                    border: '2px solid #ffd700',
+                    borderRadius: 2
+                }}>
+                    <CardContent>
+                        <Typography variant="h6" sx={{ color: '#ffd700', mb: 3 }}>What do you want to do?</Typography>
+                        
+                        {/* Services Grid */}
+                        <div style={{ 
+                            display: 'grid', 
+                            gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', 
+                            gap: '16px' 
+                        }}>
+                            {/* Scramble Video Service */}
+                            <Card sx={{
+                                backgroundColor: '#2a2a2a',
+                                border: '1px solid #2e7d32',
+                                borderRadius: 2,
+                                cursor: 'pointer',
+                                transition: 'all 0.3s ease',
+                                '&:hover': {
+                                    backgroundColor: '#2e7d32',
+                                    transform: 'translateY(-2px)',
+                                    boxShadow: '0 4px 12px rgba(46, 125, 50, 0.3)'
+                                }
+                            }}
+                            onClick={() => navigate("/video-scrambler")}>
+                                <CardContent sx={{ p: 2 }}>
+                                    <Typography variant="h6" sx={{ color: '#2e7d32', mb: 1, fontWeight: 'bold' }}>
+                                        🎬 Scramble Video
+                                    </Typography>
+                                    <Typography variant="body2" sx={{ color: '#ccc', lineHeight: 1.4 }}>
+                                        Upload and scramble videos into unrecognizable tiles. Generate keys to monetize access to your content.
+                                    </Typography>
+                                </CardContent>
+                            </Card>
+
+                            {/* Scramble Photo Service */}
+                            <Card sx={{
+                                backgroundColor: '#2a2a2a',
+                                border: '1px solid #2e7d32',
+                                borderRadius: 2,
+                                cursor: 'pointer',
+                                transition: 'all 0.3s ease',
+                                '&:hover': {
+                                    backgroundColor: '#2e7d32',
+                                    transform: 'translateY(-2px)',
+                                    boxShadow: '0 4px 12px rgba(46, 125, 50, 0.3)'
+                                }
+                            }}
+                            onClick={() => navigate("/photo-scrambler")}>
+                                <CardContent sx={{ p: 2 }}>
+                                    <Typography variant="h6" sx={{ color: '#2e7d32', mb: 1, fontWeight: 'bold' }}>
+                                        📸 Scramble Photo
+                                    </Typography>
+                                    <Typography variant="body2" sx={{ color: '#ccc', lineHeight: 1.4 }}>
+                                        Protect your images by scrambling them with watermarks and metadata headers for secure sharing.
+                                    </Typography>
+                                </CardContent>
+                            </Card>
+
+                            {/* Encode Mode Service */}
+                            <Card sx={{
+                                backgroundColor: '#2a2a2a',
+                                border: '1px solid #2e7d32',
+                                borderRadius: 2,
+                                cursor: 'pointer',
+                                transition: 'all 0.3s ease',
+                                '&:hover': {
+                                    backgroundColor: '#2e7d32',
+                                    transform: 'translateY(-2px)',
+                                    boxShadow: '0 4px 12px rgba(46, 125, 50, 0.3)'
+                                }
+                            }}
+                            onClick={() => navigate("/encode-mode")}>
+                                <CardContent sx={{ p: 2 }}>
+                                    <Typography variant="h6" sx={{ color: '#2e7d32', mb: 1, fontWeight: 'bold' }}>
+                                        🔐 Encode Mode
+                                    </Typography>
+                                    <Typography variant="body2" sx={{ color: '#ccc', lineHeight: 1.4 }}>
+                                        Advanced encoding features for creating secure, encrypted content with custom algorithms.
+                                    </Typography>
+                                </CardContent>
+                            </Card>
+
+                            {/* Unscramble Video Service */}
+                            <Card sx={{
+                                backgroundColor: '#2a2a2a',
+                                border: '1px solid #ff9800',
+                                borderRadius: 2,
+                                cursor: 'pointer',
+                                transition: 'all 0.3s ease',
+                                '&:hover': {
+                                    backgroundColor: '#ff9800',
+                                    transform: 'translateY(-2px)',
+                                    boxShadow: '0 4px 12px rgba(255, 152, 0, 0.3)'
+                                }
+                            }}
+                            onClick={() => navigate("/video-unscrambler")}>
+                                <CardContent sx={{ p: 2 }}>
+                                    <Typography variant="h6" sx={{ color: '#ff9800', mb: 1, fontWeight: 'bold' }}>
+                                        🔓 Unscramble Video
+                                    </Typography>
+                                    <Typography variant="body2" sx={{ color: '#ccc', lineHeight: 1.4 }}>
+                                        Use your keys to unscramble videos back to their original form. Restore scrambled content.
+                                    </Typography>
+                                </CardContent>
+                            </Card>
+
+                            {/* Unscramble Photo Service */}
+                            <Card sx={{
+                                backgroundColor: '#2a2a2a',
+                                border: '1px solid #ff9800',
+                                borderRadius: 2,
+                                cursor: 'pointer',
+                                transition: 'all 0.3s ease',
+                                '&:hover': {
+                                    backgroundColor: '#ff9800',
+                                    transform: 'translateY(-2px)',
+                                    boxShadow: '0 4px 12px rgba(255, 152, 0, 0.3)'
+                                }
+                            }}
+                            onClick={() => navigate("/photo-unscrambler")}>
+                                <CardContent sx={{ p: 2 }}>
+                                    <Typography variant="h6" sx={{ color: '#ff9800', mb: 1, fontWeight: 'bold' }}>
+                                        🖼️ Unscramble Photo
+                                    </Typography>
+                                    <Typography variant="body2" sx={{ color: '#ccc', lineHeight: 1.4 }}>
+                                        Restore scrambled images using unscramble keys. View protected photos in their original form.
+                                    </Typography>
+                                </CardContent>
+                            </Card>
+
+                            {/* Photo Leak Checker Service */}
+                            <Card sx={{
+                                backgroundColor: '#2a2a2a',
+                                border: '1px solid #e91e63',
+                                borderRadius: 2,
+                                cursor: 'pointer',
+                                transition: 'all 0.3s ease',
+                                '&:hover': {
+                                    backgroundColor: '#e91e63',
+                                    transform: 'translateY(-2px)',
+                                    boxShadow: '0 4px 12px rgba(233, 30, 99, 0.3)'
+                                }
+                            }}
+                            onClick={() => navigate("/photo-leak-checker")}>
+                                <CardContent sx={{ p: 2 }}>
+                                    <Typography variant="h6" sx={{ color: '#e91e63', mb: 1, fontWeight: 'bold' }}>
+                                        🔍 Photo Leak Scanner
+                                    </Typography>
+                                    <Typography variant="body2" sx={{ color: '#ccc', lineHeight: 1.4 }}>
+                                        Scan and detect if your images have been leaked or shared without permission online.
+                                    </Typography>
+                                </CardContent>
+                            </Card>
+
+                            {/* Video Leak Checker Service */}
+                            <Card sx={{
+                                backgroundColor: '#2a2a2a',
+                                border: '1px solid #e91e63',
+                                borderRadius: 2,
+                                cursor: 'pointer',
+                                transition: 'all 0.3s ease',
+                                '&:hover': {
+                                    backgroundColor: '#e91e63',
+                                    transform: 'translateY(-2px)',
+                                    boxShadow: '0 4px 12px rgba(233, 30, 99, 0.3)'
+                                }
+                            }}
+                            onClick={() => navigate("/video-leak-checker")}>
+                                <CardContent sx={{ p: 2 }}>
+                                    <Typography variant="h6" sx={{ color: '#e91e63', mb: 1, fontWeight: 'bold' }}>
+                                        🎥 Video Leak Scanner
+                                    </Typography>
+                                    <Typography variant="body2" sx={{ color: '#ccc', lineHeight: 1.4 }}>
+                                        Monitor and check if your videos have been leaked or distributed without authorization.
+                                    </Typography>
+                                </CardContent>
+                            </Card>
+                        </div>
+                    </CardContent>
+                </Card>
+
+                
                 <Card variant="outlined" sx={{
                     backgroundColor: '#1a1a1a',
                     border: '2px solid #ffd700',

@@ -45,14 +45,14 @@ export default function Wallet() {
   return (
     <Container sx={{ py: 4 }}>
       <Stack spacing={2}>
-        <Typography variant="h4" color="secondary.main">Wallet</Typography>
+        <Typography variant="h4" color="secondary.main">Account Membership Overview</Typography>
         <Card variant="outlined">
           <CardContent>
-            <Typography variant="h6">Current Balance</Typography>
+            <Typography variant="h6">Current Account Tier</Typography>
             {balance === null ? (
               <Skeleton variant="text" width={220} height={54} />
             ) : (
-              <Typography variant="h3" sx={{ fontWeight: 800, color: 'primary.main' }}>{balance} credits</Typography>
+              <Typography variant="h3" sx={{ fontWeight: 800, color: 'primary.main' }}> Free </Typography>
             )}
             <Divider sx={{ my: 2 }} />
             
@@ -117,7 +117,7 @@ export default function Wallet() {
                 </Grid>
 
                 {/* PayPal Subscription */}
-                <Grid item xs={12} md={6}>
+                {/* <Grid item xs={12} md={6}>
                   <Paper elevation={2} sx={{ p: 2, border: '2px solid', borderColor: '#0070ba', backgroundColor: '#424242' }}>
                     <Typography variant="h6" sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1, color: 'white' }}>
                       <Payment sx={{ color: '#0070ba' }} />
@@ -165,7 +165,7 @@ export default function Wallet() {
                       </PaymentButton>
                     </Stack>
                   </Paper>
-                </Grid>
+                </Grid> */}
               </Grid>
 
             </Box>

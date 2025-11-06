@@ -27,6 +27,8 @@ import UnlockPreview from './pages/UnlockPreview';
 import LoadingPage from './pages/Loading';
 import Scrambler from './pages/Scrambler';
 import Unscrambler from './pages/Unscrambler';
+import ScramblerPhotos from './pages/ScramblerPhotos';
+import UnscramblerPhotos from './pages/UnscramblerPhotos';
 import Plans from './pages/Plans';
 
 // import CheckoutForm from './components/CheckoutForm';
@@ -116,10 +118,16 @@ export default function App() {
 
             {/* <Route path="/intro" element={<Intro />} /> */}
 
+            {/* Video Editor */}
+            <Route path="/video-scrambler" element={<Scrambler />} />
 
-            <Route path="/scrambler" element={<Scrambler />} />
+            <Route path="/video-unscrambler" element={<Unscrambler />} />
 
-            <Route path="/unscrambler" element={<Unscrambler />} />
+            {/* Photo Editor */}
+
+            <Route path="/photo-scrambler" element={<ScramblerPhotos />} />
+
+            <Route path="/photo-unscrambler" element={<UnscramblerPhotos />} />
 
 
             {/* need a redirect or fallback route if not logged in and the user tries to visit a protected route */}
