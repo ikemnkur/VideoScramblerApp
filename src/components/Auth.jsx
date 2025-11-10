@@ -21,8 +21,12 @@ import LockOutlinedIcon from '@mui/icons-material/LockOutlined';
 import { Link as RouterLink } from 'react-router-dom';
 import SimpleDotCaptcha from './SimpleDotCaptcha';
 import CoinAnimationCanvas from '../components/CoinAnimationCanvas';
+import { useFingerprint } from '../contexts/FingerprintContext';
 
 const Auth = ({ isLogin, onLoginSuccess }) => {
+  // Get fingerprint context
+  // const { submitFingerprint, loading: fingerprintLoading } = useFingerprint();
+
   // State variables
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -199,16 +203,16 @@ const Auth = ({ isLogin, onLoginSuccess }) => {
       console.log('🚀 Starting authentication process...');
       if (isLogin) {
         console.log('📝 Processing login for email:', email);
-        
+
         // Use the authentication endpoint we set up in the server
         const loginResponse = await fetch(`${API_URL}/api/auth/login`, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
           },
-          body: JSON.stringify({ 
+          body: JSON.stringify({
             email: email, // Using email as username for login
-            password: password 
+            password: password
           })
         });
 
@@ -238,16 +242,31 @@ const Auth = ({ isLogin, onLoginSuccess }) => {
         // Clear failed CAPTCHA attempts on success
         localStorage.removeItem('failedCaptcha');
 
+        // Submit device fingerprint to backend
+        console.log('🔐 Submitting device fingerprint...');
+        // try {
+        //   const fingerprintResult = await submitFingerprint(user.id);
+        //   if (fingerprintResult.success) {
+        //     console.log('✅ Device fingerprint recorded');
+        //   } else {
+        //     console.warn('⚠️ Failed to record fingerprint:', fingerprintResult.message);
+        //     // Don't block login if fingerprint fails
+        //   }
+        // } catch (fpError) {
+        //   console.error('⚠️ Error recording fingerprint:', fpError);
+        //   // Don't block login if fingerprint fails
+        // }
+
       } else {
         console.log('📝 Processing registration for username:', username);
-        
+
         // Use the registration endpoint we set up in the server
         const registerResponse = await fetch(`${API_URL}/api/auth/register`, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
           },
-          body: JSON.stringify({ 
+          body: JSON.stringify({
             username: username,
             email: email,
             password: password,
@@ -278,6 +297,19 @@ const Auth = ({ isLogin, onLoginSuccess }) => {
         localStorage.setItem('unlockedKeys', JSON.stringify([])); // Initialize unlocked keys storage
 
         console.log('✅ Registration successful for:', user.username);
+
+        // Submit device fingerprint to backend after registration
+        console.log('🔐 Submitting device fingerprint...');
+        // try {
+        //   const fingerprintResult = await submitFingerprint(user.id);
+        //   if (fingerprintResult.success) {
+        //     console.log('✅ Device fingerprint recorded');
+        //   } else {
+        //     console.warn('⚠️ Failed to record fingerprint:', fingerprintResult.message);
+        //   }
+        // } catch (fpError) {
+        //   console.error('⚠️ Error recording fingerprint:', fpError);
+        // }
       }
 
       // Clear failed CAPTCHA attempts on success
@@ -429,7 +461,7 @@ const Auth = ({ isLogin, onLoginSuccess }) => {
                         <MenuItem style={{ background: '#161616' }} value="seller">Creator/Receiver</MenuItem>
                       </Select>
                     </FormControl> */}
-                    <Box sx={{ display: 'flex', justifyContent: 'center', gap: 2, my: 2 }}>
+                    {/* <Box sx={{ display: 'flex', justifyContent: 'center', gap: 2, my: 2 }}>
                       <Button
                         variant={accountType === 'buyer' ? 'contained' : 'outlined'}
                         color={accountType === 'buyer' ? 'primary' : 'inherit'}
@@ -464,7 +496,7 @@ const Auth = ({ isLogin, onLoginSuccess }) => {
                       >
                         Vendor/Seller
                       </Button>
-                    </Box>
+                    </Box> */}
 
                     <TextField
                       label="Username"
@@ -569,6 +601,7 @@ const Auth = ({ isLogin, onLoginSuccess }) => {
                   color="primary"
                   fullWidth
                   sx={{ mt: 2 }}
+                  onClick={() => setAccountType('buyer')}
                 >
                   {isLogin ? 'Login' : 'Sign Up'}
                 </Button>

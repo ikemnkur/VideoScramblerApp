@@ -1,29 +1,29 @@
 import React, { useState } from "react";
-import { 
-  Container, 
-  Typography, 
-  Grid, 
-  Card, 
-  CardContent, 
-  Button, 
+import {
+  Container,
+  Typography,
+  Grid,
+  Card,
+  CardContent,
+  Button,
   Box,
   Paper,
   Alert,
   Chip
 } from '@mui/material';
-import { 
-  CreditCard, 
-  LocalOffer, 
+import {
+  CreditCard,
+  LocalOffer,
   TrendingUp,
   CheckCircle
 } from '@mui/icons-material';
 import Stripe from "../components/Stripe";
 
 const PACKAGES = [
-  { dollars: 2.5, label: "$2.50", color: '#4caf50' },
-  { dollars: 5, label: "$5.00", color: '#2196f3' },
-  { dollars: 10, label: "$10.00", color: '#9c27b0', popular: true },
-  { dollars: 20, label: "$20.00", color: '#f57c00' },
+  { dollars: 2.5, label: "$2.50", color: '#4caf50', priceId: 'price_1SR9nNEViYxfJNd2pijdhiBM' },
+  { dollars: 5, label: "$5.00", color: '#2196f3', priceId: 'price_1SR9lZEViYxfJNd20x2uwukQ' },
+  { dollars: 10, label: "$10.00", color: '#9c27b0', popular: true, priceId: 'price_1SR9kzEViYxfJNd27aLA7kFW' },
+  { dollars: 20, label: "$20.00", color: '#f57c00', priceId: 'price_1SR9mrEViYxfJNd2dD5NHFoL' },
 ];
 
 // Incentive multipliers by package amount (bigger packages get larger bonus)
@@ -33,6 +33,7 @@ const MULTIPLIERS = {
   10: 1.12,  // 12% bonus
   20: 1.30,  // 30% bonus
 };
+
 
 function computePackageInfo(dollars) {
   const multiplier = MULTIPLIERS[dollars] || 1;
@@ -50,13 +51,38 @@ export default function PurchaseStripe() {
   const packageInfos = PACKAGES.map(p => ({
     ...computePackageInfo(p.dollars),
     color: p.color,
-    popular: p.popular
+    popular: p.popular,
+    priceId: p.priceId
   }));
 
   function handleSelect(pkgInfo) {
     setMessage(null);
     setSelected(pkgInfo);
   }
+
+  const stripeCheckoutUrl_2_5 = "https://buy.stripe.com/test_14A9ATed1blP9RO8HG5AQ03";
+  const stripeCheckoutUrl_5 = "https://buy.stripe.com/test_28E4gz0mb61v5By1fe5AQ04";
+  const stripeCheckoutUrl_10 = "https://buy.stripe.com/test_bJefZh7ODdtXbZWe205AQ05";
+  const stripeCheckoutUrl_20 = "https://buy.stripe.com/test_3cIeVded14XraVS9LK5AQ06";
+
+  function handleOpenStripePaymentPage(pkgInfo) {
+    setMessage(null);
+    console.log("Opening Stripe payment page for:", pkgInfo);
+    if (pkgInfo.dollars === 2.5)
+      window.open(stripeCheckoutUrl_2_5, '_blank');
+
+    if (pkgInfo.dollars === 5)
+      window.open(stripeCheckoutUrl_5, '_blank');
+
+    if (pkgInfo.dollars === 10)
+      window.open(stripeCheckoutUrl_10, '_blank');
+
+    if (pkgInfo.dollars === 20)
+      window.open(stripeCheckoutUrl_20, '_blank');
+
+    setSelected(pkgInfo);
+  }
+
 
   function handleSuccess(sessionOrResult) {
     // Called after successful payment (whatever your Stripe.jsx returns).
@@ -82,9 +108,9 @@ export default function PurchaseStripe() {
       <Grid container spacing={3} sx={{ mb: 4 }}>
         {packageInfos.map((pkg) => (
           <Grid item xs={12} sm={6} md={3} key={pkg.dollars}>
-            <Card 
+            <Card
               elevation={pkg.popular ? 8 : 2}
-              sx={{ 
+              sx={{
                 height: '100%',
                 position: 'relative',
                 border: selected === pkg ? '3px solid' : (pkg.popular ? '2px solid' : 'none'),
@@ -118,33 +144,33 @@ export default function PurchaseStripe() {
                   }}
                 >
                   <TrendingUp fontSize="small" />
-                  <Typography variant="caption" fontWeight="bold" sx={{paddingTop: '5px'}}>
+                  <Typography variant="caption" fontWeight="bold" sx={{ paddingTop: '5px' }}>
                     BEST VALUE
                   </Typography>
                 </Box>
               )}
-              
+
               <CardContent sx={{ p: 3, textAlign: 'center' }}>
                 <Typography variant="h4" sx={{ fontWeight: 'bold', color: pkg.color, mb: 1 }}>
                   {pkg.dollars.toFixed(2)} USD
                 </Typography>
-                
+
                 <Box sx={{ mb: 2 }}>
                   <Typography variant="h6" sx={{ color: 'white', fontWeight: 'bold' }}>
                     {pkg.credits.toLocaleString()} Credits
                   </Typography>
                   {/* {pkg.bonusCredits > 0 && ( */}
-                    <Chip 
-                      icon={<LocalOffer />}
-                      label={`+${pkg.bonusCredits.toLocaleString()} Bonus`}
-                      size="small"
-                      sx={{ 
-                        mt: 1,
-                        backgroundColor: pkg.color,
-                        color: 'white',
-                        fontWeight: 'bold'
-                      }}
-                    />
+                  <Chip
+                    icon={<LocalOffer />}
+                    label={`+${pkg.bonusCredits.toLocaleString()} Bonus`}
+                    size="small"
+                    sx={{
+                      mt: 1,
+                      backgroundColor: pkg.color,
+                      color: 'white',
+                      fontWeight: 'bold'
+                    }}
+                  />
                   {/* )} */}
                 </Box>
 
@@ -158,9 +184,9 @@ export default function PurchaseStripe() {
                 </Box>
 
                 {/* {pkg.discountPercent > 0 && ( */}
-                  <Typography variant="body2" sx={{ color: '#4caf50', fontWeight: 'bold', mb: 2 }}>
-                    Save {pkg.discountPercent}% vs base rate
-                  </Typography>
+                <Typography variant="body2" sx={{ color: '#4caf50', fontWeight: 'bold', mb: 2 }}>
+                  Save {pkg.discountPercent}% vs base rate
+                </Typography>
                 {/* )} */}
 
                 <Button
@@ -175,6 +201,7 @@ export default function PurchaseStripe() {
                       opacity: 0.9,
                     },
                   }}
+                  onClick={() => handleOpenStripePaymentPage(pkg)}
                 >
                   {selected === pkg ? (
                     <>
@@ -192,13 +219,13 @@ export default function PurchaseStripe() {
       </Grid>
 
       {/* Checkout Section */}
-      {selected && (
+      {selected && 0 && (
         <Paper elevation={4} sx={{ p: 4, backgroundColor: '#424242', color: 'white' }}>
           <Typography variant="h4" sx={{ mb: 2, color: 'white', fontWeight: 'bold', display: 'flex', alignItems: 'center', gap: 1 }}>
             <CreditCard />
             Checkout — {selected.dollars.toFixed(2)} USD
           </Typography>
-          
+
           <Typography variant="body1" sx={{ mb: 3, color: '#e0e0e0' }}>
             You're buying <strong style={{ color: selected.color }}>{selected.credits.toLocaleString()}</strong> credits
             {selected.bonusCredits > 0 && <> (includes <strong style={{ color: selected.color }}>+{selected.bonusCredits.toLocaleString()} bonus</strong>)</>}
@@ -208,10 +235,12 @@ export default function PurchaseStripe() {
           {/* Stripe component */}
           <Box sx={{ mb: 3 }}>
             <Stripe
+              credits={selected.credits}
               amount={Math.round(selected.dollars * 100)} // cents
               currency="usd"
               description={`${selected.credits} credits`}
               metadata={{ credits: selected.credits }}
+              priceId={selected.priceId}
               onSuccess={handleSuccess}
             />
           </Box>
@@ -224,9 +253,9 @@ export default function PurchaseStripe() {
 
       {/* Success Message */}
       {message && (
-        <Alert 
-          severity="success" 
-          sx={{ 
+        <Alert
+          severity="success"
+          sx={{
             mt: 3,
             backgroundColor: '#2e7d32',
             color: 'white',

@@ -79,61 +79,6 @@ export default function ScramblerPhotos() {
   const [processingFinished, setProcessingFinished] = useState(false);
   const [waitTimeRemaining, setWaitTimeRemaining] = useState(10);
 
-  const [selectedFile, setSelectedFile] = useState(null);
-  const [scrambledFilename, setScrambledFilename] = useState('');
-  const [keyCode, setKeyCode] = useState('');
-  
-  const [previewUrl, setPreviewUrl] = useState(null);
-  const [imageError, setImageError] = useState(null);
-  // const [imageLoaded, setImageLoaded] = useState(false);
-
-
-  // =============================
-    // FILE HANDLING
-    // =============================
-    const handleFileSelect = (event) => {
-        const file = event.target.files?.[0];
-        if (!file) return;
-
-        if (!file.type.startsWith('image/')) {
-            error("Please select a valid image file");
-            return;
-        }
-
-        setSelectedFile(file);
-        setImageFile(file); // Also set imageFile for scrambling logic
-        setScrambledFilename('');
-        setKeyCode('');
-        
-        // Reset previous state
-        setPermDestToSrc0([]);
-        setBase64Key("");
-        setJsonKey("");
-        setImageLoaded(false);
-
-        const url = URL.createObjectURL(file);
-        setPreviewUrl(url);
-
-        // Load image into the hidden image ref for processing
-        if (imageRef.current) {
-            imageRef.current.onload = () => {
-                console.log("Image loaded successfully");
-                setImageLoaded(true);
-                updateCanvas();
-                URL.revokeObjectURL(url);
-            };
-            
-            imageRef.current.onerror = () => {
-                console.error("Failed to load image");
-                error("Failed to load the selected image");
-                setImageLoaded(false);
-                URL.revokeObjectURL(url);
-            };
-            
-            imageRef.current.src = url;
-        }
-    };
-
   // =============================
   // UTILS
   // =============================
@@ -497,10 +442,10 @@ export default function ScramblerPhotos() {
       <Box sx={{ mb: 4, textAlign: 'center' }}>
         <Typography variant="h3" color="primary.main" sx={{ mb: 2, fontWeight: 'bold', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 1 }}>
           <PhotoCamera />
-          🖼️ Photo Scrambler
+          🖼️ Leaked Photo Tracker
         </Typography>
         <Typography variant="h6" color="text.secondary" sx={{ mb: 2 }}>
-          Upload an image, choose scramble level, and download your unscramble key.
+          Upload an image and its unscramble key to check .
         </Typography>
 
         {/* Status indicators */}
@@ -516,7 +461,7 @@ export default function ScramblerPhotos() {
         <CardContent sx={{ p: 4 }}>
           <Typography variant="h4" sx={{ mb: 3, display: 'flex', alignItems: 'center', gap: 1 }}>
             <Shuffle />
-            Scramble a Photo
+            Scan photo 
           </Typography>
 
           {/* File Upload and Settings */}
@@ -528,8 +473,7 @@ export default function ScramblerPhotos() {
               <input
                 type="file"
                 accept="image/*"
-                // onChange={onPickFile}
-                onChange={handleFileSelect}
+                onChange={onPickFile}
                 style={{ display: 'none' }}
                 id="image-upload"
                 ref={fileRef}
@@ -650,7 +594,7 @@ export default function ScramblerPhotos() {
                 <Typography variant="h6" sx={{ mb: 1, color: '#e0e0e0' }}>
                   Original Image
                 </Typography>
-                {/* <Box sx={{
+                <Box sx={{
                   minHeight: '200px',
                   backgroundColor: '#0b1020',
                   border: '1px dashed #666',
@@ -680,35 +624,7 @@ export default function ScramblerPhotos() {
                       Select an image to preview
                     </Typography>
                   )}
-                </Box> */}
-
-                <Box sx={{
-                                    minHeight: '200px',
-                                    backgroundColor: '#0b1020',
-                                    border: '1px dashed #666',
-                                    borderRadius: '8px',
-                                    display: 'flex',
-                                    alignItems: 'center',
-                                    justifyContent: 'center',
-                                    overflow: 'hidden'
-                                }}>
-                                    {previewUrl ? (
-                                        <img
-                                            src={previewUrl}
-                                            alt="Original"
-                                            style={{
-                                                maxWidth: '100%',
-                                                maxHeight: '400px',
-                                                borderRadius: '8px'
-                                            }}
-                                        />
-                                    ) : (
-                                        <Typography variant="body2" sx={{ color: '#666' }}>
-                                            Select an image to preview
-                                        </Typography>
-                                    )}
-
-                                </Box>
+                </Box>
                 {imageLoaded && (
                   <Typography variant="caption" sx={{ color: '#4caf50', mt: 1, display: 'block' }}>
                     Image loaded: {imageRef.current?.naturalWidth}×{imageRef.current?.naturalHeight}px

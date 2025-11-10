@@ -4,34 +4,49 @@ import { CssBaseline, ThemeProvider } from '@mui/material';
 import theme from './theme';
 import { BrowserRouter, Routes, Route } from 'react-router-dom';
 import NavBar from './components/NavBar';
-import YourKeys from './pages/YourKeys';
+// import YourKeys from './pages/YourKeys';
 import Wallet from './pages/Wallet';
-import CreateKey from './pages/CreateKey';
-import Unlock from './pages/Unlock';
-import Earnings from './pages/Earnings';
+// import CreateKey from './pages/CreateKey';
+// import Unlock from './pages/Unlock';
+// import Earnings from './pages/Earnings';
 import Auth from './components/Auth';
 import HelpPage from './pages/HelpPage';
 import Main from './pages/Main';
 import PurchaseHistory from './pages/PurchaseHistory';
-import Redeem from './pages/Redeem';
+// import Redeem from './pages/Redeem';
 import ProtectedRoute from './components/ProtectedRoute';
 import Account from './pages/Account';
 // import { fetchUserProfile } from './api/client';
 import { useNavigate } from 'react-router-dom';
 // import YourKeys from './pages/YourKeys';
-import Listings from './pages/Listing';
+// import Listings from './pages/Listing';
 import Purchase from './pages/PurchaseCrypto';
 import Info from './pages/Info';
-import SignUp2Unlock from './pages/SignUp2Unlock';
-import UnlockPreview from './pages/UnlockPreview';
+// import SignUp2Unlock from './pages/SignUp2Unlock';
+// import UnlockPreview from './pages/UnlockPreview';
 import LoadingPage from './pages/Loading';
-import Scrambler from './pages/Scrambler';
-import Unscrambler from './pages/Unscrambler';
+
+import VideoScrambler from './pages/VideoScrambler';
+import VideoUnscrambler from './pages/VideoUnscrambler';
+// import Scrambler from './pages/Scrambler';
+// import Unscrambler from './pages/Unscrambler';
+
 import ScramblerPhotos from './pages/ScramblerPhotos';
 import UnscramblerPhotos from './pages/UnscramblerPhotos';
+
+import ScramblerPhotosPro from './pages/ScramblerPhotosPro';
+import UnscramblerPhotosPro from './pages/UnscramblerPhotosPro';
+
+import VideoScramblerPro from './pages/VideoScramblerPro';
+import VideoUnscramblerPro from './pages/VideoUnscramblerPro';
+
+import PhotoLeakChecker from './pages/PhotoLeakChecker';
+import VideoLeakChecker from './pages/VideoLeakChecker';
+
 import Plans from './pages/Plans';
 
 // import CheckoutForm from './components/CheckoutForm';
+// import { StripeCheckoutForm, Return } from "./components/Stripe";
 import { StripeCheckoutForm, Return } from "./components/Stripe";
 
 
@@ -39,6 +54,11 @@ import Subscribe from './pages/Subscribe';
 import SubscribeConfirmation from './pages/SubscribeConfirmation';
 import PurchaseCrypto from './pages/PurchaseCrypto';
 import PurchaseStripe from './pages/PurchaseStripe';
+
+import SubscriptionPlans from './pages/SubscriptionPlans';
+import SubscriptionSuccess from './pages/SubscriptionSuccess';
+// import Intro from './pages/Intro';
+//
 
 import { loadStripe } from '@stripe/stripe-js';
 
@@ -114,20 +134,41 @@ export default function App() {
             <Route path="/subscribe-confirmation" element={<SubscribeConfirmation />} />
 
             <Route path="/stripe-checkout" element={
-              <ProtectedRoute> <StripeCheckoutForm setCoins={5000} /> </ProtectedRoute>} />
+              <ProtectedRoute> <StripeCheckoutForm /> </ProtectedRoute>} />
+            {/* <Route path="/stripe-checkout" element={
+              <ProtectedRoute> <StripeCheckoutForm credits={5000} amount={5000} currency="usd" description="Purchase of 5000 credits" metadata={{}} priceId="price_1J2Yw2L2g2g2g2" /> </ProtectedRoute>} /> */}
+            <Route path="/return" element={
+              <ProtectedRoute> <Return /> </ProtectedRoute>} />
 
             {/* <Route path="/intro" element={<Intro />} /> */}
 
             {/* Video Editor */}
-            <Route path="/video-scrambler" element={<Scrambler />} />
+            <Route path="/video-scrambler" element={<VideoScrambler />} />
 
-            <Route path="/video-unscrambler" element={<Unscrambler />} />
+            <Route path="/video-unscrambler" element={<VideoUnscrambler />} />
 
             {/* Photo Editor */}
 
             <Route path="/photo-scrambler" element={<ScramblerPhotos />} />
 
             <Route path="/photo-unscrambler" element={<UnscramblerPhotos />} />
+
+            {/* Pro services */}
+
+            <Route path="/photo-scrambler-pro" element={<ScramblerPhotosPro />} />
+
+            <Route path="/photo-unscrambler-pro" element={<UnscramblerPhotosPro />} />
+
+              <Route path="/video-scrambler-pro" element={<VideoScramblerPro />} />
+
+            <Route path="/video-unscrambler-pro" element={<VideoUnscramblerPro />} />
+
+            <Route path="/photo-leak-checker" element={<PhotoLeakChecker />} />
+
+            <Route path="/video-leak-checker" element={<VideoLeakChecker />} />
+
+            <Route path="/subscription/plans" element={<SubscriptionPlans />} />
+            <Route path="/subscription/success" element={<SubscriptionSuccess />} />
 
 
             {/* need a redirect or fallback route if not logged in and the user tries to visit a protected route */}

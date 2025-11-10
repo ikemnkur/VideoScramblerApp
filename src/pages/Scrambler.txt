@@ -1,4 +1,39 @@
-// App.jsx — Simple Video Scrambler (React)
+// Scrambler.jsx — Video Scrambler React Component with Material-UI
+// Matches ScramblerPhotosPro.jsx styling
+// Maintains all original functionality while integrating with the app's design system
+
+import React, { useCallback, useEffect, useRef, useState } from "react";
+import {
+  Container,
+  Typography,
+  Card,
+  CardContent,
+  Button,
+  TextField,
+  Box,
+  Grid,
+  Paper,
+  Chip,
+  Alert,
+  Modal,
+  LinearProgress,
+  IconButton,
+  Tabs,
+  Tab,
+  Divider
+} from '@mui/material';
+import {
+  VideoFile,
+  Shuffle,
+  Download,
+  ContentCopy,
+  CloudUpload,
+  AutoAwesome,
+  Close,
+  PlayArrow,
+  Movie
+} from '@mui/icons-material';
+import { useToast } from '../contexts/ToastContext';
 // Notes:
 // - Drop this into a Vite React project and set as the default export in src/App.jsx.
 // - The UI and logic come from your original HTML/JS, reorganized into React with hooks.

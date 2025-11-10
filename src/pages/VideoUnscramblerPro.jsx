@@ -33,16 +33,7 @@ import { useToast } from '../contexts/ToastContext';
 export default function UnscramblerPhotos() {
   const { success, error } = useToast();
 
-  // 
-// Refs for image and canvas elements
-    // const [selectedFile, setSelectedFile] = useState(null);
-    const [scrambledFilename, setScrambledFilename] = useState('');
-    // const [keyCode, setKeyCode] = useState('');
-    
-    const [previewUrl, setPreviewUrl] = useState(null);
-    const [imageError, setImageError] = useState(null);
-
-  
+  // Refs for image and canvas elements
   const scrambledImageRef = useRef(null);
   const displayScrambledRef = useRef(null);
   const unscrambleCanvasRef = useRef(null);
@@ -114,100 +105,51 @@ export default function UnscramblerPhotos() {
 
   // ========== EVENT HANDLERS ==========
 
-  // =============================
-    // FILE HANDLING
-    // =============================
-    const handleFileSelect = (event) => {
-        const file = event.target.files?.[0];
-        if (!file) return;
-
-        if (!file.type.startsWith('image/')) {
-            error("Please select a valid image file");
-            return;
+  const handleFileSelect = (event) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+    
+    if (!file.type.startsWith('image/')) {
+      error("Please select a valid image file");
+      return;
+    }
+    
+    setSelectedFile(file);
+    setImageLoaded(false);
+    setUnscrambledReady(false);
+    
+    const url = URL.createObjectURL(file);
+    const img = scrambledImageRef.current;
+    
+    if (img) {
+      img.onload = () => {
+        console.log("Image loaded successfully");
+        setImageLoaded(true);
+        
+        // Also set display image
+        if (displayScrambledRef.current) {
+          displayScrambledRef.current.src = url;
         }
-
-        setSelectedFile(file);
-        setScrambledFilename('');
-        setKeyCode('');
+        
+        // Setup canvas
+        const canvas = unscrambleCanvasRef.current;
+        if (canvas) {
+          canvas.width = img.naturalWidth;
+          canvas.height = img.naturalHeight;
+        }
+        
+        URL.revokeObjectURL(url);
+      };
+      
+      img.onerror = () => {
+        error("Failed to load the selected image");
         setImageLoaded(false);
-        setUnscrambledReady(false);
-
-        const url = URL.createObjectURL(file);
-        setPreviewUrl(url);
-
-        // Load image into the hidden image ref for processing
-        const img = scrambledImageRef.current;
-        if (img) {
-            img.onload = () => {
-                console.log("Image loaded successfully for unscrambling");
-                setImageLoaded(true);
-                
-                // Setup canvas
-                const canvas = unscrambleCanvasRef.current;
-                if (canvas) {
-                    canvas.width = img.naturalWidth;
-                    canvas.height = img.naturalHeight;
-                }
-                
-                URL.revokeObjectURL(url);
-            };
-            
-            img.onerror = () => {
-                error("Failed to load the selected image");
-                setImageLoaded(false);
-                URL.revokeObjectURL(url);
-            };
-            
-            img.src = url;
-        }
-    };
-
-
-  // const handleFileSelect = (event) => {
-  //   const file = event.target.files?.[0];
-  //   if (!file) return;
-    
-  //   if (!file.type.startsWith('image/')) {
-  //     error("Please select a valid image file");
-  //     return;
-  //   }
-    
-  //   setSelectedFile(file);
-  //   setImageLoaded(false);
-  //   setUnscrambledReady(false);
-    
-  //   const url = URL.createObjectURL(file);
-  //   const img = scrambledImageRef.current;
-    
-  //   if (img) {
-  //     img.onload = () => {
-  //       console.log("Image loaded successfully");
-  //       setImageLoaded(true);
-        
-  //       // Also set display image
-  //       if (displayScrambledRef.current) {
-  //         displayScrambledRef.current.src = url;
-  //       }
-        
-  //       // Setup canvas
-  //       const canvas = unscrambleCanvasRef.current;
-  //       if (canvas) {
-  //         canvas.width = img.naturalWidth;
-  //         canvas.height = img.naturalHeight;
-  //       }
-        
-  //       URL.revokeObjectURL(url);
-  //     };
+        URL.revokeObjectURL(url);
+      };
       
-  //     img.onerror = () => {
-  //       error("Failed to load the selected image");
-  //       setImageLoaded(false);
-  //       URL.revokeObjectURL(url);
-  //     };
-      
-  //     img.src = url;
-  //   }
-  // };
+      img.src = url;
+    }
+  };
 
   const decodeKeyCode = () => {
     try {
@@ -401,7 +343,6 @@ export default function UnscramblerPhotos() {
             <input
               type="file"
               accept="image/*"
-              // onChange={handleFileSelect}
               onChange={handleFileSelect}
               style={{ display: 'none' }}
               id="image-upload"
@@ -503,33 +444,6 @@ export default function UnscramblerPhotos() {
                   Scrambled Image
                 </Typography>
                 <Box sx={{
-                                    minHeight: '200px',
-                                    backgroundColor: '#0b1020',
-                                    border: '1px dashed #666',
-                                    borderRadius: '8px',
-                                    display: 'flex',
-                                    alignItems: 'center',
-                                    justifyContent: 'center',
-                                    overflow: 'hidden'
-                                }}>
-                                    {previewUrl ? (
-                                        <img
-                                            src={previewUrl}
-                                            alt="Original"
-                                            style={{
-                                                maxWidth: '100%',
-                                                maxHeight: '400px',
-                                                borderRadius: '8px'
-                                            }}
-                                        />
-                                    ) : (
-                                        <Typography variant="body2" sx={{ color: '#666' }}>
-                                            Select an image to preview
-                                        </Typography>
-                                    )}
-
-                                </Box>
-                {/* <Box sx={{
                   minHeight: '200px',
                   backgroundColor: '#0b1020',
                   border: '1px dashed #666',
@@ -559,7 +473,7 @@ export default function UnscramblerPhotos() {
                       Select a scrambled image to preview
                     </Typography>
                   )}
-                </Box> */}
+                </Box>
               </Grid>
 
               {/* Unscrambled Preview */}

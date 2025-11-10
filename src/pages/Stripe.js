@@ -1,10 +1,11 @@
 // Move these components to the top level of your file or into separate files
-import { v4 as uuidv4 } from 'uuid';
+require('dotenv').config();
+const { v4: uuidv4 } = require('uuid');
 import React, { useState, useEffect, useCallback } from 'react';
 import { useLocation, useNavigate, Navigate } from 'react-router-dom';
 import { EmbeddedCheckoutProvider, EmbeddedCheckout } from '@stripe/react-stripe-js';
 // import { stripePromise } from './path-to-stripe-promise'; // Ensure you import your stripePromise correctly
-import { fetchUserProfile, walletStripeReloadAction } from "../api/api";
+import { fetchUserProfile, walletStripeReloadAction, purchaseCrypto } from "./api";
 import { loadStripe } from '@stripe/stripe-js';
 import axios from 'axios';
 import Notifications from './Notifications';
@@ -12,63 +13,30 @@ import Notifications from './Notifications';
 
 const stripePromise = loadStripe('pk_test_51OPgiOEViYxfJNd2ZA0pYlZ3MKdsIHDEhE9vzihdcj6CUW99q7ULSgR44nWfNVwhKvEHJ1JQCaf1NcXGhTROu8Dh008XrwD0Hv');
 
-export const StripeCheckoutForm = ({ credits, amount, currency, description, metadata, priceId, onSuccess }) => {
+export const CheckoutForm = ({ setCoins }) => {
     const location = useLocation();
     const query = new URLSearchParams(location.search);
-    // const amount = query.get('amount');
+    const amount = query.get('amount');
     const [clientSecret, setClientSecret] = useState(null);
-    // const [coins, setLocalCoins] = useState(0);
-    const [coins, setCredits ] = useState(0);
 
     useEffect(() => {
-        const createCheckoutSession = async () => {
-            try {
-                const API_URL = process.env.REACT_APP_API_SERVER_URL || 'http://localhost:3001';
-                const response = await fetch(`${API_URL}/create-checkout-session`, {
-                    method: "POST",
-                    headers: {
-                        "Content-Type": "application/json",
-                    },
-                    body: JSON.stringify({
-                        priceId: priceId || null,
-                        amount,
-                        currency: currency || 'usd',
-                        description: description || `${amount * 1000} Credits Purchase`,
-                        metadata: metadata || {}
-                    }),
-                });
-
-                const data = await response.json();
-                console.log("Create checkout session response:", data);
-
-                if (!response.ok) {
-                    console.error("Create checkout session failed:", data);
-                    return;
-                }
-
-                // The backend returns { url: session.url, sessionId: session.id }
-                if (data.url) {
-                    // mark clientSecret so component doesn't stay stuck on "Loading..."
-                    setClientSecret('redirecting');
-                    // Redirect the browser to Stripe Checkout (hosted page)
-                    window.location.href = data.url;
-                } else {
-                    console.error("No checkout URL returned from server:", data);
-                }
-            } catch (err) {
-                console.error("Error creating checkout session:", err);
-            }
+        const fetchClientSecret = async () => {
+            // const YOUR_DOMAIN = 'http://localhost:5000';
+            const API_URL = process.env.REACT_APP_API_SERVER_URL || 'http://localhost:5000'; // Adjust this if your API URL is different
+            const response = await fetch(`${API_URL}/create-checkout-session?amount=${amount}`, {
+                method: "POST",
+            });
+            const data = await response.json();
+            setClientSecret(data.clientSecret);
         };
 
-        createCheckoutSession();
-    }, [amount, priceId, currency, description, metadata]);
+        fetchClientSecret();
+    }, [amount]);
 
     useEffect(() => {
-        setCredits(parseInt(credits));
-        console.log("Credits set to:", credits);
-        console.log("amount:", amount);
-        console.log("price ID:", priceId);
-    }, [credits, setCredits]);
+        setCoins(parseInt(amount));
+        console.log("Coins set to:", amount);
+    }, [amount, setCoins]);
 
     if (!clientSecret) {
         return <div>Loading...</div>;
@@ -305,6 +273,3 @@ export const Return = () => {
 
     return <div>Processing...</div>;
 };
-
-
-export default StripeCheckoutForm;
