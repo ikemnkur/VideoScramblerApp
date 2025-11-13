@@ -29,7 +29,7 @@ const PLANS = [
     title: 'Standard', 
     price: 5.00, 
     priceLabel: '$5/mo', 
-    features: ['75000 Credits', 'No daily limits', 'No Watermarks'],
+    features: ['7500 Credits', 'No daily limits', 'No Watermarks'],
     color: '#2196f3',
     popular: true
   },

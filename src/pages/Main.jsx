@@ -18,50 +18,50 @@ export default function Wallet() {
 
     const navigate = useNavigate();
 
-    // const load = async () => {
+    const load = async () => {
 
-    //     try {
-    //         // Direct API call to JSON Server
-    //         let response;
+        try {
+            // Direct API call to JSON Server
+            let response;
 
-    //         // fetch data if no data fetched before or last fetch was over 1.5 minutes ago
-    //         let lastDataFetchTooOld = !localStorage.getItem('lastDataFetch') ||
-    //             (Date.now() - parseInt(localStorage.getItem('lastDataFetch') || "0", 10) > 1.5 * 60 * 1000);
+            // fetch data if no data fetched before or last fetch was over 1.5 minutes ago
+            let lastDataFetchTooOld = !localStorage.getItem('lastDataFetch') ||
+                (Date.now() - parseInt(localStorage.getItem('lastDataFetch') || "0", 10) > 1.5 * 60 * 1000);
 
-    //         if (lastDataFetchTooOld) {
-    //             response = await api.post(`${API_URL}/api/user`, {
-    //                 username: userData.username,
-    //                 email: userData.email,
-    //                 password: localStorage.getItem('passwordtxt')
-    //             });
+            if (lastDataFetchTooOld) {
+                response = await api.post(`${API_URL}/api/user`, {
+                    username: userData.username,
+                    email: userData.email,
+                    password: localStorage.getItem('passwordtxt')
+                });
 
-    //             if (response.status === 200 && response.data) {
-    //                 console.log("User profile response data:", response.data);
-    //                 localStorage.setItem('Earnings', JSON.stringify(response.data.earnings || []));
-    //                 localStorage.setItem('Unlocks', JSON.stringify(response.data.unlocks || []));
-    //                 localStorage.setItem('userdata', JSON.stringify(response.data.user || {}));
-    //                 localStorage.setItem('lastDataFetch', Date.now().toString()); // Set account type
-    //                 setBalance(response.data.user?.credits || 0); // Use credits from userData or fallback
-    //             } else {
-    //                 throw new Error('Failed to fetch wallet data');
-    //             }
-    //         } else {
-    //             // Use cached data if not fetching new data
-    //             const cachedUser = JSON.parse(localStorage.getItem('userdata') || '{}');
-    //             setBalance(cachedUser.credits || 0);
-    //         }
-    //     } catch (e) {
-    //         console.error('Error loading wallet balance:', e);
-    //         setBalance(750); // demo fallback with realistic amount
-    //         // clear local storage
-    //         localStorage.clear();
-    //         navigate('/info');
-    //         setTimeout(() => { navigate('/login'); }, 15000); // Redirect to login after 15 seconds
-    //     }
+                if (response.status === 200 && response.data) {
+                    console.log("User profile response data:", response.data);
+                    localStorage.setItem('Earnings', JSON.stringify(response.data.earnings || []));
+                    localStorage.setItem('Unlocks', JSON.stringify(response.data.unlocks || []));
+                    localStorage.setItem('userdata', JSON.stringify(response.data.user || {}));
+                    localStorage.setItem('lastDataFetch', Date.now().toString()); // Set account type
+                    setBalance(response.data.user?.credits || 0); // Use credits from userData or fallback
+                } else {
+                    throw new Error('Failed to fetch wallet data');
+                }
+            } else {
+                // Use cached data if not fetching new data
+                const cachedUser = JSON.parse(localStorage.getItem('userdata') || '{}');
+                setBalance(cachedUser.credits || 0);
+            }
+        } catch (e) {
+            console.error('Error loading wallet balance:', e);
+            setBalance(750); // demo fallback with realistic amount
+            // clear local storage
+            localStorage.clear();
+            navigate('/info');
+            setTimeout(() => { navigate('/login'); }, 15000); // Redirect to login after 15 seconds
+        }
 
-    // };
+    };
 
-    // useEffect(() => { load(); }, []);
+    useEffect(() => { load(); }, []);
 
     const onPaymentError = () => error('Payment could not be started');
 

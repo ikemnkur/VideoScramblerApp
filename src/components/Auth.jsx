@@ -82,38 +82,38 @@ const Auth = ({ isLogin, onLoginSuccess }) => {
   });
 
   // Load user profile from server
-  const loadUserProfile = async () => {
-    try {
-      const userdata = localStorage.getItem('userdata');
-      if (!userdata) {
-        throw new Error('No user data found');
-      }
+  // const loadUserProfile = async () => {
+  //   try {
+  //     const userdata = localStorage.getItem('userdata');
+  //     if (!userdata) {
+  //       throw new Error('No user data found');
+  //     }
 
-      const userData = JSON.parse(userdata);
+  //     const userData = JSON.parse(userdata);
 
-      // Fetch latest user data from JSON server
-      const response = await api.get(`/api/userData/${userData.id}`);
+  //     // Fetch latest user data from JSON server
+  //     const response = await api.get(`/api/userData/${userData.id}`);
 
-      if (response.status !== 200) {
-        throw new Error('Failed to fetch user profile');
-      }
+  //     if (response.status !== 200) {
+  //       throw new Error('Failed to fetch user profile');
+  //     }
 
-      const profile = response.data;
-      const updatedUserData = {
-        ...profile,
-        birthDate: profile.birthDate ? profile.birthDate.split('T')[0] : '',
-      };
+  //     const profile = response.data;
+  //     const updatedUserData = {
+  //       ...profile,
+  //       birthDate: profile.birthDate ? profile.birthDate.split('T')[0] : '',
+  //     };
 
-      setUserData(updatedUserData);
-      localStorage.setItem('userdata', JSON.stringify(updatedUserData));
-    } catch (error) {
-      console.error('Error fetching user profile:', error);
-      // If error fetching profile, user might need to login again
-      if (error.message.includes('No user data found')) {
-        navigate('/login');
-      }
-    }
-  };
+  //     setUserData(updatedUserData);
+  //     localStorage.setItem('userdata', JSON.stringify(updatedUserData));
+  //   } catch (error) {
+  //     console.error('Error fetching user profile:', error);
+  //     // If error fetching profile, user might need to login again
+  //     if (error.message.includes('No user data found')) {
+  //       navigate('/login');
+  //     }
+  //   }
+  // };
 
   // Function to check block status
   const checkBlockStatus = useCallback(() => {
@@ -258,6 +258,9 @@ const Auth = ({ isLogin, onLoginSuccess }) => {
         // }
 
       } else {
+
+        // ###### Registration Flow ######
+
         console.log('📝 Processing registration for username:', username);
 
         // Use the registration endpoint we set up in the server
@@ -272,7 +275,7 @@ const Auth = ({ isLogin, onLoginSuccess }) => {
             password: password,
             firstName: name.split(' ')[0] || name,
             lastName: name.split(' ').slice(1).join(' ') || '',
-            accountType: accountType || 'buyer',
+            accountType: "free",
             birthDate: birthday
           })
         });

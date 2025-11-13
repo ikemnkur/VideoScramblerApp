@@ -76,19 +76,19 @@ export default function App() {
           <NavBar />
           <Routes>
             {/* Public Routes */}
-            {!(localStorage.getItem('userdata') ? JSON.parse(localStorage.getItem('userdata')).loginStatus : false) && (
+            {/* {!(localStorage.getItem('userdata') ? JSON.parse(localStorage.getItem('userdata')).loginStatus : false) && ( */}
               <>
                 <Route path="/login" element={<Auth isLogin={true} />} />
                 <Route path="/register" element={<Auth isLogin={false} />} />
               </>
-            )}
+            {/* )} */}
 
             {/* {!(localStorage.getItem('userdata') ? JSON.parse(localStorage.getItem('userdata')).loginStatus : false) && (
               <Route path="/unlock/:id" element={<SignUp2Unlock />} />
             )} */}
             <Route path="/help" element={<HelpPage />} />
             <Route path="/info" element={<Info />} />
-            <Route path="/login" element={<Auth isLogin={true} />} />
+            {/* <Route path="/login" element={<Auth isLogin={true} />} /> */}
 
             {/* Seller/ Buyer Routes */}
             {/* {(localStorage.getItem('userdata') ? JSON.parse(localStorage.getItem('userdata')).accountType : null) === 'buyer' && ( */}

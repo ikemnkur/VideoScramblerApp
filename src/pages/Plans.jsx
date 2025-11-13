@@ -210,7 +210,7 @@ export default function Wallet() {
                           {/* Show plan details */}
                           <Paper elevation={2} sx={{ p: 2, border: '2px solid', borderColor: 'primary.main', backgroundColor: '#424242' }}>
                             <Typography variant="h6" sx={{ mb: 1, color: 'white' }}>
-                              Current Plan: {p.title}{p.priceLabel && p.priceLabel !== 'Free' ? ` - ${p.priceLabel}/month` : p.priceLabel === 'Free' ? ' - Free' : ''}
+                              Choose Plan: {p.title}{p.priceLabel && p.priceLabel !== 'Free' ? ` - ${p.priceLabel}/month` : p.priceLabel === 'Free' ? ' - Free' : ''}
                             </Typography>
                             <Stack spacing={1}>
                               {p.features.map((f, i) => (
