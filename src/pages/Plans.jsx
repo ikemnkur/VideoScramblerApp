@@ -28,18 +28,21 @@ import { useToast } from '../contexts/ToastContext';
 export default function Wallet() {
   const [balance, setBalance] = useState(null);
   const { success, error } = useToast();
+  // const [userdata, setUserdata] = useState(JSON.parse(localStorage.getItem('userData')) || {});
+  const userdata = JSON.parse(localStorage.getItem('userdata')) || {};
 
-  const load = async () => {
-    try {
-      const { data } = await api.get('/wallet/balance');
-      setBalance(data?.balance ?? 0);
-    } catch (e) {
-      console.error(e);
-      setBalance(100); // demo fallback
-    }
-  };
+  // const load = async () => {
+  //   try {
+  //     // const { data } = await api.get('/wallet/balance/'+(userdata?.username || ''));
+  //     // setBalance(data?.balance ?? 0);
+  //     // setUserdata(JSON.parse(localStorage.getItem('userdata')) || {});
+  //   } catch (e) {
+  //     console.error(e);
+  //     setBalance(100); // demo fallback
+  //   }
+  // };
 
-  useEffect(() => { load(); }, []);
+  // useEffect(() => { load(); }, []);
 
   const onPaymentError = () => error('Payment could not be started');
 
@@ -50,11 +53,13 @@ export default function Wallet() {
         <Card variant="outlined">
           <CardContent>
             <Typography variant="h6">Current Account Tier</Typography>
-            {balance === null ? (
-              <Skeleton variant="text" width={220} height={54} />
-            ) : (
-              <Typography variant="h3" sx={{ fontWeight: 800, color: 'primary.main' }}> Free </Typography>
-            )}
+            
+                    {/* <Skeleton variant="text" width={220} height={54} /> */}
+                
+                    <Typography variant="h3" sx={{ fontWeight: 800, color: 'primary.main' }}>
+                    {String(userdata?.accountType ?? '').toUpperCase()}
+                    </Typography>
+                  {/* )} */}
             <Divider sx={{ my: 2 }} />
 
             {/* Subscription Plans Section */}
@@ -129,19 +134,7 @@ export default function Wallet() {
                               Subscribe with Stripe and get 1250 bonus credits monthly!
                             </Typography>
                             <Stack spacing={1}>
-                              {/* <PaymentButton
-                                amountUSD={10}
-                                onError={onPaymentError}
-                                onClick={() => setSelectedPlan('premium')}
-                                sx={{
-                                  backgroundColor: '#635bff',
-                                  color: 'white',
-                                  '&:hover': { backgroundColor: '#5248e8' },
-                                  fontWeight: 'bold'
-                                }}
-                              >
-                                Premium Plan - $10/month
-                              </PaymentButton> */}
+                             
                               <Button
                                 amountUSD={10}
                                 onError={onPaymentError}

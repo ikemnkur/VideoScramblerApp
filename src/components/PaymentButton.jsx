@@ -17,7 +17,7 @@ export default function PaymentButton({ amountUSD = 5, children, onError }) {
 
             // open link in new tab: https://buy.stripe.com/test_7sYcN58SH61v7JG9LK5AQ00
 
-            const stripeCheckoutUrl_Basic = `https://buy.stripe.com/test_14k14g6SH4bA7JG9AA`;
+            const stripeCheckoutUrl_Basic = `https://buy.stripe.com/test_bJedR9fh54Xrd40f645AQ02`; //`https://buy.stripe.com/test_14k14g6SH4bA7JG9AA`;
             const stripeCheckoutUrl_Standard = `https://buy.stripe.com/test_6oU7sLfh53Tn1li0ba5AQ01`;
             const stripeCheckoutUrl_Premium = `https://buy.stripe.com/test_7sYcN58SH61v7JG9LK5AQ00`;
             
