@@ -2,7 +2,7 @@
 // Connects to Flask server on port 5000 for advanced unscrambling algorithms
 // Supports: Position, Color, Rotation, Mirror, and Intensity unscrambling
 
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useCallback } from 'react';
 import {
     Container,
     Typography,
@@ -29,8 +29,9 @@ import {
     Error as ErrorIcon
 } from '@mui/icons-material';
 import { useToast } from '../contexts/ToastContext';
+import api from '../api/client';
 
-const API_URL = 'http://localhost:3001/api';
+const API_URL = import.meta.env.VITE_API_SERVER_URL || 'http://localhost:3001'; // = 'http://localhost:3001/api';
 const Flask_API_URL = 'http://localhost:5000/';
 
 export default function UnscramblerPhotosPro() {
@@ -50,6 +51,21 @@ export default function UnscramblerPhotosPro() {
     const [decodedKey, setDecodedKey] = useState(null);
     const [keyValid, setKeyValid] = useState(false);
     const [previewUrl, setPreviewUrl] = useState('');
+
+    const [userData, setUserData] = useState(JSON.parse(localStorage.getItem("userdata")));
+
+    const [showCreditModal, setShowCreditModal] = useState(false);
+    const [allowScrambling, setAllowScrambling] = useState(false);
+    const [userCredits, setUserCredits] = useState(0); // Mock credits, replace with actual user data
+    const SCRAMBLE_COST = 10; // Cost to scramble a photo (less than video)
+
+
+    const handleCreditConfirm = useCallback(() => {
+        setShowCreditModal(false);
+
+        setAllowScrambling(true);
+
+    }, []);
 
     // =============================
     // FILE HANDLING
@@ -116,6 +132,13 @@ export default function UnscramblerPhotosPro() {
             error("Please decode your key first");
             return;
         }
+
+        if (!allowScrambling) {
+            error('You need to confirm credit usage before applying parameters.');
+            return;
+        }
+
+
 
         setIsProcessing(true);
 
@@ -227,6 +250,21 @@ export default function UnscramblerPhotosPro() {
             error("Download failed: " + err.message);
         }
     };
+
+    useEffect(async () => {
+
+        // const userData = JSON.parse(localStorage.getItem("userdata")  );
+        // setUserdata(userData);
+        response = await  api.post(`api/wallet/balance/${userData.username}`, {
+            username: userData.username,
+            email: userData.email,
+            password: localStorage.getItem('passwordtxt')
+        });
+
+        if (response.status === 200 && response.data) {
+            setUserCredits(response.data.credits);
+        }
+    }, []);
 
     // =============================
     // RENDER
@@ -511,6 +549,19 @@ export default function UnscramblerPhotosPro() {
                     Always save your keys securely!
                 </Typography>
             </Paper>
+
+            {/* Credit Confirmation Modal */}
+            <CreditConfirmationModal
+                open={showCreditModal}
+                onClose={() => setShowCreditModal(false)}
+                onConfirm={handleCreditConfirm}
+                mediaType="photo"
+                creditCost={SCRAMBLE_COST}
+                currentCredits={userCredits}
+                fileName={selectedFile?.name || ''}
+                file={selectedFile}
+                isProcessing={false}
+            />
         </Container>
     );
 }

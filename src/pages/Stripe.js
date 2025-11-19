@@ -22,7 +22,7 @@ export const CheckoutForm = ({ setCoins }) => {
     useEffect(() => {
         const fetchClientSecret = async () => {
             // const YOUR_DOMAIN = 'http://localhost:5000';
-            const API_URL = process.env.REACT_APP_API_SERVER_URL || 'http://localhost:5000'; // Adjust this if your API URL is different
+            const API_URL = import.meta.env.VITE_API_SERVER_URL || 'http://localhost:3001'; // = process.env.REACT_APP_API_SERVER_URL || 'http://localhost:5000'; // Adjust this if your API URL is different
             const response = await fetch(`${API_URL}/create-checkout-session?amount=${amount}`, {
                 method: "POST",
             });
@@ -132,7 +132,7 @@ export const Return = () => {
     const createNotification = async (notificationData) => {
         try {
             const token = localStorage.getItem('token');
-            const API_URL = process.env.REACT_APP_API_SERVER_URL + "/api" || 'http://localhost:5000/api';
+            const API_URL = import.meta.env.VITE_API_SERVER_URL || 'http://localhost:3001'; // = process.env.REACT_APP_API_SERVER_URL + "/api" || 'http://localhost:5000/api';
             await axios.post(`${API_URL}/notifications/create`, notificationData, {
                 headers: { Authorization: `Bearer ${token}` },
             });
@@ -147,7 +147,7 @@ export const Return = () => {
     //     const queryString = window.location.search;
     //     const urlParams = new URLSearchParams(queryString);
     //     const sessionId = urlParams.get('session_id');
-    //     const API_URL = process.env.REACT_APP_API_SERVER_URL || 'http://localhost:5000';
+    //     const API_URL = import.meta.env.VITE_API_SERVER_URL || 'http://localhost:3001'; // = process.env.REACT_APP_API_SERVER_URL || 'http://localhost:5000';
 
     //     fetch(`${API_URL}/session-status?session_id=${sessionId}`)
     //         .then((res) => res.json())
@@ -174,7 +174,7 @@ export const Return = () => {
                 }
 
                 // Build your API URL
-                const API_URL = process.env.REACT_APP_API_SERVER_URL || 'http://localhost:5000/api';
+                const API_URL = import.meta.env.VITE_API_SERVER_URL || 'http://localhost:3001'; // = process.env.REACT_APP_API_SERVER_URL || 'http://localhost:5000/api';
 
                 // Fetch session status
                 const response = await fetch(`${API_URL}/session-status?session_id=${sessionId}`);

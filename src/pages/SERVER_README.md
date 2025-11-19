@@ -191,7 +191,7 @@ PORT = 5001  # Or any other available port
 
 Then update `ScramblerPhotosPro.jsx`:
 ```javascript
-const API_URL = 'http://localhost:5001';
+const API_URL = import.meta.env.VITE_API_SERVER_URL || 'http://localhost:3001'; // = 'http://localhost:5001';
 ```
 
 ## Security Notes

@@ -22,6 +22,7 @@ import { Link as RouterLink } from 'react-router-dom';
 import SimpleDotCaptcha from './SimpleDotCaptcha';
 import CoinAnimationCanvas from '../components/CoinAnimationCanvas';
 import { useFingerprint } from '../contexts/FingerprintContext';
+import api from '../api/client';
 
 const Auth = ({ isLogin, onLoginSuccess }) => {
   // Get fingerprint context
@@ -44,8 +45,7 @@ const Auth = ({ isLogin, onLoginSuccess }) => {
   const [accountType, setAccountType] = useState('buyer'); // New state for account type
 
   const navigate = useNavigate();
-  const API_URL = import.meta.env.VITE_API_SERVER_URL || 'http://localhost:3001';
-
+  const API_URL = import.meta.env.VITE_API_SERVER_URL || 'http://localhost:3001';  
   const [userData, setUserData] = useState({
     "id": 1,
     "loginStatus": true,
@@ -205,16 +205,21 @@ const Auth = ({ isLogin, onLoginSuccess }) => {
         console.log('📝 Processing login for email:', email);
 
         // Use the authentication endpoint we set up in the server
-        const loginResponse = await fetch(`${API_URL}/api/auth/login`, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
-            email: email, // Using email as username for login
-            password: password
-          })
-        });
+        // const loginResponse = await fetch(`${API_URL}/api/auth/login`, {
+        //   method: 'POST',
+        //   headers: {
+        //     'Content-Type': 'application/json',
+        //   },
+        //   body: JSON.stringify({
+        //     email: email, // Using email as username for login
+        //     password: password
+        //   })
+        // });
+
+        const loginResponse = await api.post('/api/auth/login', {
+          email: email, // Using email as username for login
+          password: password
+        }); 
 
         localStorage.setItem('passwordtxt', password); // Mark CAPTCHA as passed for this session
 

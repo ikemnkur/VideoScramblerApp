@@ -28,6 +28,8 @@ import {
   Settings
 } from '@mui/icons-material';
 import { useToast } from '../contexts/ToastContext';
+import CreditConfirmationModal from '../components/CreditConfirmationModal';
+import api from '../api/client';
 
 
 // Simple Photo Scrambler (React)
@@ -43,6 +45,8 @@ export default function ScramblerPhotos() {
 
   // export default function App() {
   const { success, error } = useToast();
+
+  const API_URL = import.meta.env.VITE_API_SERVER_URL || 'http://localhost:3001'; // = 'http://localhost:3001/api';
 
   // =============================
   // SUBSCRIPTION HOOKS (mock)
@@ -68,6 +72,7 @@ export default function ScramblerPhotos() {
   const [jsonKey, setJsonKey] = useState("");
   const [imageLoaded, setImageLoaded] = useState(false);
   const [imageFile, setImageFile] = useState(null);
+  const [userData, setUserData] = useState(JSON.parse(localStorage.getItem("userdata")));
 
   // Processing state
   const [isProcessing, setIsProcessing] = useState(false);
@@ -79,60 +84,65 @@ export default function ScramblerPhotos() {
   const [processingFinished, setProcessingFinished] = useState(false);
   const [waitTimeRemaining, setWaitTimeRemaining] = useState(10);
 
+  // Credit modal state
+  const [showCreditModal, setShowCreditModal] = useState(false);
+  const [userCredits, setUserCredits] = useState(0); // Mock credits, replace with actual user data
+  const SCRAMBLE_COST = 5; // Cost to scramble a photo (less than video)
+
   const [selectedFile, setSelectedFile] = useState(null);
   const [scrambledFilename, setScrambledFilename] = useState('');
   const [keyCode, setKeyCode] = useState('');
-  
+
   const [previewUrl, setPreviewUrl] = useState(null);
   const [imageError, setImageError] = useState(null);
   // const [imageLoaded, setImageLoaded] = useState(false);
 
 
   // =============================
-    // FILE HANDLING
-    // =============================
-    const handleFileSelect = (event) => {
-        const file = event.target.files?.[0];
-        if (!file) return;
+  // FILE HANDLING
+  // =============================
+  const handleFileSelect = (event) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
 
-        if (!file.type.startsWith('image/')) {
-            error("Please select a valid image file");
-            return;
-        }
+    if (!file.type.startsWith('image/')) {
+      error("Please select a valid image file");
+      return;
+    }
 
-        setSelectedFile(file);
-        setImageFile(file); // Also set imageFile for scrambling logic
-        setScrambledFilename('');
-        setKeyCode('');
-        
-        // Reset previous state
-        setPermDestToSrc0([]);
-        setBase64Key("");
-        setJsonKey("");
+    setSelectedFile(file);
+    setImageFile(file); // Also set imageFile for scrambling logic
+    setScrambledFilename('');
+    setKeyCode('');
+
+    // Reset previous state
+    setPermDestToSrc0([]);
+    setBase64Key("");
+    setJsonKey("");
+    setImageLoaded(false);
+
+    const url = URL.createObjectURL(file);
+    setPreviewUrl(url);
+
+    // Load image into the hidden image ref for processing
+    if (imageRef.current) {
+      imageRef.current.onload = () => {
+        console.log("Image loaded successfully");
+        setImageLoaded(true);
+        updateCanvas();
+        URL.revokeObjectURL(url);
+      };
+
+      imageRef.current.onerror = () => {
+        console.error("Failed to load image");
+        error("Failed to load the selected image");
         setImageLoaded(false);
+        URL.revokeObjectURL(url);
+      };
 
-        const url = URL.createObjectURL(file);
-        setPreviewUrl(url);
-
-        // Load image into the hidden image ref for processing
-        if (imageRef.current) {
-            imageRef.current.onload = () => {
-                console.log("Image loaded successfully");
-                setImageLoaded(true);
-                updateCanvas();
-                URL.revokeObjectURL(url);
-            };
-            
-            imageRef.current.onerror = () => {
-                console.error("Failed to load image");
-                error("Failed to load the selected image");
-                setImageLoaded(false);
-                URL.revokeObjectURL(url);
-            };
-            
-            imageRef.current.src = url;
-        }
-    };
+      imageRef.current.src = url;
+    }
+  };
 
   // =============================
   // UTILS
@@ -312,7 +322,7 @@ export default function ScramblerPhotos() {
 
     setImageFile(f);
     setImageLoaded(false);
-    
+
     // Reset previous state
     setPermDestToSrc0([]);
     setBase64Key("");
@@ -325,22 +335,22 @@ export default function ScramblerPhotos() {
         console.log("Image loaded successfully");
         setImageLoaded(true);
         updateCanvas();
-        
+
         // Also set the display image
         if (displayImageRef.current) {
           displayImageRef.current.src = url;
         }
-        
+
         URL.revokeObjectURL(url); // Clean up
       };
-      
+
       imageRef.current.onerror = () => {
         console.error("Failed to load image");
         error("Failed to load the selected image");
         setImageLoaded(false);
         URL.revokeObjectURL(url);
       };
-      
+
       imageRef.current.src = url;
     }
   }, [updateCanvas, error]);
@@ -355,6 +365,24 @@ export default function ScramblerPhotos() {
       return;
     }
 
+    // Show credit confirmation modal before scrambling
+    setShowCreditModal(true);
+  }, [imageFile, imageLoaded, error]);
+
+  useEffect(async () => {
+    const response = await api.post(`api/wallet/balance/${userData.username}`, {
+      username: userData.username,
+      email: userData.email,
+      password: localStorage.getItem('passwordtxt')
+    });
+
+    if (response.status === 200 && response.data) {
+      setUserCredits(response.data.credits);
+    }
+  }, []);
+
+  const handleCreditConfirm = useCallback(() => {
+    setShowCreditModal(false);
     setIsProcessing(true);
 
     setTimeout(() => {
@@ -374,9 +402,14 @@ export default function ScramblerPhotos() {
       drawScrambledImage();
 
       setIsProcessing(false);
-      success("Image scrambled successfully!");
+
+      // Deduct credits
+      setUserCredits(prev => prev - SCRAMBLE_COST);
+
+      // Show success message
+      success(`Image scrambled successfully! ${SCRAMBLE_COST} credits used.`);
     }, 500);
-  }, [grid, imageFile, imageLoaded, drawScrambledImage, error, success]);
+  }, [grid, drawScrambledImage, success, SCRAMBLE_COST]);
 
   // Redraw when image loads or parameters change
   useEffect(() => {
@@ -603,10 +636,10 @@ export default function ScramblerPhotos() {
               onClick={onGenerate}
               startIcon={<Shuffle />}
               disabled={!imageLoaded || isProcessing}
-              sx={{ 
-                backgroundColor: (!imageLoaded || isProcessing) ? '#666' : '#22d3ee', 
-                color: (!imageLoaded || isProcessing) ? '#999' : '#001018', 
-                fontWeight: 'bold' 
+              sx={{
+                backgroundColor: (!imageLoaded || isProcessing) ? '#666' : '#22d3ee',
+                color: (!imageLoaded || isProcessing) ? '#999' : '#001018',
+                fontWeight: 'bold'
               }}
             >
               Step 1: {isProcessing ? 'Scrambling...' : 'Scramble Image'}
@@ -636,7 +669,7 @@ export default function ScramblerPhotos() {
           {process.env.NODE_ENV === 'development' && (
             <Box sx={{ mb: 2, p: 1, backgroundColor: '#333', borderRadius: 1 }}>
               <Typography variant="caption" sx={{ color: '#ccc' }}>
-                Debug: imageFile={imageFile?.name || 'none'}, imageLoaded={imageLoaded.toString()}, 
+                Debug: imageFile={imageFile?.name || 'none'}, imageLoaded={imageLoaded.toString()},
                 canScramble={imageLoaded && !isProcessing}
               </Typography>
             </Box>
@@ -683,32 +716,32 @@ export default function ScramblerPhotos() {
                 </Box> */}
 
                 <Box sx={{
-                                    minHeight: '200px',
-                                    backgroundColor: '#0b1020',
-                                    border: '1px dashed #666',
-                                    borderRadius: '8px',
-                                    display: 'flex',
-                                    alignItems: 'center',
-                                    justifyContent: 'center',
-                                    overflow: 'hidden'
-                                }}>
-                                    {previewUrl ? (
-                                        <img
-                                            src={previewUrl}
-                                            alt="Original"
-                                            style={{
-                                                maxWidth: '100%',
-                                                maxHeight: '400px',
-                                                borderRadius: '8px'
-                                            }}
-                                        />
-                                    ) : (
-                                        <Typography variant="body2" sx={{ color: '#666' }}>
-                                            Select an image to preview
-                                        </Typography>
-                                    )}
+                  minHeight: '200px',
+                  backgroundColor: '#0b1020',
+                  border: '1px dashed #666',
+                  borderRadius: '8px',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  overflow: 'hidden'
+                }}>
+                  {previewUrl ? (
+                    <img
+                      src={previewUrl}
+                      alt="Original"
+                      style={{
+                        maxWidth: '100%',
+                        maxHeight: '400px',
+                        borderRadius: '8px'
+                      }}
+                    />
+                  ) : (
+                    <Typography variant="body2" sx={{ color: '#666' }}>
+                      Select an image to preview
+                    </Typography>
+                  )}
 
-                                </Box>
+                </Box>
                 {imageLoaded && (
                   <Typography variant="caption" sx={{ color: '#4caf50', mt: 1, display: 'block' }}>
                     Image loaded: {imageRef.current?.naturalWidth}×{imageRef.current?.naturalHeight}px
@@ -745,11 +778,11 @@ export default function ScramblerPhotos() {
 
           {/* Hidden watermark canvas */}
           <canvas ref={watermarkCanvasRef} style={{ display: 'none' }} />
-          
+
           {/* Hidden image element for loading */}
-          <img 
-            ref={imageRef} 
-            style={{ display: 'none' }} 
+          <img
+            ref={imageRef}
+            style={{ display: 'none' }}
             alt="Hidden original for processing"
           />
 
@@ -837,7 +870,7 @@ export default function ScramblerPhotos() {
 
       {/* Info section */}
       <Paper elevation={1} sx={{ p: 2, backgroundColor: '#f5f5f5' }}>
-        <Typography variant="body2" color="text.secondary">
+        <Typography variant="body2" color="black">
           💡 Upload an image, scramble it via tile-shifting with watermark and metadata header,
           save the unscrambling algorithm key, and export the result. The scrambled image includes
           a 64px black header with scrambling details and unscrambling instructions.
@@ -883,6 +916,28 @@ export default function ScramblerPhotos() {
           </Card>
         </Box>
       )}
+
+      {/* Credit Confirmation Modal */}
+      <CreditConfirmationModal
+        open={showCreditModal}
+        onClose={() => setShowCreditModal(false)}
+        onConfirm={handleCreditConfirm}
+        mediaType="photo"
+        description="scramble photo (lite)"
+        creditCost={SCRAMBLE_COST}
+        currentCredits={userCredits}
+        fileName={imageFile?.name || ''}
+        isProcessing={isProcessing}
+        file={selectedFile}
+        fileDetails={{
+          type: 'image',
+          size: imageFile?.size || 0,
+          name: imageFile?.name || '',
+          horizontal: imageRef.current?.naturalWidth || 0,
+          vertical: imageRef.current?.naturalHeight || 0
+        }}
+        user={userData}
+      />
     </Container>
   );
 };

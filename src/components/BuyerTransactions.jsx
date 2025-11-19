@@ -338,7 +338,7 @@ const BuyerTransactions = () => {
   const [showDetailsModal, setShowDetailsModal] = useState(false);
   const [selectedTransaction, setSelectedTransaction] = useState(null);
 
-  const API_URL =
+  const API_URL = import.meta.env.VITE_API_SERVER_URL || 'http://localhost:3001'; // =
     import.meta.env.VITE_API_SERVER_URL || "http://localhost:3001";
 
   useEffect(() => {
@@ -355,7 +355,7 @@ const BuyerTransactions = () => {
         // Real API call
         // Get current user from localStorage
         const userData = JSON.parse(
-          localStorage.getItem("userdata") || '{"username":"seller_123"}'
+          localStorage.getItem("userdata")  
         );
         const username = userData.username || "seller_123";
 

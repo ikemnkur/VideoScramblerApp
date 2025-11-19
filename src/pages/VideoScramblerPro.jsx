@@ -34,8 +34,9 @@ import {
   AutoAwesome
 } from '@mui/icons-material';
 import { useToast } from '../contexts/ToastContext';
+import CreditConfirmationModal from '../components/CreditConfirmationModal';
 
-const API_URL = 'http://localhost:5000';
+const API_URL = import.meta.env.VITE_API_SERVER_URL || 'http://localhost:3001'; // = 'http://localhost:5000';
 
 export default function ScramblerPhotosPro() {
   const { success, error } = useToast();
@@ -54,13 +55,17 @@ export default function ScramblerPhotosPro() {
   const [keyCode, setKeyCode] = useState('');
   const [currentTab, setCurrentTab] = useState(0);
 
+  const [userCredits, setUserCredits] = useState(0); // Mock credits, replace with actual user data
+  const [allowScrambling, setAllowScrambling] = useState(false);
+  const [showCreditModal, setShowCreditModal] = useState(false);
+
   // Scrambling Parameters
   const [algorithm, setAlgorithm] = useState('position'); // position, color, rotation, mirror, intensity
   const [seed, setSeed] = useState(Math.floor(Math.random() * 1000000000));
   const [rows, setRows] = useState(6);
   const [cols, setCols] = useState(6);
   const [scramblingPercentage, setScramblingPercentage] = useState(100);
-  
+
   // Algorithm-specific parameters
   const [maxHueShift, setMaxHueShift] = useState(64);
   const [maxIntensityShift, setMaxIntensityShift] = useState(128);
@@ -82,6 +87,8 @@ export default function ScramblerPhotosPro() {
     setScrambledFilename('');
     setKeyCode('');
 
+    console.log("Selected file:", file);
+
     const url = URL.createObjectURL(file);
     if (displayImageRef.current) {
       displayImageRef.current.onload = () => {
@@ -91,6 +98,20 @@ export default function ScramblerPhotosPro() {
       displayImageRef.current.src = url;
     }
   };
+
+  useEffect(async () => {
+
+    const userData = JSON.parse(localStorage.getItem("userdata")  );
+    response = await  api.post(`api/wallet/balance/${userData.username}`, {
+      username: userData.username,
+      email: userData.email,
+      password: localStorage.getItem('passwordtxt')
+    });
+
+    if (response.status === 200 && response.data) {
+      setUserCredits(response.data.credits);
+    }
+  }, []);
 
   // =============================
   // API CALLS
@@ -127,6 +148,11 @@ export default function ScramblerPhotosPro() {
   const scrambleImage = async () => {
     if (!selectedFile) {
       error("Please select an image first");
+      return;
+    }
+
+    if (!allowScrambling) {
+      error("You need to spend credits to enable scrambling before proceeding");
       return;
     }
 
@@ -195,7 +221,7 @@ export default function ScramblerPhotosPro() {
 
       const data = await response.json();
       setScrambledFilename(data.output_file);
-      
+
       // Generate and display key
       const key = {
         algorithm,
@@ -225,10 +251,10 @@ export default function ScramblerPhotosPro() {
     try {
       const response = await fetch(`${API_URL}/download/${filename}`);
       if (!response.ok) throw new Error('Failed to load scrambled image');
-      
+
       const blob = await response.blob();
       const url = URL.createObjectURL(blob);
-      
+
       if (scrambledDisplayRef.current) {
         scrambledDisplayRef.current.src = url;
       }
@@ -246,7 +272,7 @@ export default function ScramblerPhotosPro() {
     try {
       const response = await fetch(`${API_URL}/download/${scrambledFilename}`);
       if (!response.ok) throw new Error('Download failed');
-      
+
       const blob = await response.blob();
       const url = URL.createObjectURL(blob);
       const a = document.createElement('a');
@@ -256,7 +282,7 @@ export default function ScramblerPhotosPro() {
       a.click();
       document.body.removeChild(a);
       URL.revokeObjectURL(url);
-      
+
       success("Scrambled image downloaded!");
     } catch (err) {
       error("Download failed: " + err.message);
@@ -301,6 +327,13 @@ export default function ScramblerPhotosPro() {
     success("New seed generated!");
   };
 
+  const handleCreditConfirm = useCallback(() => {
+    setShowCreditModal(false);
+
+    setAllowScrambling(true);
+
+  }, []);
+
   // =============================
   // RENDER
   // =============================
@@ -315,7 +348,7 @@ export default function ScramblerPhotosPro() {
         <Typography variant="h6" color="text.secondary" sx={{ mb: 2 }}>
           Advanced server-side scrambling with multiple algorithms
         </Typography>
-        
+
         {/* Status indicators */}
         <Box sx={{ display: 'flex', gap: 1, justifyContent: 'center', flexWrap: 'wrap' }}>
           <Chip label="Server: localhost:5000" size="small" color="success" />
@@ -367,9 +400,9 @@ export default function ScramblerPhotosPro() {
             <Typography variant="h6" sx={{ mb: 2, color: '#e0e0e0' }}>
               Scrambling Algorithm
             </Typography>
-            
-            <Tabs 
-              value={currentTab} 
+
+            <Tabs
+              value={currentTab}
               onChange={(e, val) => setCurrentTab(val)}
               sx={{ mb: 2, borderBottom: '1px solid #666' }}
             >
@@ -503,10 +536,10 @@ export default function ScramblerPhotosPro() {
             <Alert severity="info" sx={{ mt: 2, backgroundColor: '#1976d2', color: 'white' }}>
               <strong>{algorithm.toUpperCase()}</strong>: {
                 algorithm === 'position' ? 'Scrambles by shuffling tile positions in a grid' :
-                algorithm === 'color' ? 'Scrambles by shifting hue values in HSV color space' :
-                algorithm === 'rotation' ? 'Scrambles by randomly rotating tiles (90°, 180°, 270°)' :
-                algorithm === 'mirror' ? 'Scrambles by randomly flipping tiles horizontally/vertically' :
-                'Scrambles by shifting pixel intensity values'
+                  algorithm === 'color' ? 'Scrambles by shifting hue values in HSV color space' :
+                    algorithm === 'rotation' ? 'Scrambles by randomly rotating tiles (90°, 180°, 270°)' :
+                      algorithm === 'mirror' ? 'Scrambles by randomly flipping tiles horizontally/vertically' :
+                        'Scrambles by shifting pixel intensity values'
               }
             </Alert>
           </Box>
@@ -518,7 +551,7 @@ export default function ScramblerPhotosPro() {
               onClick={scrambleImage}
               startIcon={isProcessing ? <CircularProgress size={20} /> : <CloudUpload />}
               disabled={!imageLoaded || isProcessing}
-              sx={{ 
+              sx={{
                 backgroundColor: (!imageLoaded || isProcessing) ? '#666' : '#22d3ee',
                 color: (!imageLoaded || isProcessing) ? '#999' : '#001018',
                 fontWeight: 'bold'
@@ -656,11 +689,24 @@ export default function ScramblerPhotosPro() {
         </CardContent>
       </Card>
 
+      {/* Credit Confirmation Modal */}
+      <CreditConfirmationModal
+        open={showCreditModal}
+        onClose={() => setShowCreditModal(false)}
+        onConfirm={handleCreditConfirm}
+        mediaType="video"
+        creditCost={SCRAMBLE_COST}
+        currentCredits={userCredits}
+        fileName={selectedFile?.name || ''}
+        file={selectedFile}
+        isProcessing={false}
+      />
+
       {/* Info Section */}
       <Paper elevation={1} sx={{ p: 2, backgroundColor: '#f5f5f5' }}>
         <Typography variant="body2" color="text.secondary">
-          💡 <strong>Pro Version:</strong> This scrambler uses server-side Python processing for advanced algorithms 
-          including position shuffling, color scrambling, rotation, mirroring, and intensity shifting. 
+          💡 <strong>Pro Version:</strong> This scrambler uses server-side Python processing for advanced algorithms
+          including position shuffling, color scrambling, rotation, mirroring, and intensity shifting.
           Configure tile sizes, scrambling percentage, and algorithm-specific parameters for optimal results.
         </Typography>
       </Paper>

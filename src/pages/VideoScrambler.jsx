@@ -31,8 +31,13 @@ import {
   Movie
 } from '@mui/icons-material';
 import { useToast } from '../contexts/ToastContext';
+import CreditConfirmationModal from '../components/CreditConfirmationModal';
+import api from '../api/client';
 
 export default function VideoScrambler() {
+
+  const API_URL = import.meta.env.VITE_API_SERVER_URL || 'http://localhost:3001'; // = 'http://localhost:3001/api';
+
   const { success, error } = useToast();
 
   // =============================
@@ -49,8 +54,9 @@ export default function VideoScrambler() {
   // STATE
   // =============================
   const [user] = useState({ id: "demo-user-123", email: "demo@example.com" });
+  const [userData] = useState(JSON.parse(localStorage.getItem("userdata")));
   const [isPro, setIsPro] = useState(false);
-  
+
   const [selectedFile, setSelectedFile] = useState(null);
   const [selectedLevel, setSelectedLevel] = useState("med"); // low|med|high
   const [grid, setGrid] = useState({ n: 5, m: 5 });
@@ -58,21 +64,29 @@ export default function VideoScrambler() {
   const [permDestToSrc0, setPermDestToSrc0] = useState([]);
   const [base64Key, setBase64Key] = useState("");
   const [jsonKey, setJsonKey] = useState("");
-  
+
   // Recording
   const [recorder, setRecorder] = useState(null);
   const chunksRef = useRef([]);
   const PRESET_FPS = 30;
-  
+
   // Ad modal state
   const [modalShown, setModalShown] = useState(false);
   const [modalReady, setModalReady] = useState(false);
   const [timerText, setTimerText] = useState("Please wait...");
   const [recordingFinished, setRecordingFinished] = useState(false);
   const [waitTimeRemaining, setWaitTimeRemaining] = useState(15);
-  
+
   // Animation
   const [animating, setAnimating] = useState(false);
+
+  // Credit modal state
+  const [showCreditModal, setShowCreditModal] = useState(false);
+  const [allowScrambling, setAllowScrambling] = useState(false);
+  const [userCredits, setUserCredits] = useState(100); // Mock credits, replace with actual user data
+  const SCRAMBLE_COST = 10; // Cost to scramble a video
+
+
 
   // =============================
   // UTILITY FUNCTIONS
@@ -87,7 +101,7 @@ export default function VideoScrambler() {
   }
 
   function mulberry32(a) {
-    return function() {
+    return function () {
       let t = (a += 0x6D2B79F5);
       t = Math.imul(t ^ (t >>> 15), t | 1);
       t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
@@ -158,7 +172,9 @@ export default function VideoScrambler() {
 
   useEffect(() => {
     const video = videoRef.current;
-    if (!video) return;
+    if (!video) {
+      return;
+    }
     const onLoaded = () => updateRects();
     video.addEventListener("loadedmetadata", onLoaded);
     return () => video.removeEventListener("loadedmetadata", onLoaded);
@@ -188,6 +204,19 @@ export default function VideoScrambler() {
     }
   }, [grid, permDestToSrc0]);
 
+
+  useEffect(async () => {
+    const response = await api.post(`api/wallet/balance/${userData.username}`, {
+      username: userData.username,
+      email: userData.email,
+      password: localStorage.getItem('passwordtxt')
+    });
+
+    if (response.status === 200 && response.data) {
+      setUserCredits(response.data.credits);
+    }
+  }, []);
+
   // Animate while playing
   useEffect(() => {
     let raf = 0;
@@ -209,14 +238,14 @@ export default function VideoScrambler() {
     const onPlay = () => {
       setAnimating(true);
       if (recorder && recorder.state === "inactive") {
-        try { recorder.start(); } catch {}
+        try { recorder.start(); } catch { }
       }
     };
     const onPause = () => setAnimating(false);
     const onEnded = () => {
       setAnimating(false);
       if (recorder && recorder.state === "recording") {
-        try { recorder.stop(); } catch {}
+        try { recorder.stop(); } catch { }
       }
     };
     const onSeeked = () => {
@@ -227,7 +256,7 @@ export default function VideoScrambler() {
     video.addEventListener("pause", onPause);
     video.addEventListener("ended", onEnded);
     video.addEventListener("seeked", onSeeked);
-    
+
     return () => {
       video.removeEventListener("play", onPlay);
       video.removeEventListener("pause", onPause);
@@ -250,12 +279,16 @@ export default function VideoScrambler() {
 
     setSelectedFile(file);
     const url = URL.createObjectURL(file);
-    if (videoRef.current) {
-      videoRef.current.src = url;
-    }
+    // if (videoRef.current) {
+    // videoRef.current.src = url;
+    // }
 
     // play video muted to allow autoplay
-    setTimeout(() => {  
+    setTimeout(() => {
+      if (videoRef.current) {
+        videoRef.current.src = url;
+      }
+
       if (videoRef.current) {
         videoRef.current.play();
         // videoRef.current.muted = true;
@@ -273,6 +306,16 @@ export default function VideoScrambler() {
       return;
     }
 
+    // Show credit confirmation modal before scrambling
+    setShowCreditModal(true);
+  }, [error]);
+
+  const handleCreditConfirm = useCallback(() => {
+    setShowCreditModal(false);
+
+    console.log("Filwe selected:", selectedFile);
+
+    // Perform the scrambling
     const newSeed = genRandomSeed();
     setSeed(newSeed);
 
@@ -287,17 +330,22 @@ export default function VideoScrambler() {
 
     // Draw first frame
     setTimeout(() => drawScrambledFrame(), 100);
-    success("Video scrambled successfully!");
 
-     // play video muted to allow autoplay
-    setTimeout(() => {  
+    // Deduct credits
+    setUserCredits(prev => prev - SCRAMBLE_COST);
+
+    // Show success message
+    success(`Video scrambled successfully! ${SCRAMBLE_COST} credits used.`);
+
+    // Play video muted to allow autoplay
+    setTimeout(() => {
       if (videoRef.current) {
         videoRef.current.play();
         // videoRef.current.muted = true;
       }
     }, 100);
 
-  }, [grid, drawScrambledFrame, error, success]);
+  }, [grid, drawScrambledFrame, success, SCRAMBLE_COST]);
 
   // =============================
   // AD MODAL FUNCTIONS
@@ -426,8 +474,8 @@ export default function VideoScrambler() {
     recorder.onstop = () => {
       const blob = new Blob(chunksRef.current, { type: "video/webm" });
       const baseName = selectedFile?.name
-      ? selectedFile.name.replace(/\.[^/.]+$/, '').replace(/[^\w\-. ]+/g, '').replace(/\s+/g, '_')
-      : 'unscramble_key';
+        ? selectedFile.name.replace(/\.[^/.]+$/, '').replace(/[^\w\-. ]+/g, '').replace(/\s+/g, '_')
+        : 'unscramble_key';
       download(`${baseName}_scrambled.webm`, blob);
       setRecorder(null);
       chunksRef.current = [];
@@ -501,7 +549,7 @@ export default function VideoScrambler() {
         <Typography variant="h6" color="text.secondary" sx={{ mb: 2 }}>
           Scramble your videos with tile-based encryption
         </Typography>
-        
+
         {/* Status indicators */}
         <Box sx={{ display: 'flex', gap: 1, justifyContent: 'center', flexWrap: 'wrap' }}>
           <Chip label="Export: WebM" size="small" color="success" />
@@ -553,7 +601,7 @@ export default function VideoScrambler() {
             <Typography variant="h6" sx={{ mb: 2, color: '#e0e0e0' }}>
               Scrambling Level
             </Typography>
-            
+
             <Grid container spacing={2} sx={{ mb: 2 }}>
               <Grid item xs={12} md={4}>
                 <Button
@@ -614,7 +662,7 @@ export default function VideoScrambler() {
               onClick={onGenerate}
               startIcon={<Shuffle />}
               disabled={!selectedFile}
-              sx={{ 
+              sx={{
                 backgroundColor: !selectedFile ? '#666' : '#22d3ee',
                 color: !selectedFile ? '#999' : '#001018',
                 fontWeight: 'bold'
@@ -659,6 +707,18 @@ export default function VideoScrambler() {
                   borderRadius: '8px',
                   overflow: 'hidden'
                 }}>
+                  {selectedFile && (
+                  <video
+                      ref={videoRef}
+                      controls
+                      opacity={0.1}
+                      style={{
+                        width: '10%',
+                        minHeight: '18px',
+                        backgroundColor: '#0b1020'
+                      }}
+                    />
+                  )}
                   {selectedFile ? (
                     <video
                       ref={videoRef}
@@ -760,17 +820,17 @@ export default function VideoScrambler() {
 
       {/* Info Section */}
       <Paper elevation={1} sx={{ p: 2, backgroundColor: '#f5f5f5', mb: 2 }}>
-        <Typography variant="body2" color="text.secondary">
-          💡 <strong>How it works:</strong> Upload a video (≤60s recommended), choose a scrambling level, 
-          and scramble it via tile-shifting. Save the unscrambling key and export the scrambled video. 
+        <Typography variant="body2" color="black">
+          💡 <strong>How it works:</strong> Upload a video (≤60s recommended), choose a scrambling level,
+          and scramble it via tile-shifting. Save the unscrambling key and export the scrambled video.
           Share the video publicly and the key privately to control access.
         </Typography>
       </Paper>
 
       {/* Help Section */}
       <Paper elevation={1} sx={{ p: 2, backgroundColor: '#e3f2fd' }}>
-        <Typography variant="body2" color="text.secondary">
-          🔑 <strong>Pro Tip:</strong> Higher scrambling levels (7×7) provide better security but take longer to process. 
+        <Typography variant="body2" color="black">
+          🔑 <strong>Pro Tip:</strong> Higher scrambling levels (7×7) provide better security but take longer to process.
           Medium (5×5) offers a good balance between security and performance for most use cases.
         </Typography>
       </Paper>
@@ -801,16 +861,16 @@ export default function VideoScrambler() {
               </IconButton>
             )}
           </Box>
-          
+
           <Typography variant="body1" sx={{ mb: 3, color: '#e0e0e0' }}>
             Your scrambled video is being generated. Please wait while we prepare your download.
           </Typography>
-          
+
           <Box sx={{ flexGrow: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', mb: 3, bgcolor: '#0b1020', borderRadius: 2 }}>
-            <iframe 
+            <iframe
               ref={adIframeRef}
-              width="100%" 
-              height="100%" 
+              width="100%"
+              height="100%"
               frameBorder="0"
               style={{ borderRadius: 12 }}
             />
@@ -834,6 +894,19 @@ export default function VideoScrambler() {
           </Box>
         </Box>
       </Modal>
+
+      {/* Credit Confirmation Modal */}
+      <CreditConfirmationModal
+        open={showCreditModal}
+        onClose={() => setShowCreditModal(false)}
+        onConfirm={handleCreditConfirm}
+        mediaType="video"
+        creditCost={SCRAMBLE_COST}
+        currentCredits={userCredits}
+        fileName={selectedFile?.name || ''}
+        file={selectedFile}
+        isProcessing={false}
+      />
     </Container>
   );
 }

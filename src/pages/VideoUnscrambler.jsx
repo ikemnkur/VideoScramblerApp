@@ -37,8 +37,15 @@ import {
   CloudDownload
 } from '@mui/icons-material';
 import { useToast } from '../contexts/ToastContext';
+import CreditConfirmationModal from '../components/CreditConfirmationModal';
+import api from '../api/client';
+import { all } from 'axios';
 
 export default function VideoUnscrambler() {
+  const API_URL = import.meta.env.VITE_API_SERVER_URL || 'http://localhost:3001'; // = 'http://localhost:3001/api';
+
+
+
   const { success, error } = useToast();
 
   // Refs for video and canvas elements
@@ -65,13 +72,38 @@ export default function VideoUnscrambler() {
   const [adProgress, setAdProgress] = useState(0);
   const [adCanClose, setAdCanClose] = useState(false);
 
+  const [userData, setUserData] = useState(JSON.parse(localStorage.getItem("userdata")));
+
+  const [allowScrambling, setAllowScrambling] = useState(false);
+  const [showCreditModal, setShowCreditModal] = useState(false);
+  const [userCredits, setUserCredits] = useState(0); // Mock credits, replace with actual user data
+  const SCRAMBLE_COST = 3; // Cost to scramble a photo (less than video)
+
   // Rectangles for unscrambling
   const [rectsDest, setRectsDest] = useState([]);
   const [rectsSrcFromShuffled, setRectsSrcFromShuffled] = useState([]);
   const [srcToDest, setSrcToDest] = useState([]);
 
+
+
+
+  useEffect(async () => {
+
+    // const userData = JSON.parse(localStorage.getItem("userdata")  );
+    setUserData(userData);
+    response = await  api.post(`api/wallet/balance/${userData.username}`, {
+      username: userData.username,
+      email: userData.email,
+      password: localStorage.getItem('passwordtxt')
+    });
+
+    if (response.status === 200 && response.data) {
+      setUserCredits(response.data.credits);
+    }
+  }, []);
+
   // ========== UTILITY FUNCTIONS ==========
-  
+
   // Base64 encoding/decoding utilities
   const toBase64 = (str) => btoa(unescape(encodeURIComponent(str)));
   const fromBase64 = (b64) => decodeURIComponent(escape(atob(b64.trim())));
@@ -120,12 +152,15 @@ export default function VideoUnscrambler() {
   const handleFileSelect = (event) => {
     const file = event.target.files?.[0];
     if (!file) return;
-    
+
     setSelectedFile(file);
     const video = shufVideoRef.current;
     if (video) {
       video.src = URL.createObjectURL(file);
     }
+
+    console.log("Selected file:", file);
+
   };
 
   const handleVideoLoaded = () => {
@@ -152,13 +187,18 @@ export default function VideoUnscrambler() {
   };
 
   const applyParameters = () => {
+    if (!allowScrambling) {
+      error('You need to confirm credit usage before applying parameters.');
+      return;
+    }
+
     try {
       const obj = JSON.parse(decodedParams);
       const { n, m, permDestToSrc0 } = jsonToParams(obj);
-      
+
       setUnscrambleParams({ n, m, permDestToSrc0 });
       success(`Parameters applied: ${n}×${m} grid`);
-      
+
       // Play video briefly to show preview
       const video = shufVideoRef.current;
       if (video && video.paused) {
@@ -244,7 +284,7 @@ export default function VideoUnscrambler() {
     if (!adCanClose) return;
     setShowAdModal(false);
     setShowModal(true);
-    
+
     // Setup modal canvas
     const modalCanvas = modalCanvasRef.current;
     const video = shufVideoRef.current;
@@ -254,6 +294,13 @@ export default function VideoUnscrambler() {
       drawUnscrambledFrame(modalCanvas);
     }
   };
+
+  const handleCreditConfirm = useCallback(() => {
+    setShowCreditModal(false);
+
+    setAllowScrambling(true);
+
+  }, []);
 
   // ========== EFFECTS ==========
 
@@ -305,7 +352,7 @@ export default function VideoUnscrambler() {
         <Typography variant="h6" color="text.secondary" sx={{ mb: 2 }}>
           Restore scrambled videos using your unscramble key
         </Typography>
-        
+
         {/* Status indicators */}
         <Box sx={{ display: 'flex', gap: 1, justifyContent: 'center', flexWrap: 'wrap' }}>
           <Chip label="Canvas Export: WebM" size="small" color="success" />
@@ -445,20 +492,20 @@ export default function VideoUnscrambler() {
                 onClick={applyParameters}
                 startIcon={<PlayArrow />}
                 disabled={!decodedParams}
-                sx={{ 
+                sx={{
                   backgroundColor: !decodedParams ? '#666' : '#4caf50',
                   color: !decodedParams ? '#999' : 'white'
                 }}
               >
                 Apply & Preview
               </Button>
-              
+
               <Button
                 variant="contained"
                 onClick={showWatchModal}
                 startIcon={<Visibility />}
                 disabled={!srcToDest.length}
-                sx={{ 
+                sx={{
                   backgroundColor: !srcToDest.length ? '#666' : '#22d3ee',
                   color: !srcToDest.length ? '#999' : '#001018',
                   fontWeight: 'bold',
@@ -472,9 +519,9 @@ export default function VideoUnscrambler() {
             {(!selectedFile || !decodedParams || !srcToDest.length) && (
               <Alert severity="warning" sx={{ mt: 2, backgroundColor: '#ed6c02', color: 'white' }}>
                 <Typography variant="body2">
-                  {!selectedFile ? '⚠️ Please upload a scrambled video first' : 
-                   !decodedParams ? '⚠️ Please decode your key first' :
-                   '⚠️ Please apply parameters to preview'}
+                  {!selectedFile ? '⚠️ Please upload a scrambled video first' :
+                    !decodedParams ? '⚠️ Please decode your key first' :
+                      '⚠️ Please apply parameters to preview'}
                 </Typography>
               </Alert>
             )}
@@ -546,8 +593,8 @@ export default function VideoUnscrambler() {
       {/* Info Section */}
       <Paper elevation={1} sx={{ p: 2, backgroundColor: '#f5f5f5', mb: 2 }}>
         <Typography variant="body2" color="text.secondary">
-          💡 <strong>How it works:</strong> Upload your scrambled video and paste the unscramble key 
-          you received when the video was scrambled. The system will use the key's parameters to 
+          💡 <strong>How it works:</strong> Upload your scrambled video and paste the unscramble key
+          you received when the video was scrambled. The system will use the key's parameters to
           reverse the scrambling process and restore your original video.
         </Typography>
       </Paper>
@@ -555,8 +602,8 @@ export default function VideoUnscrambler() {
       {/* Help Section */}
       <Paper elevation={1} sx={{ p: 2, backgroundColor: '#e3f2fd' }}>
         <Typography variant="body2" color="text.secondary">
-          🔑 <strong>Lost your key?</strong> Unfortunately, without the unscramble key, the video cannot be restored. 
-          The key contains the grid parameters and permutation required to reverse the scrambling process. 
+          🔑 <strong>Lost your key?</strong> Unfortunately, without the unscramble key, the video cannot be restored.
+          The key contains the grid parameters and permutation required to reverse the scrambling process.
           Always save your keys securely!
         </Typography>
       </Paper>
@@ -583,12 +630,12 @@ export default function VideoUnscrambler() {
           <Typography variant="body1" sx={{ mb: 3, color: '#e0e0e0' }}>
             Your unscrambled video is being generated. Please wait while we prepare your preview.
           </Typography>
-          
+
           <Box sx={{ flexGrow: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', mb: 3 }}>
             <Box sx={{ width: '100%', maxWidth: 400 }}>
-              <LinearProgress 
-                variant="determinate" 
-                value={adProgress} 
+              <LinearProgress
+                variant="determinate"
+                value={adProgress}
                 sx={{ height: 10, borderRadius: 5 }}
               />
               <Typography variant="body2" sx={{ mt: 1, textAlign: 'center', color: '#e0e0e0' }}>
@@ -638,7 +685,7 @@ export default function VideoUnscrambler() {
               <Close />
             </IconButton>
           </Box>
-          
+
           <Typography variant="body1" sx={{ mb: 2, color: '#e0e0e0' }}>
             Here is your unscrambled video preview. You can play/pause, seek through the video, and adjust the volume.
           </Typography>
@@ -671,7 +718,7 @@ export default function VideoUnscrambler() {
             >
               {modalControls.isPlaying ? 'Pause' : 'Play'}
             </Button>
-            
+
             <Typography variant="body2" sx={{ color: 'white' }}>Seek:</Typography>
             <Slider
               value={modalControls.currentTime}
@@ -682,7 +729,7 @@ export default function VideoUnscrambler() {
               }}
               sx={{ width: 200, color: '#22d3ee' }}
             />
-            
+
             <VolumeUp sx={{ color: 'white' }} />
             <Slider
               value={modalControls.volume}
@@ -696,6 +743,19 @@ export default function VideoUnscrambler() {
           </Box>
         </Box>
       </Modal>
+
+      {/* Credit Confirmation Modal */}
+      <CreditConfirmationModal
+        open={showCreditModal}
+        onClose={() => setShowCreditModal(false)}
+        onConfirm={handleCreditConfirm}
+        mediaType="video"
+        creditCost={SCRAMBLE_COST}
+        currentCredits={userCredits}
+        fileName={selectedFile?.name || ''}
+        isProcessing={false}
+        file={selectedFile}
+      />
     </Container>
   );
 }

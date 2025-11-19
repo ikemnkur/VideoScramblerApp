@@ -3,10 +3,14 @@ import React, { useState, useRef } from 'react';
 import { Container, Typography, Card, CardContent, Button, Box, Grid, Paper, Alert, CircularProgress, Chip, List, ListItem, ListItemText } from '@mui/material';
 import { Videocam, Search, CheckCircle, Warning, Upload, Person, Movie } from '@mui/icons-material';
 import { useToast } from '../contexts/ToastContext';
+import api from '../api/client';
 
-const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001';
+const API_URL = import.meta.env.VITE_API_SERVER_URL || 'http://localhost:3001'; // = import.meta.env.VITE_API_URL || 'http://localhost:3001';
 
 export default function VideoLeakChecker() {
+
+  const API_URL = import.meta.env.VITE_API_SERVER_URL || 'http://localhost:3001'; // = 'http://localhost:3001/api';
+
   const { success, error: showError } = useToast();
   const [selectedFile, setSelectedFile] = useState(null);
   const [previewUrl, setPreviewUrl] = useState(null);
@@ -14,6 +18,13 @@ export default function VideoLeakChecker() {
   const [checkStatus, setCheckStatus] = useState('idle');
   const [leakData, setLeakData] = useState(null);
   const [extractedCode, setExtractedCode] = useState('');
+
+  const [showCreditModal, setShowCreditModal] = useState(false);
+  const [allowLeakChecking, setAllowLeakChecking] = useState(false);
+  const [userCredits, setUserCredits] = useState(0); // Mock credits, replace with actual user data
+  const SCRAMBLE_COST = 10; // Cost to scramble a photo (less than video)
+
+
   const fileInputRef = useRef(null);
   const videoRef = useRef(null);
 
@@ -28,17 +39,43 @@ export default function VideoLeakChecker() {
       return;
     }
     setSelectedFile(file);
+    console.log("Selected file:", file);
     setPreviewUrl(URL.createObjectURL(file));
     setCheckStatus('idle');
     setLeakData(null);
     success(`Selected: ${file.name}`);
   };
 
+  const handleCreditConfirm = useCallback(() => {
+    setShowCreditModal(false);
+
+    setAllowLeakChecking(true);
+
+  }, []);
+
+  useEffect(async () => {
+    response = await  api.post(`api/wallet/balance/${userData.username}`, {
+      username: userData.username,
+      email: userData.email,
+      password: localStorage.getItem('passwordtxt')
+    });
+
+    if (response.status === 200 && response.data) {
+      setUserCredits(response.data.credits);
+    }
+  }, []);
+
   const handleCheckForLeak = async () => {
     if (!selectedFile) {
       showError("Please select a video file first");
       return;
     }
+
+    if (!allowLeakChecking) {
+      error('You need to confirm credit usage before applying parameters.');
+      return;
+    }
+
     setIsChecking(true);
     setCheckStatus('checking');
 
@@ -204,6 +241,19 @@ export default function VideoLeakChecker() {
           ⚡ <strong>Note:</strong> Video processing may take longer depending on file size and length. The system analyzes video frames to extract hidden watermark codes.
         </Typography>
       </Paper>
+
+      {/* Credit Confirmation Modal */}
+      <CreditConfirmationModal
+        open={showCreditModal}
+        onClose={() => setShowCreditModal(false)}
+        onConfirm={handleCreditConfirm}
+        mediaType="video"
+        creditCost={SCRAMBLE_COST}
+        currentCredits={userCredits}
+        fileName={selectedFile?.name || ''}
+        file={selectedFile}
+        isProcessing={false}
+      />
     </Container>
   );
 }

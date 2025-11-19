@@ -85,8 +85,7 @@ export const FingerprintProvider = ({ children }) => {
     }
 
     try {
-      const API_URL = import.meta.env.VITE_API_SERVER_URL || 'http://localhost:3001';
-      
+      const API_URL = import.meta.env.VITE_API_SERVER_URL || 'http://localhost:3001';        
       const payload = {
         userId: userId,
         fingerprintHash: fingerprint.hash,
@@ -146,8 +145,7 @@ export const FingerprintProvider = ({ children }) => {
     }
 
     try {
-      const API_URL = import.meta.env.VITE_API_SERVER_URL || 'http://localhost:3001';
-      
+      const API_URL = import.meta.env.VITE_API_SERVER_URL || 'http://localhost:3001';        
       const response = await fetch(`${API_URL}/api/fingerprint/user/${userId}`);
       const data = await response.json();
 
@@ -175,8 +173,7 @@ export const FingerprintProvider = ({ children }) => {
     }
 
     try {
-      const API_URL = import.meta.env.VITE_API_SERVER_URL || 'http://localhost:3001';
-      
+      const API_URL = import.meta.env.VITE_API_SERVER_URL || 'http://localhost:3001';        
       const response = await fetch(
         `${API_URL}/api/fingerprint/unscramble/${fingerprint.hash}`,
         { method: 'POST' }

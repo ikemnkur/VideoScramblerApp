@@ -104,15 +104,14 @@ const SellerTransactions = () => {
   };
 
 
-  const API_URL = import.meta.env.VITE_API_SERVER_URL || 'http://localhost:3001';
-
+  const API_URL = import.meta.env.VITE_API_SERVER_URL || 'http://localhost:3001';  
   useEffect(() => {
     const loadTransactions = async () => {
       try {
         setLoading(true);
         
         // Get current user from localStorage
-        const userData = JSON.parse(localStorage.getItem("userdata") || '{"username":"seller_123"}');
+        const userData = JSON.parse(localStorage.getItem("userdata")  );
         const username = userData.username || 'seller_123';
         
         // Fetch earnings data from JSON server
@@ -233,7 +232,7 @@ const SellerTransactions = () => {
       setLoading(true);
       
       // Get current user from localStorage
-      const userData = JSON.parse(localStorage.getItem("userdata") || '{"username":"seller_123"}');
+      const userData = JSON.parse(localStorage.getItem("userdata")  );
       const username = userData.username || 'seller_123';
       
       // Fetch earnings data from JSON server

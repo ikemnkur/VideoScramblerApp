@@ -2,7 +2,7 @@
 // Connects to Flask server on port 5000 for advanced scrambling algorithms
 // Supports: Position, Color, Rotation, Mirror, and Intensity scrambling
 
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect, useCallback } from 'react';
 import {
     Container,
     Typography,
@@ -34,12 +34,15 @@ import {
     AutoAwesome
 } from '@mui/icons-material';
 import { useToast } from '../contexts/ToastContext';
+import CreditConfirmationModal from '../components/CreditConfirmationModal';
+import api from '../api/client';
 
-const API_URL = 'http://localhost:3001/api';
+const API_URL = import.meta.env.VITE_API_SERVER_URL || 'http://localhost:3001'; // = 'http://localhost:3001/api';
 const Flask_API_URL = 'http://localhost:5000/';
 
 export default function ScramblerPhotosPro() {
     const { success, error } = useToast();
+
 
     // Refs
     const fileInputRef = useRef(null);
@@ -56,6 +59,13 @@ export default function ScramblerPhotosPro() {
     const [currentTab, setCurrentTab] = useState(0);
     const [previewUrl, setPreviewUrl] = useState('');
 
+    const [userData, setUserData] = useState(JSON.parse(localStorage.getItem("userdata")));
+
+
+    const [showCreditModal, setShowCreditModal] = useState(false);
+    const [allowScrambling, setAllowScrambling] = useState(false);
+    const [userCredits, setUserCredits] = useState(0); // Mock credits, replace with actual user data
+    const SCRAMBLE_COST = 15; // Cost to unscramble a video (less than video)
 
     // Scrambling Parameters
     const [algorithm, setAlgorithm] = useState('position'); // position, color, rotation, mirror, intensity
@@ -67,6 +77,28 @@ export default function ScramblerPhotosPro() {
     // Algorithm-specific parameters
     const [maxHueShift, setMaxHueShift] = useState(64);
     const [maxIntensityShift, setMaxIntensityShift] = useState(128);
+
+    const handleCreditConfirm = useCallback(() => {
+        setShowCreditModal(false);
+
+        setAllowScrambling(true);
+
+    }, []);
+
+    useEffect(async () => {
+        // const userData = JSON.parse(localStorage.getItem("userdata")  );
+        setUserdata(userData);
+        response = await  api.post(`api/wallet/balance/${userData.username}`, {
+            username: userData.username,
+            email: userData.email,
+            password: localStorage.getItem('passwordtxt')
+        });
+
+        if (response.status === 200 && response.data) {
+            setUserCredits(response.data.credits);
+        }
+    }, []);
+
 
     // =============================
     // FILE HANDLING
@@ -97,6 +129,11 @@ export default function ScramblerPhotosPro() {
     const scrambleImage = async () => {
         if (!selectedFile) {
             error("Please select an image first");
+            return;
+        }
+
+        if (!allowScrambling) {
+            error("You need to spend credits to enable scrambling before proceeding");
             return;
         }
 
@@ -645,9 +682,22 @@ export default function ScramblerPhotosPro() {
                 </CardContent>
             </Card>
 
+            {/* Credit Confirmation Modal */}
+            <CreditConfirmationModal
+                open={showCreditModal}
+                onClose={() => setShowCreditModal(false)}
+                onConfirm={handleCreditConfirm}
+                mediaType="photo"
+                creditCost={SCRAMBLE_COST}
+                currentCredits={userCredits}
+                fileName={selectedFile?.name || ''}
+                isProcessing={false}
+                file={selectedFile}
+            />
+
             {/* Info Section */}
             <Paper elevation={1} sx={{ p: 2, backgroundColor: '#f5f5f5' }}>
-                <Typography variant="body2" color="text.secondary">
+                <Typography variant="body2" color="black">
                     💡 <strong>Pro Version:</strong> This scrambler uses server-side Python processing for advanced algorithms
                     including position shuffling, color scrambling, rotation, mirroring, and intensity shifting.
                     Configure tile sizes, scrambling percentage, and algorithm-specific parameters for optimal results.

@@ -1,7 +1,7 @@
 import axios from 'axios';
 // import { useNavigate } from 'react-router-dom';
 
-const API_URL = import.meta.env.VITE_API_SERVER_URL + '/api' || 'http://localhost:5000/api'; // Adjust this if your API URL is different
+const API_URL = import.meta.env.VITE_API_SERVER_URL || 'http://localhost:3001'; // = import.meta.env.VITE_API_SERVER_URL + '/api' || 'http://localhost:5000/api'; // Adjust this if your API URL is different
 
 
 // const navigate = useNavigate();

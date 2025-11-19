@@ -73,7 +73,7 @@ export default function Redeem() {
 
   const load = async () => {
     try {
-      const { data } = await api.get(`/api/wallet/balance/${ud.username}`);
+      const { data } = await api.post(`/api/wallet/balance/${ud.username}`);
       setBalance(data?.balance ?? 0);
     } catch (e) {
       console.error(e);

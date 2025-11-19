@@ -8,7 +8,7 @@ mode: 'dark',
 background: { default: '#0a0a0a', paper: '#ffffff' },
 text: {
 primary: '#ffffff',
-secondary: '#cfcfcf'
+secondary: '#e3e3e3ff'
 },
 primary: { main: '#c2a800', contrastText: '#0a0a0a' },
 secondary: { main: '#00e676', contrastText: '#0a0a0a' },

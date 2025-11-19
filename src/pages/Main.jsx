@@ -7,13 +7,12 @@ import { useToast } from '../contexts/ToastContext';
 import { useNavigate } from 'react-router-dom';
 import { Password } from '@mui/icons-material';
 
-const API_URL = import.meta.env.VITE_API_SERVER_URL || 'http://localhost:3001';
-
+const API_URL = import.meta.env.VITE_API_SERVER_URL || 'http://localhost:3001';  
 export default function Wallet() {
     const [balance, setBalance] = useState(null);
     const { success, error } = useToast();
     const accountType = localStorage.getItem('accountType'); // 'buyer', 'seller', or null
-    const userData = JSON.parse(localStorage.getItem("userdata") || '{"username":"user_123"}');
+    const userData = JSON.parse(localStorage.getItem("userdata"));
     const [serviceMode, setServiceMode] = useState('free');
 
     const navigate = useNavigate();
@@ -29,7 +28,7 @@ export default function Wallet() {
                 (Date.now() - parseInt(localStorage.getItem('lastDataFetch') || "0", 10) > 1.5 * 60 * 1000);
 
             if (lastDataFetchTooOld) {
-                response = await api.post(`${API_URL}/api/user`, {
+                response = await  api.post(`api/user`, {
                     username: userData.username,
                     email: userData.email,
                     password: localStorage.getItem('passwordtxt')

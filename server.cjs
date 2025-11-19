@@ -516,7 +516,7 @@ server.post('/api/auth/logout', async (req, res) => {
 });
 
 // Custom wallet balance route
-server.get('/api/wallet/balance/:username', async (req, res) => {
+server.post('/api/wallet/balance/:username', async (req, res) => {
   try {
     // const username = req.query.username || 'user_123'; // Default for demo
     const username = req.params.username;
@@ -680,6 +680,95 @@ server.post('/api/unlock/:keyId', async (req, res) => {
   } catch (error) {
     console.error('Unlock key error:', error);
     res.status(500).json({ success: false, message: 'Database error - unlock key failed' });
+  }
+});
+
+// Spend credits route - for scrambling and other credit-based actions
+server.post('/api/spend-credits', async (req, res) => {
+  try {
+    const { username, action } = req.body;
+
+    console.log('Received spend-credits request:', { username, action });
+
+    // Basic validation
+    if (!username || !action || typeof action.cost === 'undefined') {
+      return res.status(400).json({ success: false, message: 'username and action (with cost) are required' });
+    }
+
+    const cost = Number(action.cost);
+    if (Number.isNaN(cost) || cost <= 0) {
+      return res.status(400).json({ success: false, message: 'Invalid action cost' });
+    }
+
+    const [users] = await pool.execute(
+      'SELECT * FROM userData WHERE username = ?',
+      [username]
+    );
+
+    const user = users[0];
+
+    if (!user) {
+      return res.status(404).json({ success: false, message: 'User not found' });
+    }
+
+    console.log(`User ${username} is attempting to spend ${cost} credits. Current balance: ${user.credits}`);
+
+    if (user.credits < cost) {
+      return res.status(400).json({ success: false, message: 'Insufficient credits' });
+    }
+
+    // Deduct credits
+    await pool.execute(
+      'UPDATE userData SET credits = credits - ? WHERE email = ?',
+      [cost, user.email]
+    );
+
+    // Get updated credits
+    const [updatedRows] = await pool.execute(
+      'SELECT credits FROM userData WHERE email = ?',
+      [user.email]
+    );
+    const updatedCredits = updatedRows[0] ? updatedRows[0].credits : (user.credits - cost);
+
+    // Create credit spend record
+    const transactionId = uuidv4();
+
+    await pool.execute(
+      'INSERT INTO actions (id, transactionId, username, email, date, time, credits, action_type, action_cost, action_description) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
+      [
+        uuidv4(),
+        transactionId,
+        user.username,
+        user.email,
+        Date.now(),
+        new Date().toLocaleTimeString(),
+        updatedCredits,
+        action.type || 'unknown',
+        cost,
+        action.description || ''
+      ]
+    );
+
+    await CreateNotification(
+      'credits_spent',
+      'Credits Spent: Action Completed',
+      `User ${username} has spent ${cost} credits: ${action.description || 'action performed'}.`,
+      'action',
+      username
+    );
+
+    console.log(`Credits spent successfully. New balance: ${updatedCredits}`);
+
+    res.json({
+      success: true,
+      transactionId: transactionId,
+      credits: updatedCredits,
+      message: 'Credits spent successfully'
+    });
+
+  } catch (error) {
+    console.error('Spend credits error:', error);
+    res.status(500).json({ success: false, message: 'Database error - spend credits failed' });
   }
 });
 

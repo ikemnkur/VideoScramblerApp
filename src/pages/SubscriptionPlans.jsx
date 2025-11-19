@@ -135,8 +135,7 @@ const SubscriptionPlans = () => {
             const userData = JSON.parse(localStorage.getItem('userdata') || '{}');
             if (!userData.id) return;
 
-            const API_URL = import.meta.env.VITE_API_SERVER_URL || 'http://localhost:3001';
-            const response = await fetch(`${API_URL}/api/subscription/current/${userData.id}`);
+            const API_URL = import.meta.env.VITE_API_SERVER_URL || 'http://localhost:3001';              const response = await fetch(`${API_URL}/api/subscription/current/${userData.id}`);
 
             if (response.ok) {
                 const data = await response.json();
@@ -161,8 +160,7 @@ const SubscriptionPlans = () => {
             }
 
             // Create Stripe checkout session
-            const API_URL = import.meta.env.VITE_API_SERVER_URL || 'http://localhost:3001';
-            const response = await fetch(`${API_URL}/api/subscription/create-checkout`, {
+            const API_URL = import.meta.env.VITE_API_SERVER_URL || 'http://localhost:3001';              const response = await fetch(`${API_URL}/api/subscription/create-checkout`, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
@@ -207,8 +205,7 @@ const SubscriptionPlans = () => {
         try {
             const userData = JSON.parse(localStorage.getItem('userdata') || '{}');
 
-            const API_URL = import.meta.env.VITE_API_SERVER_URL || 'http://localhost:3001';
-            const response = await fetch(`${API_URL}/api/subscription/portal`, {
+            const API_URL = import.meta.env.VITE_API_SERVER_URL || 'http://localhost:3001';              const response = await fetch(`${API_URL}/api/subscription/portal`, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
@@ -234,8 +231,7 @@ const SubscriptionPlans = () => {
         try {
             const userData = JSON.parse(localStorage.getItem('userdata') || '{}');
 
-            const API_URL = import.meta.env.VITE_API_SERVER_URL || 'http://localhost:3001';
-            const response = await fetch(`${API_URL}/api/subscription/cancel`, {
+            const API_URL = import.meta.env.VITE_API_SERVER_URL || 'http://localhost:3001';              const response = await fetch(`${API_URL}/api/subscription/cancel`, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',

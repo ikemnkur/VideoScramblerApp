@@ -15,8 +15,7 @@ import axios from 'axios';
 
 
 const BLOCKCHAIR_API_KEY = import.meta.env.VITE_BLOCKCHAIR_API_KEY;
-const API_URL = import.meta.env.VITE_API_SERVER_URL || 'http://localhost:3001';
-
+const API_URL = import.meta.env.VITE_API_SERVER_URL || 'http://localhost:3001';  
 export default function Purchase() {
 
 
@@ -96,7 +95,7 @@ export default function Purchase() {
 
   const load = async () => {
     try {
-      const { data } = await api.get(`/api/wallet/balance/${ud.username}`);
+      const { data } = await api.post(`/api/wallet/balance/${ud.username}`);
       setBalance(data?.balance ?? 0);
     } catch (e) {
       console.error(e);
@@ -421,7 +420,7 @@ export default function Purchase() {
   async function lookupTransactionOnServer(sendAddress, blockchain, transactionHash) {
     try {
       console.log('Verifying transaction on server:', { sendAddress, blockchain, transactionHash });
-      const response = await api.post(`${API_URL}/api/lookup-transaction`, {
+      const response = await  api.post(`api/lookup-transaction`, {
         sendAddress,
         blockchain,
         transactionHash

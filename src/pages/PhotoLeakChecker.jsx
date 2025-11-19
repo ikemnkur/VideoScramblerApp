@@ -1,12 +1,16 @@
 // PhotoLeakChecker.jsx - Steganography-based leak detection for photos
-import React, { useState, useRef } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Container, Typography, Card, CardContent, Button, Box, Grid, Paper, Alert, CircularProgress, Chip, List, ListItem, ListItemText } from '@mui/material';
 import { PhotoCamera, Search, CheckCircle, Warning, Upload, Fingerprint, Person } from '@mui/icons-material';
 import { useToast } from '../contexts/ToastContext';
+import api from '../api/client';
 
-const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001';
+const API_URL = import.meta.env.VITE_API_SERVER_URL || 'http://localhost:3001'; // = import.meta.env.VITE_API_URL || 'http://localhost:3001';
 
 export default function PhotoLeakChecker() {
+
+  const API_URL = import.meta.env.VITE_API_SERVER_URL || 'http://localhost:3001'; // = 'http://localhost:3001/api';
+
   const { success, error: showError, info: showInfo } = useToast();
   const [selectedFile, setSelectedFile] = useState(null);
   const [previewUrl, setPreviewUrl] = useState(null);
@@ -15,6 +19,14 @@ export default function PhotoLeakChecker() {
   const [leakData, setLeakData] = useState(null);
   const [extractedCode, setExtractedCode] = useState('');
   const fileInputRef = useRef(null);
+
+  const [userData, setUserData] = useState(JSON.parse(localStorage.getItem("userdata")));
+
+  const [showCreditModal, setShowCreditModal] = useState(false);
+  const [allowLeakChecking, setAllowLeakChecking] = useState(false);
+  const [userCredits, setUserCredits] = useState(0); // Mock credits, replace with actual user data
+  const SCRAMBLE_COST = 10; // Cost to scramble a photo (less than video)
+
 
   const handleFileSelect = (event) => {
     const file = event.target.files?.[0];
@@ -33,6 +45,13 @@ export default function PhotoLeakChecker() {
     success(`Selected: ${file.name}`);
   };
 
+  const handleCreditConfirm = useCallback(() => {
+    setShowCreditModal(false);
+
+    setAllowLeakChecking(true);
+
+  }, []);
+
   const handleCheckForLeak = async () => {
     if (!selectedFile) {
       showError("Please select an image file first");
@@ -40,6 +59,12 @@ export default function PhotoLeakChecker() {
     }
     setIsChecking(true);
     setCheckStatus('checking');
+
+    if (!allowLeakChecking) {
+      error('You need to confirm credit usage before applying parameters.');
+      return;
+    }
+
 
     try {
       const formData = new FormData();
@@ -81,6 +106,18 @@ export default function PhotoLeakChecker() {
       setIsChecking(false);
     }
   };
+
+  useEffect(async () => {
+    response = await  api.post(`api/wallet/balance/${userData.username}`, {
+      username: userData.username,
+      email: userData.email,
+      password: localStorage.getItem('passwordtxt')
+    });
+
+    if (response.status === 200 && response.data) {
+      setUserCredits(response.data.credits);
+    }
+  }, []);
 
   const handleReset = () => {
     setSelectedFile(null);
@@ -194,6 +231,20 @@ export default function PhotoLeakChecker() {
           💡 <strong>How it works:</strong> Each scrambled photo contains a hidden steganographic code that uniquely identifies the buyer. If the content is leaked, this system can extract the code and trace it back to the original purchaser.
         </Typography>
       </Paper>
+
+
+      {/* Credit Confirmation Modal */}
+      <CreditConfirmationModal
+        open={showCreditModal}
+        onClose={() => setShowCreditModal(false)}
+        onConfirm={handleCreditConfirm}
+        mediaType="photo"
+        creditCost={SCRAMBLE_COST}
+        currentCredits={userCredits}
+        fileName={selectedFile?.name || ''}
+        isProcessing={false}
+        file={selectedFile}
+      />
     </Container>
   );
 }
