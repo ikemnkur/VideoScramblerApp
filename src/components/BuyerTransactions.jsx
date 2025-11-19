@@ -338,8 +338,7 @@ const BuyerTransactions = () => {
   const [showDetailsModal, setShowDetailsModal] = useState(false);
   const [selectedTransaction, setSelectedTransaction] = useState(null);
 
-  const API_URL = import.meta.env.VITE_API_SERVER_URL || 'http://localhost:3001'; // =
-    import.meta.env.VITE_API_SERVER_URL || "http://localhost:3001";
+  const API_URL = import.meta.env.VITE_API_SERVER_URL || 'http://localhost:3001'; // = import.meta.env.VITE_API_SERVER_URL || "http://localhost:3001";
 
   useEffect(() => {
     const loadTransactions = async () => {
