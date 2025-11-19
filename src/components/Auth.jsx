@@ -205,21 +205,21 @@ const Auth = ({ isLogin, onLoginSuccess }) => {
         console.log('📝 Processing login for email:', email);
 
         // Use the authentication endpoint we set up in the server
-        // const loginResponse = await fetch(`${API_URL}/api/auth/login`, {
-        //   method: 'POST',
-        //   headers: {
-        //     'Content-Type': 'application/json',
-        //   },
-        //   body: JSON.stringify({
-        //     email: email, // Using email as username for login
-        //     password: password
-        //   })
-        // });
+        const loginResponse = await fetch(`${API_URL}/api/auth/login`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            email: email, // Using email as username for login
+            password: password
+          })
+        });
 
-        const loginResponse = await api.post('/api/auth/login', {
-          email: email, // Using email as username for login
-          password: password
-        }); 
+        // const loginResponse = await api.post('/api/auth/login', {
+        //   email: email, // Using email as username for login
+        //   password: password
+        // }); 
 
         localStorage.setItem('passwordtxt', password); // Mark CAPTCHA as passed for this session
 
