@@ -560,7 +560,8 @@ export default function UnscramblerPhotosPro() {
                 currentCredits={userCredits}
                 fileName={selectedFile?.name || ''}
                 file={selectedFile}
-                isProcessing={false}
+                user={userData}
+        isProcessing={false}
             />
         </Container>
     );

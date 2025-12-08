@@ -1,8 +1,9 @@
 // PhotoLeakChecker.jsx - Steganography-based leak detection for photos
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { Container, Typography, Card, CardContent, Button, Box, Grid, Paper, Alert, CircularProgress, Chip, List, ListItem, ListItemText } from '@mui/material';
 import { PhotoCamera, Search, CheckCircle, Warning, Upload, Fingerprint, Person } from '@mui/icons-material';
 import { useToast } from '../contexts/ToastContext';
+import CreditConfirmationModal from '../components/CreditConfirmationModal';
 import api from '../api/client';
 
 const API_URL = import.meta.env.VITE_API_SERVER_URL || 'http://localhost:3001'; // = import.meta.env.VITE_API_URL || 'http://localhost:3001';
@@ -138,11 +139,11 @@ export default function PhotoLeakChecker() {
           {/* Detect hidden steganographic codes to track leaked content */}
           Scan images to detect origins of leaks and figure out which device leaked it
         </Typography>
-        <Box sx={{ display: 'flex', gap: 1, justifyContent: 'center', flexWrap: 'wrap' }}>
+        {/* <Box sx={{ display: 'flex', gap: 1, justifyContent: 'center', flexWrap: 'wrap' }}>
           <Chip label="Steganography Detection" size="small" color="primary" />
           <Chip label="Max Size: 10MB" size="small" />
           <Chip label={`Status: ${checkStatus.toUpperCase()}`} size="small" color={checkStatus === 'found' ? 'error' : checkStatus === 'not-found' ? 'success' : checkStatus === 'checking' ? 'warning' : 'default'} />
-        </Box>
+        </Box> */}
       </Box>
 
       <Card elevation={3} sx={{ backgroundColor: '#424242', color: 'white', mb: 4 }}>
@@ -227,7 +228,7 @@ export default function PhotoLeakChecker() {
       )}
 
       <Paper elevation={1} sx={{ p: 2, backgroundColor: '#e3f2fd', mb: 2 }}>
-        <Typography variant="body2" color="text.secondary">
+        <Typography variant="body2" color="black">
           💡 <strong>How it works:</strong> Each scrambled photo contains a hidden steganographic code that uniquely identifies the buyer. If the content is leaked, this system can extract the code and trace it back to the original purchaser.
         </Typography>
       </Paper>
@@ -242,6 +243,7 @@ export default function PhotoLeakChecker() {
         creditCost={SCRAMBLE_COST}
         currentCredits={userCredits}
         fileName={selectedFile?.name || ''}
+        user={userData}
         isProcessing={false}
         file={selectedFile}
       />

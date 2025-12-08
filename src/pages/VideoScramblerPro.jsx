@@ -2,7 +2,7 @@
 // Connects to Flask server on port 5000 for advanced scrambling algorithms
 // Supports: Position, Color, Rotation, Mirror, and Intensity scrambling
 
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect, useCallback } from 'react';
 import {
   Container,
   Typography,
@@ -35,6 +35,7 @@ import {
 } from '@mui/icons-material';
 import { useToast } from '../contexts/ToastContext';
 import CreditConfirmationModal from '../components/CreditConfirmationModal';
+import api from '../api/client';
 
 const API_URL = import.meta.env.VITE_API_SERVER_URL || 'http://localhost:3001'; // = 'http://localhost:5000';
 
@@ -43,21 +44,24 @@ export default function ScramblerPhotosPro() {
 
   // Refs
   const fileInputRef = useRef(null);
-  const displayImageRef = useRef(null);
+  const displayVideoRef = useRef(null);
   const scrambledDisplayRef = useRef(null);
 
   // State
   const [selectedFile, setSelectedFile] = useState(null);
-  const [imageLoaded, setImageLoaded] = useState(false);
+  const [videoLoaded, setVideoLoaded] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
   const [uploadedFilename, setUploadedFilename] = useState('');
   const [scrambledFilename, setScrambledFilename] = useState('');
   const [keyCode, setKeyCode] = useState('');
   const [currentTab, setCurrentTab] = useState(0);
 
+  const [userData, setUserData] = useState(JSON.parse(localStorage.getItem("userdata")));
+
   const [userCredits, setUserCredits] = useState(0); // Mock credits, replace with actual user data
   const [allowScrambling, setAllowScrambling] = useState(false);
   const [showCreditModal, setShowCreditModal] = useState(false);
+  const SCRAMBLE_COST = 15; // Cost to unscramble a video (less than video)
 
   // Scrambling Parameters
   const [algorithm, setAlgorithm] = useState('position'); // position, color, rotation, mirror, intensity
@@ -77,32 +81,33 @@ export default function ScramblerPhotosPro() {
     const file = event.target.files?.[0];
     if (!file) return;
 
-    if (!file.type.startsWith('image/')) {
-      error("Please select a valid image file");
+    if (!file.type.startsWith('video/')) {
+      error("Please select a valid video file");
       return;
     }
 
     setSelectedFile(file);
-    setImageLoaded(false);
+    setVideoLoaded(false);
     setScrambledFilename('');
     setKeyCode('');
 
     console.log("Selected file:", file);
 
     const url = URL.createObjectURL(file);
-    if (displayImageRef.current) {
-      displayImageRef.current.onload = () => {
-        setImageLoaded(true);
-        URL.revokeObjectURL(url);
+    if (displayVideoRef.current) {
+      displayVideoRef.current.onloadedmetadata = () => {
+        setVideoLoaded(true);
       };
-      displayImageRef.current.src = url;
+      displayVideoRef.current.src = url;
     }
+
+    success("Video file loaded successfully!");
   };
 
   useEffect(async () => {
 
     const userData = JSON.parse(localStorage.getItem("userdata")  );
-    response = await  api.post(`api/wallet/balance/${userData.username}`, {
+    let response = await  api.post(`api/wallet/balance/${userData.username}`, {
       username: userData.username,
       email: userData.email,
       password: localStorage.getItem('passwordtxt')
@@ -145,9 +150,9 @@ export default function ScramblerPhotosPro() {
     }
   };
 
-  const scrambleImage = async () => {
+  const scrambleVideo = async () => {
     if (!selectedFile) {
-      error("Please select an image first");
+      error("Please select an video first");
       return;
     }
 
@@ -236,10 +241,10 @@ export default function ScramblerPhotosPro() {
       const encodedKey = btoa(JSON.stringify(key));
       setKeyCode(encodedKey);
 
-      // Load scrambled image preview
-      loadScrambledImage(data.output_file);
+      // Load scrambled video preview
+      loadScrambledVideo(data.output_file);
 
-      success("Image scrambled successfully!");
+      success("Video scrambled successfully!");
     } catch (err) {
       error("Scrambling failed: " + err.message);
     } finally {
@@ -247,10 +252,10 @@ export default function ScramblerPhotosPro() {
     }
   };
 
-  const loadScrambledImage = async (filename) => {
+  const loadScrambledVideo = async (filename) => {
     try {
       const response = await fetch(`${API_URL}/download/${filename}`);
-      if (!response.ok) throw new Error('Failed to load scrambled image');
+      if (!response.ok) throw new Error('Failed to load scrambled video');
 
       const blob = await response.blob();
       const url = URL.createObjectURL(blob);
@@ -259,13 +264,13 @@ export default function ScramblerPhotosPro() {
         scrambledDisplayRef.current.src = url;
       }
     } catch (err) {
-      error("Failed to load scrambled image: " + err.message);
+      error("Failed to load scrambled video: " + err.message);
     }
   };
 
-  const downloadScrambledImage = async () => {
+  const downloadScrambledVideo = async () => {
     if (!scrambledFilename) {
-      error("Please scramble an image first");
+      error("Please scramble an video first");
       return;
     }
 
@@ -283,7 +288,7 @@ export default function ScramblerPhotosPro() {
       document.body.removeChild(a);
       URL.revokeObjectURL(url);
 
-      success("Scrambled image downloaded!");
+      success("Scrambled video downloaded!");
     } catch (err) {
       error("Download failed: " + err.message);
     }
@@ -294,7 +299,7 @@ export default function ScramblerPhotosPro() {
   // =============================
   const copyKey = async () => {
     if (!keyCode) {
-      error("Please scramble an image first");
+      error("Please scramble an video first");
       return;
     }
     try {
@@ -307,7 +312,7 @@ export default function ScramblerPhotosPro() {
 
   const downloadKey = () => {
     if (!keyCode) {
-      error("Please scramble an image first");
+      error("Please scramble an video first");
       return;
     }
     const blob = new Blob([keyCode], { type: 'text/plain' });
@@ -343,7 +348,7 @@ export default function ScramblerPhotosPro() {
       <Box sx={{ mb: 4, textAlign: 'center' }}>
         <Typography variant="h3" color="primary.main" sx={{ mb: 2, fontWeight: 'bold', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 1 }}>
           <AutoAwesome />
-          🚀 Pro Photo Scrambler
+          🚀 Pro Video Scrambler
         </Typography>
         <Typography variant="h6" color="text.secondary" sx={{ mb: 2 }}>
           Advanced server-side scrambling with multiple algorithms
@@ -368,24 +373,24 @@ export default function ScramblerPhotosPro() {
           {/* File Upload */}
           <Box sx={{ mb: 3 }}>
             <Typography variant="h6" sx={{ mb: 1, color: '#e0e0e0' }}>
-              Select Image File
+              Select Video File
             </Typography>
             <input
               type="file"
-              accept="image/*"
+              accept="video/*"
               onChange={handleFileSelect}
               style={{ display: 'none' }}
-              id="image-upload-pro"
+              id="video-upload-pro"
               ref={fileInputRef}
             />
-            <label htmlFor="image-upload-pro">
+            <label htmlFor="video-upload-pro">
               <Button
                 variant="contained"
                 component="span"
                 startIcon={<PhotoCamera />}
                 sx={{ backgroundColor: '#2196f3', color: 'white', mb: 1 }}
               >
-                Choose Image File
+                Choose Video File
               </Button>
             </label>
             {selectedFile && (
@@ -548,12 +553,12 @@ export default function ScramblerPhotosPro() {
           <Box sx={{ display: 'flex', gap: 2, flexWrap: 'wrap', mb: 3 }}>
             <Button
               variant="contained"
-              onClick={scrambleImage}
+              onClick={scrambleVideo}
               startIcon={isProcessing ? <CircularProgress size={20} /> : <CloudUpload />}
-              disabled={!imageLoaded || isProcessing}
+              disabled={!videoLoaded || isProcessing}
               sx={{
-                backgroundColor: (!imageLoaded || isProcessing) ? '#666' : '#22d3ee',
-                color: (!imageLoaded || isProcessing) ? '#999' : '#001018',
+                backgroundColor: (!videoLoaded || isProcessing) ? '#666' : '#22d3ee',
+                color: (!videoLoaded || isProcessing) ? '#999' : '#001018',
                 fontWeight: 'bold'
               }}
             >
@@ -562,22 +567,22 @@ export default function ScramblerPhotosPro() {
 
             <Button
               variant="contained"
-              onClick={downloadScrambledImage}
+              onClick={downloadScrambledVideo}
               startIcon={<Download />}
               disabled={!scrambledFilename}
               sx={{ backgroundColor: '#9c27b0', color: 'white' }}
             >
-              Download Scrambled Image
+              Download Scrambled Video
             </Button>
           </Box>
 
-          {/* Image Comparison */}
+          {/* Video Comparison */}
           <Box sx={{ borderTop: '1px solid #666', pt: 3 }}>
             <Grid container spacing={3}>
-              {/* Original Image */}
+              {/* Original Video */}
               <Grid item xs={12} md={6}>
                 <Typography variant="h6" sx={{ mb: 1, color: '#e0e0e0' }}>
-                  Original Image
+                  Original Video
                 </Typography>
                 <Box sx={{
                   minHeight: '200px',
@@ -589,28 +594,29 @@ export default function ScramblerPhotosPro() {
                   justifyContent: 'center',
                   overflow: 'hidden'
                 }}>
-                  {imageLoaded ? (
-                    <img
-                      ref={displayImageRef}
-                      alt="Original"
+                  {selectedFile ? (
+                    <video
+                      ref={displayVideoRef}
+                      controls
                       style={{
-                        maxWidth: '100%',
+                        width: '100%',
                         maxHeight: '400px',
+                        backgroundColor: '#0b1020',
                         borderRadius: '8px'
                       }}
                     />
                   ) : (
                     <Typography variant="body2" sx={{ color: '#666' }}>
-                      Select an image to preview
+                      Select a video to preview
                     </Typography>
                   )}
                 </Box>
               </Grid>
 
-              {/* Scrambled Image */}
+              {/* Scrambled Video */}
               <Grid item xs={12} md={6}>
                 <Typography variant="h6" sx={{ mb: 1, color: '#e0e0e0' }}>
-                  Scrambled Image Preview
+                  Scrambled Video Preview
                 </Typography>
                 <Box sx={{
                   minHeight: '200px',
@@ -634,7 +640,7 @@ export default function ScramblerPhotosPro() {
                     />
                   ) : (
                     <Typography variant="body2" sx={{ color: '#666' }}>
-                      Scrambled image will appear here
+                      Scrambled video will appear here
                     </Typography>
                   )}
                 </Box>
@@ -699,12 +705,13 @@ export default function ScramblerPhotosPro() {
         currentCredits={userCredits}
         fileName={selectedFile?.name || ''}
         file={selectedFile}
+        user={userData}
         isProcessing={false}
       />
 
       {/* Info Section */}
       <Paper elevation={1} sx={{ p: 2, backgroundColor: '#f5f5f5' }}>
-        <Typography variant="body2" color="text.secondary">
+        <Typography variant="body2" color="black">
           💡 <strong>Pro Version:</strong> This scrambler uses server-side Python processing for advanced algorithms
           including position shuffling, color scrambling, rotation, mirroring, and intensity shifting.
           Configure tile sizes, scrambling percentage, and algorithm-specific parameters for optimal results.

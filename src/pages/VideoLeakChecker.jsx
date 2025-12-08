@@ -136,11 +136,11 @@ export default function VideoLeakChecker() {
         <Typography variant="h6" color="text.secondary" sx={{ mb: 2 }}>
           Detect hidden steganographic codes to track leaked video content
         </Typography>
-        <Box sx={{ display: 'flex', gap: 1, justifyContent: 'center', flexWrap: 'wrap' }}>
+        {/* <Box sx={{ display: 'flex', gap: 1, justifyContent: 'center', flexWrap: 'wrap' }}>
           <Chip label="Steganography Detection" size="small" color="primary" />
           <Chip label="Max Size: 50MB" size="small" />
           <Chip label={`Status: ${checkStatus.toUpperCase()}`} size="small" color={checkStatus === 'found' ? 'error' : checkStatus === 'not-found' ? 'success' : checkStatus === 'checking' ? 'warning' : 'default'} />
-        </Box>
+        </Box> */}
       </Box>
 
       <Card elevation={3} sx={{ backgroundColor: '#424242', color: 'white', mb: 4 }}>
@@ -237,7 +237,7 @@ export default function VideoLeakChecker() {
       </Paper>
 
       <Paper elevation={1} sx={{ p: 2, backgroundColor: '#fff3e0' }}>
-        <Typography variant="body2" color="text.secondary">
+        <Typography variant="body2" color="black">
           ⚡ <strong>Note:</strong> Video processing may take longer depending on file size and length. The system analyzes video frames to extract hidden watermark codes.
         </Typography>
       </Paper>
@@ -252,6 +252,7 @@ export default function VideoLeakChecker() {
         currentCredits={userCredits}
         fileName={selectedFile?.name || ''}
         file={selectedFile}
+        user={userData}
         isProcessing={false}
       />
     </Container>

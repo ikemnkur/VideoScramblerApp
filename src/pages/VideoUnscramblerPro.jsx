@@ -693,6 +693,7 @@ export default function UnscramblerPhotos() {
         currentCredits={userCredits}
         file={selectedFile}
         fileName={selectedFile?.name || ''}
+        user={userData}
         isProcessing={false}
       />
     </Container>

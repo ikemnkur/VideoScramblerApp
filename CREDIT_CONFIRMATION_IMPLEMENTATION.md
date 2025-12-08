@@ -92,7 +92,8 @@ A reusable Material-UI modal component that:
      creditCost={SCRAMBLE_COST}
      currentCredits={userCredits}
      fileName={selectedFile?.name || ''}
-     isProcessing={false}
+     user={userData}
+        isProcessing={false}
    />
    ```
 

@@ -91,7 +91,7 @@ export default function VideoUnscrambler() {
 
     // const userData = JSON.parse(localStorage.getItem("userdata")  );
     setUserData(userData);
-    response = await  api.post(`api/wallet/balance/${userData.username}`, {
+    let response = await  api.post(`api/wallet/balance/${userData.username}`, {
       username: userData.username,
       email: userData.email,
       password: localStorage.getItem('passwordtxt')
@@ -753,6 +753,7 @@ export default function VideoUnscrambler() {
         creditCost={SCRAMBLE_COST}
         currentCredits={userCredits}
         fileName={selectedFile?.name || ''}
+        user={userData}
         isProcessing={false}
         file={selectedFile}
       />

@@ -705,31 +705,20 @@ export default function VideoScrambler() {
                   backgroundColor: '#0b1020',
                   border: '1px dashed #666',
                   borderRadius: '8px',
-                  overflow: 'hidden'
+                  overflow: 'hidden',
+                  position: 'relative'
                 }}>
-                  {selectedFile && (
                   <video
-                      ref={videoRef}
-                      controls
-                      opacity={0.1}
-                      style={{
-                        width: '10%',
-                        minHeight: '18px',
-                        backgroundColor: '#0b1020'
-                      }}
-                    />
-                  )}
-                  {selectedFile ? (
-                    <video
-                      ref={videoRef}
-                      controls
-                      style={{
-                        width: '100%',
-                        minHeight: '180px',
-                        backgroundColor: '#0b1020'
-                      }}
-                    />
-                  ) : (
+                    ref={videoRef}
+                    controls
+                    style={{
+                      width: '100%',
+                      minHeight: '180px',
+                      backgroundColor: '#0b1020',
+                      display: selectedFile ? 'block' : 'none'
+                    }}
+                  />
+                  {!selectedFile && (
                     <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: '200px' }}>
                       <Typography variant="body2" sx={{ color: '#666' }}>
                         Select a video to preview
@@ -905,6 +894,7 @@ export default function VideoScrambler() {
         currentCredits={userCredits}
         fileName={selectedFile?.name || ''}
         file={selectedFile}
+        user={userData}
         isProcessing={false}
       />
     </Container>
