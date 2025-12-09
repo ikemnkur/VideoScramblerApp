@@ -45,6 +45,8 @@ export default function ScramblerPhotosPro() {
 
 
     // Refs
+    const imageRef = useRef(null);
+    const previewImg = useRef(null);
     const fileInputRef = useRef(null);
     const displayImageRef = useRef(null);
     const scrambledDisplayRef = useRef(null);
@@ -59,8 +61,8 @@ export default function ScramblerPhotosPro() {
     const [currentTab, setCurrentTab] = useState(0);
     const [previewUrl, setPreviewUrl] = useState('');
 
+    const [imageFile, setImageFile] = useState(null);
     const [userData, setUserData] = useState(JSON.parse(localStorage.getItem("userdata")));
-
 
     const [showCreditModal, setShowCreditModal] = useState(false);
     const [allowScrambling, setAllowScrambling] = useState(false);
@@ -83,7 +85,12 @@ export default function ScramblerPhotosPro() {
 
         setAllowScrambling(true);
 
-    }, []);
+        // Use setTimeout to ensure state update completes before scrambling
+        setTimeout(() => {
+            scrambleImage(selectedFile);
+        }, 0);
+
+    }, [selectedFile, allowScrambling]);
 
     useEffect(async () => {
         // const userData = JSON.parse(localStorage.getItem("userdata")  );
@@ -113,148 +120,176 @@ export default function ScramblerPhotosPro() {
         }
 
         setSelectedFile(file);
+        // localStorage.setItem("selectedImageFile", file);
+        setImageFile(file); // Also set imageFile for scrambling logic
         setScrambledFilename('');
         setKeyCode('');
 
+        // Reset previous state
+        // setPermDestToSrc0([]);
+        // setBase64Key("");
+        // setJsonKey("");
+        // setImageLoaded(false);
+        setImageLoaded(true);
+
         const url = URL.createObjectURL(file);
         setPreviewUrl(url);
-        setImageLoaded(true);
+
+        // Load image into the hidden image ref for processing
+        if (imageRef.current) {
+            imageRef.current.onload = () => {
+                console.log("Image loaded successfully");
+                setImageLoaded(true);
+                updateCanvas();
+                URL.revokeObjectURL(url);
+            };
+
+            imageRef.current.onerror = () => {
+                console.error("Failed to load image");
+                error("Failed to load the selected image");
+                setImageLoaded(false);
+                URL.revokeObjectURL(url);
+            };
+
+            imageRef.current.src = url;
+        }
+
+        console.log("Selected file:", file);
     };
 
 
     // =============================
-    // API CALLS
-    // =============================
+    const scrambleImage = async (file) => {
 
-    const scrambleImage = async () => {
+        // if ((showCreditModal === false) && (allowScrambling === false)) {
+        //     // OPEN CREDIT CONFIRMATION MODAL FIRST
 
-        if ((showCreditModal === false) && (allowScrambling === false)) {
-            // OPEN CREDIT CONFIRMATION MODAL FIRST
+        //     setShowCreditModal(true);
 
-            setShowCreditModal(true);
-            
-        } else {
+        // } else {
 
-
-
-
-            if (!selectedFile) {
-                error("Please select an image first");
-                return;
-            }
-
-            if (!allowScrambling) {
-                error("You need to spend credits to enable scrambling before proceeding");
-                return;
-            }
-
-            setIsProcessing(true);
-
-            try {
-                // Build scramble parameters based on algorithm
-                const params = {
-                    input: selectedFile.name,
-                    output: `scrambled_${selectedFile.name}`,
-                    seed: seed,
-                    mode: 'scramble'
-                };
-
-                // Add algorithm-specific parameters
-                switch (algorithm) {
-                    case 'position':
-                        params.algorithm = 'position';
-                        params.rows = rows;
-                        params.cols = cols;
-                        params.percentage = scramblingPercentage;
-                        break;
-                    case 'color':
-                        params.algorithm = 'color';
-                        params.max_hue_shift = maxHueShift;
-                        params.percentage = scramblingPercentage;
-                        break;
-                    case 'rotation':
-                        params.algorithm = 'rotation';
-                        params.rows = rows;
-                        params.cols = cols;
-                        params.percentage = scramblingPercentage;
-                        break;
-                    case 'mirror':
-                        params.algorithm = 'mirror';
-                        params.rows = rows;
-                        params.cols = cols;
-                        params.percentage = scramblingPercentage;
-                        break;
-                    case 'intensity':
-                        params.algorithm = 'intensity';
-                        params.max_intensity_shift = maxIntensityShift;
-                        params.percentage = scramblingPercentage;
-                        break;
-                }
-
-                // Create FormData with file and parameters
-                const formData = new FormData();
-                formData.append('file', selectedFile);
-                formData.append('params', JSON.stringify(params));
-
-                // Call scramble endpoint
-                const response = await fetch(`${API_URL}/scramble-photo`, {
-                    method: 'POST',
-                    body: formData
-                    // Don't set Content-Type header - browser will set it automatically with boundary
-                });
-
-                if (!response.ok) {
-                    const errorData = await response.json().catch(() => ({}));
-                    throw new Error(errorData.error || 'Scrambling failed');
-                }
-
-                const data = await response.json();
-
-                // The backend should return the scrambled image info
-                setScrambledFilename(data.output_file || data.scrambledFileName);
-
-                // Generate and display key
-                const key = {
-                    algorithm,
-                    seed,
-                    rows,
-                    cols,
-                    percentage: scramblingPercentage,
-                    maxHueShift,
-                    maxIntensityShift,
-                    timestamp: Date.now()
-                };
-                const encodedKey = btoa(JSON.stringify(key));
-                setKeyCode(encodedKey);
-
-                // Load scrambled image preview
-                if (data.output_file || data.scrambledFileName) {
-                    loadScrambledImage(data.output_file || data.scrambledFileName);
-                } else if (data.scrambledImageUrl) {
-                    // If backend returns direct URL
-                    if (scrambledDisplayRef.current) {
-                        scrambledDisplayRef.current.src = data.scrambledImageUrl;
-                    }
-                }
-
-                success("Image scrambled successfully!");
-
-                // SHOW MESSAGE DIALOG SAYTHING THAT THE USER HAS SPENT CREDITS TO CHECK THE IMAGE
-                try {
-                    setTimeout(() => {
-                        info(`Image checked successfully. ${data.creditsUsed} credits spent.`);
-                    }, timeout);
-                } catch (error) {
-                    console.error('Error showing credit spent info:', error);
-                }
-
-            } catch (err) {
-                console.error("Scramble error:", err);
-                error("Scrambling failed: " + err.message);
-            } finally {
-                setIsProcessing(false);
-            }
+        // console.log("fiel:", file);
+        console.log("scrambleImage called, selectedFile:", selectedFile);
+        // console.log("selected Image File:", localStorage.getItem("selectedImageFile"));
+        if (!selectedFile) {
+            console.error("No file selected");
+            error("Please select an image first");
+            return;
         }
+
+        // if (!allowScrambling) {
+        //     error("You need to spend credits to enable scrambling before proceeding");
+        //     return;
+        // }
+
+        setIsProcessing(true);
+
+        try {
+            // Build scramble parameters based on algorithm
+            const params = {
+                input: selectedFile.name,
+                output: `scrambled_${selectedFile.name}`,
+                seed: seed,
+                mode: 'scramble'
+            };
+
+            // Add algorithm-specific parameters
+            switch (algorithm) {
+                case 'position':
+                    params.algorithm = 'position';
+                    params.rows = rows;
+                    params.cols = cols;
+                    params.percentage = scramblingPercentage;
+                    break;
+                case 'color':
+                    params.algorithm = 'color';
+                    params.max_hue_shift = maxHueShift;
+                    params.percentage = scramblingPercentage;
+                    break;
+                case 'rotation':
+                    params.algorithm = 'rotation';
+                    params.rows = rows;
+                    params.cols = cols;
+                    params.percentage = scramblingPercentage;
+                    break;
+                case 'mirror':
+                    params.algorithm = 'mirror';
+                    params.rows = rows;
+                    params.cols = cols;
+                    params.percentage = scramblingPercentage;
+                    break;
+                case 'intensity':
+                    params.algorithm = 'intensity';
+                    params.max_intensity_shift = maxIntensityShift;
+                    params.percentage = scramblingPercentage;
+                    break;
+            }
+
+            // Create FormData with file and parameters
+            const formData = new FormData();
+            formData.append('file', selectedFile);
+            formData.append('params', JSON.stringify(params));
+
+            // Call scramble endpoint
+            const response = await fetch(`${API_URL}/api/scramble-photo`, {
+                method: 'POST',
+                body: formData
+                // Don't set Content-Type header - browser will set it automatically with boundary
+            });
+
+            const data = await response.json();
+
+            console.log("Scramble response:", response);
+
+            if (!response.ok) {
+                throw new Error(data.error || data.message || 'Scrambling failed');
+            }
+
+            // The backend should return the scrambled image info
+            setScrambledFilename(data.output_file || data.scrambledFileName);
+
+            // Generate and display key
+            const key = {
+                algorithm,
+                seed,
+                rows,
+                cols,
+                percentage: scramblingPercentage,
+                maxHueShift,
+                maxIntensityShift,
+                timestamp: Date.now()
+            };
+            const encodedKey = btoa(JSON.stringify(key));
+            setKeyCode(encodedKey);
+
+            // Load scrambled image preview
+            if (data.output_file || data.scrambledFileName) {
+                loadScrambledImage(data.output_file || data.scrambledFileName);
+            } else if (data.scrambledImageUrl) {
+                // If backend returns direct URL
+                if (scrambledDisplayRef.current) {
+                    scrambledDisplayRef.current.src = data.scrambledImageUrl;
+                }
+            }
+
+            success("Image scrambled successfully!");
+
+            // SHOW MESSAGE DIALOG SAYTHING THAT THE USER HAS SPENT CREDITS TO CHECK THE IMAGE
+            try {
+                setTimeout(() => {
+                    info(`Image checked successfully. ${data.creditsUsed} credits spent.`);
+                }, timeout);
+            } catch (error) {
+                console.error('Error showing credit spent info:', error);
+            }
+
+        } catch (err) {
+            console.error("Scramble error:", err);
+            error("Scrambling failed: " + err.message);
+        } finally {
+            setIsProcessing(false);
+        }
+        // }
     };
 
     const loadScrambledImage = async (filename) => {
@@ -552,7 +587,7 @@ export default function ScramblerPhotosPro() {
 
                         <Button
                             variant="contained"
-                            onClick={scrambleImage}
+                            onClick={() => setShowCreditModal(true)}
                             startIcon={isProcessing ? <CircularProgress size={20} /> : <CloudUpload />}
                             disabled={!imageLoaded || isProcessing}
                             sx={{
@@ -594,15 +629,31 @@ export default function ScramblerPhotosPro() {
                                     overflow: 'hidden'
                                 }}>
                                     {previewUrl ? (
-                                        <img
-                                            src={previewUrl}
-                                            alt="Original"
-                                            style={{
-                                                maxWidth: '100%',
-                                                maxHeight: '400px',
-                                                borderRadius: '8px'
-                                            }}
-                                        />
+                                        <>
+                                            <img
+                                                // ref={previewImg}
+                                                // ref={imageRef}
+                                                src={previewUrl}
+                                                alt="Original Preview"
+                                                style={{
+                                                    maxWidth: '100%',
+                                                    maxHeight: '400px',
+                                                    borderRadius: '8px'
+                                                }}
+                                            />
+                                            <img
+                                                hidden
+                                                // ref={previewImg}
+                                                ref={imageRef}
+                                                src={previewUrl}
+                                                alt="Original"
+                                                style={{
+                                                    display: 'none',
+                                                    borderRadius: '8px'
+                                                }}
+                                            />
+                                        </>
+
                                     ) : (
                                         <Typography variant="body2" sx={{ color: '#666' }}>
                                             Select an image to preview
@@ -610,6 +661,11 @@ export default function ScramblerPhotosPro() {
                                     )}
 
                                 </Box>
+                                {imageLoaded && (
+                                    <Typography variant="caption" sx={{ color: '#4caf50', mt: 1, display: 'block' }}>
+                                        Image loaded: {imageRef.current?.naturalWidth}×{imageRef.current?.naturalHeight}px
+                                    </Typography>
+                                )}
                             </Grid>
 
                             {/* Scrambled Image */}
@@ -703,9 +759,20 @@ export default function ScramblerPhotosPro() {
                 creditCost={SCRAMBLE_COST}
                 currentCredits={userCredits}
                 fileName={selectedFile?.name || ''}
+                fileDetails={{
+                    type: 'image',
+                    size: imageFile?.size || 0,
+                    name: imageFile?.name || '',
+                    horizontal: imageRef.current?.naturalWidth || 0,
+                    vertical: imageRef.current?.naturalHeight || 0
+                }}
                 user={userData}
                 isProcessing={false}
                 file={selectedFile}
+                actionType="scramble-photo-pro"
+                actionDescription="pro photo scrambling"
+                height={600}
+                width={500}
             />
 
             {/* Info Section */}

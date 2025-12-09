@@ -31,7 +31,7 @@ import { useToast } from '../contexts/ToastContext';
 //   currentCredits={userCredits}
 //   fileName={imageFile?.name || ''}
 //   isProcessing={isProcessing}
-//   selectedFile={imageFile}
+//   file={imageFile}
 //   fileDetails={{
 //     type: 'image',
 //     size: imageFile?.size || 0,
@@ -60,7 +60,9 @@ export default function CreditConfirmationModal({
     vertical: 0,
     duration: 0
   },
-  selectedFile,
+  file,
+  actionType = '',
+  actionDescription = '',
   user
 }) {
   const { success, error } = useToast();
@@ -91,15 +93,15 @@ export default function CreditConfirmationModal({
 
   const spendCredits = async () => {
 
-    if (!selectedFile) {
+    if (!file) {
       error("Please select a file first");
       return null;
     }
 
-    alert('Spending ' + totalCost + ' credits to scramble ' + (selectedFile?.name || 'untitled'));
+    alert('Spending ' + totalCost + ' credits to scramble ' + (file?.name || 'untitled'));
 
     try {
-      
+
       console.log('Attempting to spend credits:', {
         username: user.username,
         cost: totalCost,
@@ -111,231 +113,230 @@ export default function CreditConfirmationModal({
         cost: totalCost,
         mediaType,
         action: {
-          type: 'scramble',
+          type: actionType,
           cost: totalCost,
-          description: `Scrambling ${mediaType}: ${selectedFile?.name || 'untitled'}`
+          description: actionDescription
         }
       });
 
-    
 
-    console.log('Response status:', response.status);
 
-    if (!response.ok) {
-      const errorData = await response.json().catch(() => ({}));
-      console.error('Credit spending failed:', errorData);
-      throw new Error(errorData.message || 'Credit spending failed');
+      console.log('Response status:', response.status);
+
+      if (response.status !== 200) {
+        console.error('Credit spending failed:', response.data);
+        throw new Error(response.data?.message || 'Credit spending failed');
+      }
+
+      const data = response.data;
+      console.log('Credits spent successfully:', data);
+
+      success(`Successfully spent ${totalCost} credits!`);
+
+      // Update local credits state
+      setUserCredits(data.credits);
+
+      return data;
+    } catch (err) {
+      console.error('SpendCredits error:', err);
+      error("Failed to process credits: " + err.message);
+      return null;
     }
+  };
 
-    const data = await response.json();
-    console.log('Credits spent successfully:', data);
+  useEffect(() => {
+    // Calculate cost based on fileDetails
+    let calculatedCost = creditCost;
 
-    success(`Successfully spent ${totalCost} credits!`);
-
-    // Update local credits state
-    setUserCredits(data.credits);
-
-    return data;
-  } catch (err) {
-    console.error('SpendCredits error:', err);
-    error("Failed to process credits: " + err.message);
-    return null;
-  }
-};
-
-useEffect(() => {
-  // Calculate cost based on fileDetails
-  let calculatedCost = creditCost;
-
-  if (!fileDetails || (!fileDetails.horizontal && !fileDetails.vertical)) {
-    // No file details available, use base cost
-    setTotalCost(creditCost);
-    setHasEnoughCredits(userCredits >= creditCost);
-    setRemainingCredits(userCredits - creditCost);
-    return () => {console.log('No file details available for cost calculation');};
-  } else {
-    // Handle the case where fileDetails is available but lacks horizontal and vertical properties
-  }
-
-  const LQ = 2;
-  const SDcharge = 3;
-  const HDcharge = 5;
-  const FHDCharge = 10;
-
-  if (mediaType === 'photo') {
-    // Calculate cost based on photo resolution from fileDetails
-    const width = fileDetails.horizontal;
-    const height = fileDetails.vertical;
-
-    console.log('Photo Dimensions:', width, 'x', height);
-    console.log('Photo Size:', fileDetails.size, 'bytes');
-
-    if (width >= 1920 && height >= 1080) {
-      calculatedCost = creditCost + FHDCharge;
-    } else if (width >= 1280 && height >= 720) {
-      calculatedCost = creditCost + HDcharge;
-    } else if (width >= 854 && height >= 480) {
-      calculatedCost = creditCost + SDcharge;
+    if (!fileDetails || (!fileDetails.horizontal && !fileDetails.vertical)) {
+      // No file details available, use base cost
+      setTotalCost(creditCost);
+      setHasEnoughCredits(userCredits >= creditCost);
+      setRemainingCredits(userCredits - creditCost);
+      return () => { console.log('No file details available for cost calculation'); };
     } else {
-      calculatedCost = creditCost + LQ;
+      // Handle the case where fileDetails is available but lacks horizontal and vertical properties
     }
 
-    console.log('Calculated Photo Cost:', calculatedCost);
+    const LQ = 2;
+    const SDcharge = 3;
+    const HDcharge = 5;
+    const FHDCharge = 10;
 
-  } else if (mediaType === 'video') {
-    // Calculate cost based on video resolution and duration from fileDetails
-    const width = fileDetails.horizontal;
-    const height = fileDetails.vertical;
-    const duration = Math.ceil((fileDetails.duration || 0) / 60); // duration in minutes
+    if (mediaType === 'photo') {
+      // Calculate cost based on photo resolution from fileDetails
+      const width = fileDetails.horizontal;
+      const height = fileDetails.vertical;
 
-    console.log('Video Duration:', fileDetails.duration, 'seconds (', duration, 'minutes)');
-    console.log('Video Resolution:', width, 'x', height);
-    console.log('Video Size:', fileDetails.size, 'bytes');
+      console.log('Photo Dimensions:', width, 'x', height);
+      console.log('Photo Size:', fileDetails.size, 'bytes');
 
-    let resolutionCost = LQ;
-    if (width >= 1920 && height >= 1080) {
-      resolutionCost = FHDCharge;
-    } else if (width >= 1280 && height >= 720) {
-      resolutionCost = HDcharge;
-    } else if (width >= 854 && height >= 480) {
-      resolutionCost = SDcharge;
+      if (width >= 1920 && height >= 1080) {
+        calculatedCost = creditCost + FHDCharge;
+      } else if (width >= 1280 && height >= 720) {
+        calculatedCost = creditCost + HDcharge;
+      } else if (width >= 854 && height >= 480) {
+        calculatedCost = creditCost + SDcharge;
+      } else {
+        calculatedCost = creditCost + LQ;
+      }
+
+      console.log('Calculated Photo Cost:', calculatedCost);
+
+    } else if (mediaType === 'video') {
+      // Calculate cost based on video resolution and duration from fileDetails
+      const width = fileDetails.horizontal;
+      const height = fileDetails.vertical;
+      const duration = Math.ceil((fileDetails.duration || 0) / 60); // duration in minutes
+
+      console.log('Video Duration:', fileDetails.duration, 'seconds (', duration, 'minutes)');
+      console.log('Video Resolution:', width, 'x', height);
+      console.log('Video Size:', fileDetails.size, 'bytes');
+
+      let resolutionCost = LQ;
+      if (width >= 1920 && height >= 1080) {
+        resolutionCost = FHDCharge;
+      } else if (width >= 1280 && height >= 720) {
+        resolutionCost = HDcharge;
+      } else if (width >= 854 && height >= 480) {
+        resolutionCost = SDcharge;
+      }
+
+      calculatedCost = creditCost + (duration * resolutionCost);
+
+      console.log('Calculated Video Cost:', calculatedCost);
     }
 
-    calculatedCost = creditCost + (duration * resolutionCost);
+    setTotalCost(calculatedCost);
+    setHasEnoughCredits(userCredits >= calculatedCost);
+    setRemainingCredits(userCredits - calculatedCost);
 
-    console.log('Calculated Video Cost:', calculatedCost);
-  }
-
-  setTotalCost(calculatedCost);
-  setHasEnoughCredits(userCredits >= calculatedCost);
-  setRemainingCredits(userCredits - calculatedCost);
-
-}, [fileDetails, mediaType, creditCost, userCredits]);
+  }, [fileDetails, mediaType, creditCost, userCredits]);
 
 
 
-return (
-  <Dialog
-    open={open}
-    onClose={isProcessing ? null : onClose}
-    maxWidth="sm"
-    fullWidth
-  >
-    <DialogTitle sx={{
-      backgroundColor: '#424242',
-      color: 'white',
-      display: 'flex',
-      alignItems: 'center',
-      gap: 1,
-      // color: '#e8dd12ff'
-    }}>
-      <MonetizationOn />
-      Confirm Credit Usage
-    </DialogTitle>
-
-    <DialogContent sx={{ backgroundColor: '#171717ff', pt: 3 }}>
-      {/* File Info */}
-      <Box sx={{ mb: 2, py: 1 }}>
-        <Typography variant="body2" color="text.secondary" gutterBottom>
-          You are about to scramble:
-        </Typography>
-        <Typography variant="h6" sx={{ fontWeight: 'bold', color: '#424242' }}>
-          {fileName || `Untitled ${mediaType}`}
-          {/* list attributes of video or photo */}
-          <Typography variant="body2" color="text.secondary">
-            {mediaType === 'video'
-              ? `Duration: ${fileDetails.duration ?? 'Unknown'} | Resolution: ${fileDetails.horizontal}x${fileDetails.vertical} | Size: ${fileDetails.size ?? 'Unknown'}`
-              : `Dimensions: ${fileDetails.horizontal}x${fileDetails.vertical} | Size: ${Math.floor(fileDetails.size / 1000) ?? 'Unknown'} KB`}
-          </Typography>
-        </Typography>
-      </Box>
-
-      <Divider sx={{ my: 2 }} />
-
-      {/* Credit Breakdown */}
-      <Box sx={{ mb: 2 }}>
-        <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1 }}>
-          <Typography variant="body1">Current Credits:</Typography>
-          <Chip
-            label={`${userCredits} credits`}
-            color="primary"
-            size="small"
-          />
-        </Box>
-
-        <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1 }}>
-          <Typography variant="body1">Scrambling Cost:</Typography>
-          <Chip
-            label={`-${totalCost} credits`}
-            color="warning"
-            size="small"
-          />
-        </Box>
-
-        <Divider sx={{ my: 1 }} />
-
-        <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
-          <Typography variant="body1" sx={{ fontWeight: 'bold' }}>
-            Remaining Credits:
-          </Typography>
-          <Chip
-            label={`${remainingCredits} credits`}
-            color={hasEnoughCredits ? 'success' : 'error'}
-            size="small"
-            sx={{ fontWeight: 'bold' }}
-          />
-        </Box>
-      </Box>
-
-      {/* Warnings */}
-      {!hasEnoughCredits ? (
-        <Alert severity="error" icon={<Warning />} sx={{ mb: 2 }}>
-          <strong>Insufficient Credits!</strong> You need {totalCost - userCredits} more credits to scramble this {mediaType}.
-        </Alert>
-      ) : remainingCredits < 10 && (
-        <Alert severity="warning" icon={<Info />} sx={{ mb: 2 }}>
-          <strong>Low Credits Warning:</strong> You'll have only {remainingCredits} credits remaining. Consider purchasing more credits soon.
-        </Alert>
-      )}
-
-      {/* Info Box */}
-      <Box sx={{
-        backgroundColor: '#e3f2fd',
-        p: 2,
-        borderRadius: 1,
-        border: '1px solid #2196f3'
+  return (
+    <Dialog
+      open={open}
+      onClose={isProcessing ? null : onClose}
+      maxWidth="sm"
+      fullWidth
+    >
+      <DialogTitle sx={{
+        backgroundColor: '#424242',
+        color: 'white',
+        display: 'flex',
+        alignItems: 'center',
+        gap: 1,
+        // color: '#e8dd12ff'
       }}>
-        <Typography variant="body2" color="black">
-          💡 <strong>What happens next:</strong> Your {mediaType} will be scrambled using our secure algorithm.
-          Credits will be deducted only after successful processing.
-        </Typography>
-      </Box>
-    </DialogContent>
+        <MonetizationOn />
+        Confirm Credit Usage
+      </DialogTitle>
 
-    <DialogActions sx={{ backgroundColor: '#f5f5f5', p: 2 }}>
-      <Button
-        onClick={onClose}
-        disabled={isProcessing}
-        sx={{ color: '#666' }}
-      >
-        Cancel
-      </Button>
-      <Button
-        onClick={async () => { await spendCredits(); onConfirm(); alert('Credits spent and scrambling started!'); }}
-        variant="contained"
-        disabled={!hasEnoughCredits || isProcessing}
-        sx={{
-          backgroundColor: hasEnoughCredits ? '#22d3ee' : '#666',
-          color: hasEnoughCredits ? '#001018' : '#999',
-          fontWeight: 'bold',
-          '&:hover': {
-            backgroundColor: hasEnoughCredits ? '#1cb5d0' : '#666'
-          }
-        }}
-      >
-        {isProcessing ? 'Processing...' : `Spend ${totalCost} Credits & Scramble`}
-      </Button>
-    </DialogActions>
-  </Dialog>
-);
+      <DialogContent sx={{ backgroundColor: '#171717ff', pt: 3 }}>
+        {/* File Info */}
+        <Box sx={{ mb: 2, py: 1 }}>
+          <Typography variant="body2" color="text.secondary" gutterBottom>
+            You are about to scramble:
+          </Typography>
+          <Typography variant="h6" sx={{ fontWeight: 'bold', color: '#424242' }}>
+            {fileName || `Untitled ${mediaType}`}
+            {/* list attributes of video or photo */}
+            <Typography variant="body2" color="text.secondary">
+              {mediaType === 'video'
+                ? `Duration: ${fileDetails.duration ?? 'Unknown'} | Resolution: ${fileDetails.horizontal}x${fileDetails.vertical} | Size: ${fileDetails.size ?? 'Unknown'}`
+                : `Dimensions: ${fileDetails.horizontal}x${fileDetails.vertical} | Size: ${Math.floor(fileDetails.size / 1000) ?? 'Unknown'} KB`}
+            </Typography>
+          </Typography>
+        </Box>
+
+        <Divider sx={{ my: 2 }} />
+
+        {/* Credit Breakdown */}
+        <Box sx={{ mb: 2 }}>
+          <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1 }}>
+            <Typography variant="body1">Current Credits:</Typography>
+            <Chip
+              label={`${userCredits} credits`}
+              color="primary"
+              size="small"
+            />
+          </Box>
+
+          <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1 }}>
+            <Typography variant="body1">Scrambling Cost:</Typography>
+            <Chip
+              label={`-${totalCost} credits`}
+              color="warning"
+              size="small"
+            />
+          </Box>
+
+          <Divider sx={{ my: 1 }} />
+
+          <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
+            <Typography variant="body1" sx={{ fontWeight: 'bold' }}>
+              Remaining Credits:
+            </Typography>
+            <Chip
+              label={`${remainingCredits} credits`}
+              color={hasEnoughCredits ? 'success' : 'error'}
+              size="small"
+              sx={{ fontWeight: 'bold' }}
+            />
+          </Box>
+        </Box>
+
+        {/* Warnings */}
+        {!hasEnoughCredits ? (
+          <Alert severity="error" icon={<Warning />} sx={{ mb: 2 }}>
+            <strong>Insufficient Credits!</strong> You need {totalCost - userCredits} more credits to scramble this {mediaType}.
+          </Alert>
+        ) : remainingCredits < 10 && (
+          <Alert severity="warning" icon={<Info />} sx={{ mb: 2 }}>
+            <strong>Low Credits Warning:</strong> You'll have only {remainingCredits} credits remaining. Consider purchasing more credits soon.
+          </Alert>
+        )}
+
+        {/* Info Box */}
+        <Box sx={{
+          backgroundColor: '#e3f2fd',
+          p: 2,
+          borderRadius: 1,
+          border: '1px solid #2196f3'
+        }}>
+          <Typography variant="body2" color="black">
+            💡 <strong>What happens next:</strong> Your {mediaType} will be scrambled using our secure algorithm.
+            Credits will be deducted only after successful processing.
+          </Typography>
+        </Box>
+      </DialogContent>
+
+      <DialogActions sx={{ backgroundColor: '#f5f5f5', p: 2 }}>
+        <Button
+          onClick={onClose}
+          disabled={isProcessing}
+          sx={{ color: '#666' }}
+        >
+          Cancel
+        </Button>
+        <Button
+          onClick={async () => { await spendCredits(); onConfirm(); alert('Credits spent and scrambling started!'); }}
+          variant="contained"
+          disabled={!hasEnoughCredits || isProcessing}
+          sx={{
+            backgroundColor: hasEnoughCredits ? '#22d3ee' : '#666',
+            color: hasEnoughCredits ? '#001018' : '#999',
+            fontWeight: 'bold',
+            '&:hover': {
+              backgroundColor: hasEnoughCredits ? '#1cb5d0' : '#666'
+            }
+          }}
+        >
+          {isProcessing ? 'Processing...' : `Spend ${totalCost} Credits & Scramble`}
+        </Button>
+      </DialogActions>
+    </Dialog>
+  );
 }

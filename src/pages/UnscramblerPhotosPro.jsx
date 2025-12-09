@@ -255,7 +255,7 @@ export default function UnscramblerPhotosPro() {
 
         // const userData = JSON.parse(localStorage.getItem("userdata")  );
         // setUserdata(userData);
-        response = await  api.post(`api/wallet/balance/${userData.username}`, {
+        response = await api.post(`api/wallet/balance/${userData.username}`, {
             username: userData.username,
             email: userData.email,
             password: localStorage.getItem('passwordtxt')
@@ -561,7 +561,18 @@ export default function UnscramblerPhotosPro() {
                 fileName={selectedFile?.name || ''}
                 file={selectedFile}
                 user={userData}
-        isProcessing={false}
+                isProcessing={false}
+                fileDetails={{
+                    type: 'image',
+                    size: imageFile?.size || 0,
+                    name: imageFile?.name || '',
+                    horizontal: imageRef.current?.naturalWidth || 0,
+                    vertical: imageRef.current?.naturalHeight || 0
+                }}
+
+
+                actionType="unscramble-photo-pro"
+                actionDescription="pro level photo unscrambling"
             />
         </Container>
     );

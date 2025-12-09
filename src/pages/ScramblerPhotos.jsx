@@ -937,6 +937,7 @@ export default function ScramblerPhotos() {
           vertical: imageRef.current?.naturalHeight || 0
         }}
         user={userData}
+        actionType="scramble-photo"
       />
     </Container>
   );

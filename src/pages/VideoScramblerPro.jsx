@@ -106,8 +106,8 @@ export default function ScramblerPhotosPro() {
 
   useEffect(async () => {
 
-    const userData = JSON.parse(localStorage.getItem("userdata")  );
-    let response = await  api.post(`api/wallet/balance/${userData.username}`, {
+    const userData = JSON.parse(localStorage.getItem("userdata"));
+    let response = await api.post(`api/wallet/balance/${userData.username}`, {
       username: userData.username,
       email: userData.email,
       password: localStorage.getItem('passwordtxt')
@@ -705,8 +705,17 @@ export default function ScramblerPhotosPro() {
         currentCredits={userCredits}
         fileName={selectedFile?.name || ''}
         file={selectedFile}
+        fileDetails={{
+          type: 'video',
+          size: selectedFile?.size || 0,
+          name: selectedFile?.name || '',
+          horizontal: videoRef.current?.videoWidth || 0,
+          vertical: videoRef.current?.videoHeight || 0
+        }}
         user={userData}
         isProcessing={false}
+        actionType="scramble-video-pro"
+        actionDescription="pro level video scrambling"
       />
 
       {/* Info Section */}

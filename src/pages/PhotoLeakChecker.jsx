@@ -109,7 +109,7 @@ export default function PhotoLeakChecker() {
   };
 
   useEffect(async () => {
-    response = await  api.post(`api/wallet/balance/${userData.username}`, {
+    response = await api.post(`api/wallet/balance/${userData.username}`, {
       username: userData.username,
       email: userData.email,
       password: localStorage.getItem('passwordtxt')
@@ -246,6 +246,15 @@ export default function PhotoLeakChecker() {
         user={userData}
         isProcessing={false}
         file={selectedFile}
+        fileDetails={{
+          type: 'image',
+          size: imageFile?.size || 0,
+          name: imageFile?.name || '',
+          horizontal: imageRef.current?.naturalWidth || 0,
+          vertical: imageRef.current?.naturalHeight || 0
+        }}
+        actionType="photo-leak-check"
+        actionDescription="photo leak detection"
       />
     </Container>
   );

@@ -225,9 +225,9 @@ export default function UnscramblerPhotos() {
 
   useEffect(async () => {
     // setUserData([]);
-    const userData = JSON.parse(localStorage.getItem("userdata")  );
+    const userData = JSON.parse(localStorage.getItem("userdata"));
     setUserData(userData);
-    const response = await  api.post(`api/wallet/balance/${userData.username}`, {
+    const response = await api.post(`api/wallet/balance/${userData.username}`, {
       username: userData.username,
       email: userData.email,
       password: localStorage.getItem('passwordtxt')
@@ -796,6 +796,15 @@ export default function UnscramblerPhotos() {
         file={selectedFile}
         user={userData}
         isProcessing={false}
+        fileDetails={{
+          type: 'image',
+          size: imageFile?.size || 0,
+          name: imageFile?.name || '',
+          horizontal: imageRef.current?.naturalWidth || 0,
+          vertical: imageRef.current?.naturalHeight || 0
+        }}
+        actionType="unscramble-photo"
+        actionDescription="basic photo unscrambling"
       />
     </Container>
   );

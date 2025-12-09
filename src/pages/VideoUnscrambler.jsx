@@ -756,6 +756,15 @@ export default function VideoUnscrambler() {
         user={userData}
         isProcessing={false}
         file={selectedFile}
+        fileDetails={{
+          type: 'video',
+          size: selectedFile?.size || 0,
+          name: selectedFile?.name || '',
+          horizontal: videoRef.current?.videoWidth || 0,
+          vertical: videoRef.current?.videoHeight || 0
+        }}
+        actionType="unscramble-video-free"
+        actionDescription="free video unscrambling"
       />
     </Container>
   );

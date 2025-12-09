@@ -695,6 +695,17 @@ export default function UnscramblerPhotos() {
         fileName={selectedFile?.name || ''}
         user={userData}
         isProcessing={false}
+        
+        fileDetails={{
+          type: 'video',
+          size: selectedFile?.size || 0,
+          name: selectedFile?.name || '',
+          horizontal: videoRef.current?.videoWidth || 0,
+          vertical: videoRef.current?.videoHeight || 0
+        }}
+       
+        actionType="unscramble-video-pro"
+        actionDescription="pro video unscrambling"
       />
     </Container>
   );
