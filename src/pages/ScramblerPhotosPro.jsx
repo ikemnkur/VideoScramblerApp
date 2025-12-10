@@ -80,18 +80,6 @@ export default function ScramblerPhotosPro() {
     const [maxHueShift, setMaxHueShift] = useState(64);
     const [maxIntensityShift, setMaxIntensityShift] = useState(128);
 
-    const handleCreditConfirm = useCallback(() => {
-        setShowCreditModal(false);
-
-        setAllowScrambling(true);
-
-        // Use setTimeout to ensure state update completes before scrambling
-        setTimeout(() => {
-            scrambleImage(selectedFile);
-        }, 0);
-
-    }, [selectedFile, allowScrambling]);
-
     useEffect(async () => {
         // const userData = JSON.parse(localStorage.getItem("userdata")  );
         setUserData(userData);
@@ -105,6 +93,20 @@ export default function ScramblerPhotosPro() {
             setUserCredits(response.data.credits);
         }
     }, []);
+
+    const handleCreditConfirm = useCallback(() => {
+        setShowCreditModal(false);
+
+        setAllowScrambling(true);
+
+        // Use setTimeout to ensure state update completes before scrambling
+        setTimeout(() => {
+            scrambleImage(selectedFile);
+        }, 0);
+
+    }, [selectedFile, allowScrambling]);
+
+
 
 
     // =============================
@@ -120,7 +122,6 @@ export default function ScramblerPhotosPro() {
         }
 
         setSelectedFile(file);
-        // localStorage.setItem("selectedImageFile", file);
         setImageFile(file); // Also set imageFile for scrambling logic
         setScrambledFilename('');
         setKeyCode('');
@@ -140,7 +141,7 @@ export default function ScramblerPhotosPro() {
             imageRef.current.onload = () => {
                 console.log("Image loaded successfully");
                 setImageLoaded(true);
-                updateCanvas();
+                // updateCanvas();
                 URL.revokeObjectURL(url);
             };
 

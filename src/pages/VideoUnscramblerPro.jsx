@@ -34,10 +34,12 @@ import api from '../api/client';
 
 export default function UnscramblerPhotos() {
   const API_URL = import.meta.env.VITE_API_SERVER_URL || 'http://localhost:3001'; // = 'http://localhost:3001/api';
+  const Flask_API_URL = 'http://localhost:5000/';
 
   const { success, error } = useToast();
 
   // Refs for image and canvas elements
+  const displayVideoRef = useRef(null);
   const scrambledImageRef = useRef(null);
   const displayScrambledRef = useRef(null);
   const unscrambleCanvasRef = useRef(null);
@@ -58,7 +60,7 @@ export default function UnscramblerPhotos() {
   const [unscrambledReady, setUnscrambledReady] = useState(false);
 
   const [userData, setUserData] = useState(null);
-  const [allowScrambling, setAllowScrambling] = useState(false);
+  const [allowUnscrambling, setAllowUnscrambling] = useState(false);
   const [showCreditModal, setShowCreditModal] = useState(false);
   const [userCredits, setUserCredits] = useState(0); // Mock credits, replace with actual user data
   const SCRAMBLE_COST = 15; // Cost to unscramble a video (less than video)
@@ -166,15 +168,19 @@ export default function UnscramblerPhotos() {
   const handleCreditConfirm = useCallback(() => {
     setShowCreditModal(false);
 
-    setAllowScrambling(true);
+    setAllowUnscrambling(true);
 
-  }, []);
+    setTimeout(() => {
+      scrambleVideo();
+    }, 50);
+
+  }, [selectedFile, allowUnscrambling]);
 
   useEffect(async () => {
 
-    const userData = JSON.parse(localStorage.getItem("userdata")  );
+    const userData = JSON.parse(localStorage.getItem("userdata"));
     setUserData(userData);
-    response = await  api.post(`api/wallet/balance/${userData.username}`, {
+    response = await api.post(`api/wallet/balance/${userData.username}`, {
       username: userData.username,
       email: userData.email,
       password: localStorage.getItem('passwordtxt')
@@ -197,7 +203,7 @@ export default function UnscramblerPhotos() {
   };
 
   const applyParameters = () => {
-    if (!allowScrambling) {
+    if (!allowUnscrambling) {
       error("You need to spend credits to enable scrambling before proceeding");
       return;
     }
@@ -317,27 +323,71 @@ export default function UnscramblerPhotos() {
     }
   };
 
-  const downloadUnscrambledImage = () => {
-    const canvas = modalCanvasRef.current || unscrambleCanvasRef.current;
-    if (!canvas) {
-      error('No unscrambled image to download');
+
+  const loadScrambledVideo = async (filename) => {
+    try {
+      const response = await fetch(`${Flask_API_URL}/download/${filename}`);
+      if (!response.ok) throw new Error('Failed to load scrambled video');
+
+      const blob = await response.blob();
+      const url = URL.createObjectURL(blob);
+
+      if (scrambledDisplayRef.current) {
+        scrambledDisplayRef.current.src = url;
+      }
+    } catch (err) {
+      error("Failed to load scrambled video: " + err.message);
+    }
+  };
+
+  const downloadUnscrambledVideo = async () => {
+    if (!scrambledFilename) {
+      error("Please scramble an video first");
       return;
     }
 
-    canvas.toBlob((blob) => {
-      if (blob) {
-        const url = URL.createObjectURL(blob);
-        const a = document.createElement('a');
-        a.href = url;
-        a.download = `unscrambled_${selectedFile?.name || 'image'}_${Date.now()}.png`;
-        document.body.appendChild(a);
-        a.click();
-        document.body.removeChild(a);
-        URL.revokeObjectURL(url);
-        success('Unscrambled image downloaded!');
-      }
-    }, 'image/png');
+    try {
+      const response = await fetch(`${Flask_API_URL}/download/${scrambledFilename}`);
+      if (!response.ok) throw new Error('Download failed');
+
+      const blob = await response.blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = scrambledFilename;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+
+      success("Scrambled video downloaded!");
+    } catch (err) {
+      error("Download failed: " + err.message);
+    }
   };
+
+
+  // const downloadUnscrambledImage = () => {
+  //   const canvas = modalCanvasRef.current || unscrambleCanvasRef.current;
+  //   if (!canvas) {
+  //     error('No unscrambled image to download');
+  //     return;
+  //   }
+
+  //   canvas.toBlob((blob) => {
+  //     if (blob) {
+  //       const url = URL.createObjectURL(blob);
+  //       const a = document.createElement('a');
+  //       a.href = url;
+  //       a.download = `unscrambled_${selectedFile?.name || 'image'}_${Date.now()}.png`;
+  //       document.body.appendChild(a);
+  //       a.click();
+  //       document.body.removeChild(a);
+  //       URL.revokeObjectURL(url);
+  //       success('Unscrambled image downloaded!');
+  //     }
+  //   }, 'image/png');
+  // };
 
   // ========== EFFECTS ==========
 
@@ -454,23 +504,13 @@ export default function UnscramblerPhotos() {
               </Button>
 
               <Button
-                variant="contained"
-                onClick={showFullImage}
-                startIcon={<Visibility />}
-                sx={{ backgroundColor: '#f57c00', color: 'white' }}
-                disabled={!unscrambledReady}
-              >
-                Step 3: View Full Image
-              </Button>
-
-              <Button
                 variant="outlined"
                 onClick={downloadUnscrambledImage}
                 startIcon={<Download />}
                 sx={{ borderColor: '#22d3ee', color: '#22d3ee' }}
                 disabled={!unscrambledReady}
               >
-                Download Unscrambled Image
+                Download Unscrambled Video
               </Button>
             </Box>
           </Box>
@@ -608,80 +648,65 @@ export default function UnscramblerPhotos() {
         </Box>
       </Modal>
 
-      {/* View Full Image Modal */}
-      <Modal open={showModal} onClose={() => setShowModal(false)}>
+      {/* Action Buttons */}
+      <Box sx={{ display: 'flex', gap: 2, flexWrap: 'wrap', mb: 3 }}>
+        <Button
+          variant="contained"
+          onClick={() => setShowCreditModal(true)}
+          startIcon={isProcessing ? <CircularProgress size={20} /> : <CloudUpload />}
+          disabled={!videoLoaded || isProcessing}
+          sx={{
+            backgroundColor: (!videoLoaded || isProcessing) ? '#666' : '#22d3ee',
+            color: (!videoLoaded || isProcessing) ? '#999' : '#001018',
+            fontWeight: 'bold'
+          }}
+        >
+          {isProcessing ? 'Processing...' : 'Unscramble on Server'}
+        </Button>
+
+        <Button
+          variant="contained"
+          onClick={downloadUnscrambledVideo}
+          startIcon={<Download />}
+          disabled={!scrambledFilename}
+          sx={{ backgroundColor: '#9c27b0', color: 'white' }}
+        >
+          Download Unscrambled Video
+        </Button>
+      </Box>
+
+      {/* Scrambled Video */}
+      <Grid item xs={12} md={6}>
+        <Typography variant="h6" sx={{ mb: 1, color: '#e0e0e0' }}>
+          Scrambled Video Preview
+        </Typography>
         <Box sx={{
-          position: 'absolute',
-          top: '50%',
-          left: '50%',
-          transform: 'translate(-50%, -50%)',
-          width: '90vw',
-          maxWidth: '1400px',
-          maxHeight: '90vh',
-          bgcolor: '#424242',
-          border: '2px solid #666',
-          borderRadius: 2,
-          p: 3,
+          minHeight: '200px',
+          backgroundColor: '#0b1020',
+          border: '1px dashed #666',
+          borderRadius: '8px',
           display: 'flex',
-          flexDirection: 'column',
-          overflow: 'auto'
+          alignItems: 'center',
+          justifyContent: 'center',
+          overflow: 'hidden'
         }}>
-          <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
-            <Typography variant="h5" sx={{ color: 'white' }}>
-              🖼️ Unscrambled Image (Full Resolution)
-            </Typography>
-            <IconButton onClick={() => setShowModal(false)} sx={{ color: 'white' }}>
-              <Close />
-            </IconButton>
-          </Box>
-
-          <Typography variant="body1" sx={{ mb: 2, color: '#e0e0e0' }}>
-            Here is your fully unscrambled image at original resolution. You can download it using the button below.
-          </Typography>
-
-          {/* Image Canvas */}
-          <Box sx={{
-            flexGrow: 1,
-            mb: 2,
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            backgroundColor: '#0b1020',
-            borderRadius: 2,
-            overflow: 'auto',
-            maxHeight: '70vh'
-          }}>
-            <canvas
-              ref={modalCanvasRef}
+          {scrambledFilename ? (
+            <video
+              ref={scrambledDisplayRef}
+              alt="Scrambled"
               style={{
                 maxWidth: '100%',
-                maxHeight: '100%',
-                borderRadius: '12px'
+                maxHeight: '400px',
+                borderRadius: '8px'
               }}
             />
-          </Box>
-
-          {/* Download Button */}
-          <Box sx={{ display: 'flex', gap: 2, justifyContent: 'center' }}>
-            <Button
-              variant="contained"
-              startIcon={<Download />}
-              onClick={downloadUnscrambledImage}
-              sx={{ backgroundColor: '#22d3ee', color: '#001018' }}
-            >
-              Download Full Resolution Image
-            </Button>
-
-            <Button
-              variant="outlined"
-              onClick={() => setShowModal(false)}
-              sx={{ borderColor: '#666', color: '#e0e0e0' }}
-            >
-              Close
-            </Button>
-          </Box>
+          ) : (
+            <Typography variant="body2" sx={{ color: '#666' }}>
+              Scrambled video will appear here
+            </Typography>
+          )}
         </Box>
-      </Modal>
+      </Grid>
 
       {/* Credit Confirmation Modal */}
       <CreditConfirmationModal
@@ -692,18 +717,17 @@ export default function UnscramblerPhotos() {
         creditCost={SCRAMBLE_COST}
         currentCredits={userCredits}
         file={selectedFile}
-        fileName={selectedFile?.name || ''}
-        user={userData}
-        isProcessing={false}
-        
+        fileName={selectedFile?.name || ''}       
         fileDetails={{
           type: 'video',
           size: selectedFile?.size || 0,
           name: selectedFile?.name || '',
-          horizontal: videoRef.current?.videoWidth || 0,
-          vertical: videoRef.current?.videoHeight || 0
+          horizontal: displayVideoRef.current?.videoWidth || 0,
+          vertical: displayVideoRef.current?.videoHeight || 0,
+          duration: displayVideoRef.current?.duration || 0
         }}
-       
+        user={userData}
+        isProcessing={false}
         actionType="unscramble-video-pro"
         actionDescription="pro video unscrambling"
       />

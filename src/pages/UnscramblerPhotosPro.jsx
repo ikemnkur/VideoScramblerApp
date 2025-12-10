@@ -2,7 +2,7 @@
 // Connects to Flask server on port 5000 for advanced unscrambling algorithms
 // Supports: Position, Color, Rotation, Mirror, and Intensity unscrambling
 
-import React, { useState, useRef, useCallback } from 'react';
+import React, { useState, useRef, useEffect, useCallback } from 'react';
 import {
     Container,
     Typography,
@@ -29,6 +29,7 @@ import {
     Error as ErrorIcon
 } from '@mui/icons-material';
 import { useToast } from '../contexts/ToastContext';
+import CreditConfirmationModal from '../components/CreditConfirmationModal';
 import api from '../api/client';
 
 const API_URL = import.meta.env.VITE_API_SERVER_URL || 'http://localhost:3001'; // = 'http://localhost:3001/api';
@@ -38,6 +39,8 @@ export default function UnscramblerPhotosPro() {
     const { success, error } = useToast();
 
     // Refs
+    const imageRef = useRef(null);
+    const previewImg = useRef(null);
     const fileInputRef = useRef(null);
     const scrambledDisplayRef = useRef(null);
     const unscrambledDisplayRef = useRef(null);
@@ -52,6 +55,8 @@ export default function UnscramblerPhotosPro() {
     const [keyValid, setKeyValid] = useState(false);
     const [previewUrl, setPreviewUrl] = useState('');
 
+    const [imageFile, setImageFile] = useState(null);
+
     const [userData, setUserData] = useState(JSON.parse(localStorage.getItem("userdata")));
 
     const [showCreditModal, setShowCreditModal] = useState(false);
@@ -60,12 +65,33 @@ export default function UnscramblerPhotosPro() {
     const SCRAMBLE_COST = 10; // Cost to scramble a photo (less than video)
 
 
+
+    useEffect(async () => {
+        // const userData = JSON.parse(localStorage.getItem("userdata")  );
+        setUserData(userData);
+        let response = await api.post(`api/wallet/balance/${userData.username}`, {
+            username: userData.username,
+            email: userData.email,
+            password: localStorage.getItem('passwordtxt')
+        });
+
+        if (response.status === 200 && response.data) {
+            setUserCredits(response.data.credits);
+        }
+    }, []);
+
     const handleCreditConfirm = useCallback(() => {
         setShowCreditModal(false);
 
         setAllowScrambling(true);
 
-    }, []);
+        // Use setTimeout to ensure state update completes before scrambling
+        setTimeout(() => {
+            unscrambleImage(selectedFile);
+        }, 0);
+
+    }, [selectedFile, allowScrambling]);
+
 
     // =============================
     // FILE HANDLING
@@ -80,12 +106,62 @@ export default function UnscramblerPhotosPro() {
         }
 
         setSelectedFile(file);
+        // localStorage.setItem("selectedImageFile", file);
+        setImageFile(file); // Also set imageFile for scrambling logic
         setUnscrambledFilename('');
+        setKeyCode('');
+
+        // Reset previous state
+        // setPermDestToSrc0([]);
+        // setBase64Key("");
+        // setJsonKey("");
+        // setImageLoaded(false);
+        setImageLoaded(true);
 
         const url = URL.createObjectURL(file);
         setPreviewUrl(url);
-        setImageLoaded(true);
+
+        // Load image into the hidden image ref for processing
+        if (imageRef.current) {
+            imageRef.current.onload = () => {
+                console.log("Image loaded successfully");
+                setImageLoaded(true);
+                // updateCanvas();
+                URL.revokeObjectURL(url);
+            };
+
+            imageRef.current.onerror = () => {
+                console.error("Failed to load image");
+                error("Failed to load the selected image");
+                setImageLoaded(false);
+                URL.revokeObjectURL(url);
+            };
+
+            imageRef.current.src = url;
+        }
+
+        console.log("Selected file:", file);
     };
+
+    // // =============================
+    // // FILE HANDLING
+    // // =============================
+    // const handleFileSelect = (event) => {
+    //     const file = event.target.files?.[0];
+    //     if (!file) return;
+
+    //     if (!file.type.startsWith('image/')) {
+    //         error("Please select a valid image file");
+    //         return;
+    //     }
+
+    //     setSelectedFile(file);
+    //     setUnscrambledFilename('');
+
+    //     const url = URL.createObjectURL(file);
+    //     setPreviewUrl(url);
+    //     setImageLoaded(true);
+    // };
 
     // =============================
     // KEY HANDLING
@@ -133,10 +209,10 @@ export default function UnscramblerPhotosPro() {
             return;
         }
 
-        if (!allowScrambling) {
-            error('You need to confirm credit usage before applying parameters.');
-            return;
-        }
+        // if (!allowScrambling) {
+        //     error('You need to confirm credit usage before applying parameters.');
+        //     return;
+        // }
 
 
 
@@ -165,7 +241,7 @@ export default function UnscramblerPhotosPro() {
             formData.append('params', JSON.stringify(params));
 
             // Call unscramble endpoint
-            const response = await fetch(`${API_URL}/unscramble-photo`, {
+            const response = await fetch(`${API_URL}/api/unscramble-photo`, {
                 method: 'POST',
                 body: formData
             });
@@ -255,7 +331,7 @@ export default function UnscramblerPhotosPro() {
 
         // const userData = JSON.parse(localStorage.getItem("userdata")  );
         // setUserdata(userData);
-        response = await api.post(`api/wallet/balance/${userData.username}`, {
+        let response = await api.post(`api/wallet/balance/${userData.username}`, {
             username: userData.username,
             email: userData.email,
             password: localStorage.getItem('passwordtxt')
@@ -426,7 +502,8 @@ export default function UnscramblerPhotosPro() {
                         <Box sx={{ display: 'flex', gap: 2, flexWrap: 'wrap' }}>
                             <Button
                                 variant="contained"
-                                onClick={unscrambleImage}
+                                // onClick={unscrambleImage}
+                                onClick={() => setShowCreditModal(true)}
                                 startIcon={isProcessing ? <CircularProgress size={20} /> : <CloudDownload />}
                                 disabled={!imageLoaded || !keyValid || isProcessing}
                                 sx={{
@@ -478,15 +555,30 @@ export default function UnscramblerPhotosPro() {
                                     overflow: 'hidden'
                                 }}>
                                     {previewUrl ? (
-                                        <img
-                                            src={previewUrl}
-                                            alt="Scrambled"
-                                            style={{
-                                                maxWidth: '100%',
-                                                maxHeight: '400px',
-                                                borderRadius: '8px'
-                                            }}
-                                        />
+                                       <>
+                                            <img
+                                                // ref={previewImg}
+                                                // ref={imageRef}
+                                                src={previewUrl}
+                                                alt="Original Preview"
+                                                style={{
+                                                    maxWidth: '100%',
+                                                    maxHeight: '400px',
+                                                    borderRadius: '8px'
+                                                }}
+                                            />
+                                            <img
+                                                hidden
+                                                // ref={previewImg}
+                                                ref={imageRef}
+                                                src={previewUrl}
+                                                alt="Original"
+                                                style={{
+                                                    display: 'none',
+                                                    borderRadius: '8px'
+                                                }}
+                                            />
+                                        </>
                                     ) : (
                                         <Typography variant="body2" sx={{ color: '#666' }}>
                                             Select a scrambled image to preview
@@ -534,7 +626,7 @@ export default function UnscramblerPhotosPro() {
 
             {/* Info Section */}
             <Paper elevation={1} sx={{ p: 2, backgroundColor: '#f5f5f5' }}>
-                <Typography variant="body2" color="text.secondary">
+                <Typography variant="body2" color="black">
                     💡 <strong>How it works:</strong> Upload your scrambled image and paste the unscramble key
                     you received when the image was scrambled. The server will use the key's parameters to
                     reverse the scrambling process and restore your original image.
@@ -543,7 +635,7 @@ export default function UnscramblerPhotosPro() {
 
             {/* Help Section */}
             <Paper elevation={1} sx={{ p: 2, backgroundColor: '#e3f2fd', mt: 2 }}>
-                <Typography variant="body2" color="text.secondary">
+                <Typography variant="body2" color="black">
                     🔑 <strong>Lost your key?</strong> Unfortunately, without the unscramble key, the image cannot be restored.
                     The key contains the seed and algorithm parameters required to reverse the scrambling process.
                     Always save your keys securely!
@@ -571,8 +663,12 @@ export default function UnscramblerPhotosPro() {
                 }}
 
 
+
+
                 actionType="unscramble-photo-pro"
                 actionDescription="pro level photo unscrambling"
+                height={400}
+                width={500}
             />
         </Container>
     );
