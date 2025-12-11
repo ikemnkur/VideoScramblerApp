@@ -1,0 +1,648 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Audio Waveform Visualizer</title>
+    <style>
+        body {
+            font-family: sans-serif;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            background-color: #f0f0f0;
+            margin: 20px;
+        }
+
+        #app-container {
+            width: 80%;
+            max-width: 600px;
+            background-color: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+            margin-top: 20px;
+        }
+
+        #app-container2 {
+            width: 90%;
+            max-width: 700px;
+            background-color: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+            margin-top: 20px;
+        }
+
+        canvas {
+            border: 1px solid #ccc;
+            width: 100%;
+            height: 150px;
+            display: block;
+            margin-bottom: 10px;
+            cursor: pointer;
+        }
+
+        audio {
+            width: 100%;
+        }
+
+        input[type="file"] {
+            margin-bottom: 15px;
+        }
+
+        #status {
+            margin-top: 10px;
+            color: green;
+        }
+    </style>
+</head>
+
+<body>
+
+    <div id="app-container">
+        <h1>Waveform Visualizer</h1>
+        <input type="file" id="audio-file-input" accept="audio/*">
+        <canvas id="waveform-canvas" width="600" height="150"></canvas>
+        <audio id="audio-player" controls></audio>
+        <p id="original-status">Please load an audio file.</p>
+    </div>
+
+    <br></br>
+    <div id="app-container2">
+        <!-- <h1>Waveform Visualizer</h1> -->
+       
+
+        <h2> Shuffle Audio</h2>
+        <div>
+            <button id="gen-schuffle-button">Generate Schuffle</button>
+            Seed: <Textarea id="schuffle-seed"> </Textarea>
+            Shuffle: <input id="schuffle-key">
+            Padding Size: <input id="padding" type="number"><input>
+            Segment Sizes: <input id="segmentation" type="number"><input>
+        </div>
+        <br>
+        <canvas id="shuffled-waveform-canvas" width="600" height="100"></canvas>
+        <audio id="schuffled-audio-player" controls></audio>
+
+        <h2>Scrambler Audio</h2>
+        <div>
+            <button id="gen-noise-button">Generate Noise</button>
+            Seed: <Textarea id="noise-seed"> </Textarea>
+            Key: <input id="noise-key">
+            Noise strength: <input id="noiselvl" type="number"><input>
+
+        </div>
+
+        <br>
+
+        <canvas id="noisy-waveform-canvas" width="400" height="100"></canvas>
+        <audio id="noisy-audio-player" controls></audio>
+
+        <p id="scrambled-status">Please load an audio file.</p>
+
+    </div>
+
+    <br>
+    <div id="app-container">
+        <h1>Scrambled Waveform Visualizer</h1>
+        <!-- <input type="file" id="audio-file-input" accept="audio/*"> -->
+        <canvas id="processed-waveform-canvas" width="600" height="150"></canvas>
+        <audio id="processed-audio-player" controls></audio>
+        <p id="final-status"> You can download processed audio file.</p>
+        <button id="process-and-download" style="display: none; margin-top: 10px;">Process & Download Shuffled
+            WAV</button>
+        <a id="download-link" style="display: none;">Download Processed Audio</a>
+    </div>
+
+
+
+    <script>
+        // --- Global Variables and Setup ---
+        // Original input Audio
+        const audioFileInput = document.getElementById('audio-file-input');
+        const audioPlayer = document.getElementById('audio-player');
+        const canvas = document.getElementById('waveform-canvas');
+        const ctx = canvas.getContext('2d');
+
+        // Segmented Re-schuffled Audio
+        const schuffledAudioPlayer = document.getElementById('schuffle-audio-player');
+        const schuffled_canvas = document.getElementById('shuffled-waveform-canvas');
+        const schuffled_ctx = schuffled_canvas.getContext('2d');
+        const scrambled_status = document.getElementById('scrambled-status');
+
+        // Noisy Scrambled Audio
+        const noisyAudioPlayer = document.getElementById('noisy-audio-player');
+        const noisy_canvas = document.getElementById('noisy-waveform-canvas');
+        const noisy_ctx = noisy_canvas.getContext('2d');
+        const gen_noise_button = document.getElementById('noisy-waveform-canvas');
+        
+        // Final Processed Audio
+        const processedAudioPlayer = document.getElementById('processed-audio-player');
+        const processed_canvas = document.getElementById('processed-waveform-canvas');
+        const processed_ctx = processed_canvas.getContext('2d');
+        const final_status = document.getElementById('final-status');
+
+
+        // Use an AudioContext to decode file data into an AudioBuffer for visualization
+        window.AudioContext = window.AudioContext || window.webkitAudioContext;
+        const audioContext = new AudioContext();
+        let audioBuffer = null;
+        const VIEW_SPAN = 10; // 10 seconds total viewable area (5s before, 5s after seeker)
+
+        const schuffleAudioContext = new AudioContext();
+        let schuffledAudioBuffer = null; 
+        
+        const schuffleAudioContext = new AudioContext();
+        let scrambledAudioBuffer = null;        
+        
+        const finalAudioContext = new AudioContext();
+        let finalAudioBuffer = null;
+
+
+        // --- Event Listeners ---
+        audioFileInput.addEventListener('change', handleFileSelect);
+
+        // Update waveform display when audio time changes
+        audioPlayer.addEventListener('timeupdate', drawWaveform);
+        audioPlayer.addEventListener('loadedmetadata', drawWaveform); // Initial draw when loaded
+
+        // Allow clicking on the canvas to seek (simple implementation)
+        canvas.addEventListener('click', handleCanvasSeek);
+
+
+
+        // --- Functions ---
+
+        /**
+         * Handles the file input change event, reads the file, and decodes the audio data.
+         */
+        async function handleFileSelect(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+
+            statusEl.textContent = 'Decoding audio file... This may take a moment.';
+
+            try {
+                const arrayBuffer = await file.arrayBuffer();
+                // Decode the data into a usable AudioBuffer
+                audioBuffer = await audioContext.decodeAudioData(arrayBuffer);
+
+                // Set the HTML audio element source to the file object URL for playback
+                const objectUrl = URL.createObjectURL(file);
+                audioPlayer.src = objectUrl;
+
+                statusEl.textContent = 'File loaded successfully. Duration: ' + audioBuffer.duration.toFixed(2) + 's';
+                drawWaveform(audioBuffer, canvas);
+            } catch (error) {
+                console.error("Error processing audio file:", error);
+                statusEl.textContent = 'Error loading audio file.';
+            }
+        }
+
+        /**
+         * Calculates sample range and draws the waveform to the canvas.
+         */
+        function drawWaveform(audioBuffer, canvas) {
+            if (!audioBuffer) return;
+
+            const { duration, sampleRate, numberOfChannels } = audioBuffer;
+            const currentTime = audioPlayer.currentTime;
+            const canvasWidth = canvas.width;
+            const canvasHeight = canvas.height;
+            const channelData = audioBuffer.getChannelData(0); // Use the first channel
+
+            // Define the view window: 5 seconds before and 5 seconds after current time
+            const viewStart = Math.max(0, currentTime - VIEW_SPAN / 2);
+            const viewEnd = Math.min(duration, currentTime + VIEW_SPAN / 2);
+            const viewDuration = viewEnd - viewStart;
+
+            // Calculate which samples to start and end drawing from
+            const startSample = Math.floor(viewStart * sampleRate);
+            const endSample = Math.floor(viewEnd * sampleRate);
+            const samplesToDraw = endSample - startSample;
+
+            // --- Canvas Drawing ---
+            ctx.clearRect(0, 0, canvasWidth, canvasHeight);
+            drawGridAndTicks(canvasWidth, canvasHeight, viewStart, viewEnd, duration);
+
+            ctx.beginPath();
+            ctx.strokeStyle = '#007bff';
+            ctx.lineWidth = 1;
+
+            // Logic for sampling data points for each pixel
+            const step = Math.ceil(samplesToDraw / canvasWidth);
+            const ampScale = canvasHeight / 2;
+            const center = canvasHeight / 2;
+
+            for (let i = 0; i < canvasWidth; i++) {
+                let min = 1.0;
+                let max = -1.0;
+                // Aggregate samples for this pixel column
+                for (let j = 0; j < step; j++) {
+                    const sampleIndex = startSample + (i * step) + j;
+                    if (sampleIndex < endSample) {
+                        const sample = channelData[sampleIndex];
+                        if (sample < min) min = sample;
+                        if (sample > max) max = sample;
+                    }
+                }
+
+                // Draw a vertical line from min to max amplitude
+                if (i === 0) {
+                    ctx.moveTo(i, center); // Start at center for a clean line
+                } else {
+                    ctx.lineTo(i, (1 + min) * ampScale); // Bottom of waveform
+                    ctx.lineTo(i, (1 + max) * ampScale); // Top of waveform
+                }
+            }
+            ctx.stroke();
+
+            // Draw seeker line (always in the middle of the *view* if within bounds)
+            if (currentTime >= viewStart && currentTime <= viewEnd) {
+                const seekerX = canvasWidth / 2;
+                ctx.strokeStyle = 'red';
+                ctx.lineWidth = 2;
+                ctx.beginPath();
+                ctx.moveTo(seekerX, 0);
+                ctx.lineTo(seekerX, canvasHeight);
+                ctx.stroke();
+            }
+        }
+
+        /**
+         * Draws grid lines and time ticks on the canvas.
+         */
+        function drawGridAndTicks(width, height, viewStart, viewEnd, totalDuration) {
+            ctx.strokeStyle = '#ddd';
+            ctx.lineWidth = 0.5;
+            ctx.font = '10px monospace';
+            ctx.fillStyle = '#555';
+            const center = height / 2;
+
+            // Center horizontal line (0 amplitude)
+            ctx.beginPath();
+            ctx.moveTo(0, center);
+            ctx.lineTo(width, center);
+            ctx.stroke();
+
+            // Vertical Ticks (seconds)
+            const timeSpan = viewEnd - viewStart;
+            // Draw a tick every second if possible, adjust if zoomed in/out a lot
+            const tickInterval = timeSpan > 15 ? 5 : timeSpan > 5 ? 1 : 0.5;
+
+            for (let t = Math.floor(viewStart); t <= Math.ceil(viewEnd); t += tickInterval) {
+                if (t < 0 || t > totalDuration) continue;
+                // Calculate X position relative to the current view window
+                const x = ((t - viewStart) / timeSpan) * width;
+
+                ctx.beginPath();
+                ctx.moveTo(x, height - 10);
+                ctx.lineTo(x, height);
+                ctx.stroke();
+
+                ctx.fillText(t.toFixed(1) + 's', x + 4, height - 2);
+            }
+
+            // Amplitude markers (simple high/low lines)
+            ctx.strokeStyle = '#eee';
+            ctx.beginPath();
+            ctx.moveTo(0, height * 0.25);
+            ctx.lineTo(width, height * 0.25);
+            ctx.moveTo(0, height * 0.75);
+            ctx.lineTo(width, height * 0.75);
+            ctx.stroke();
+        }
+
+        /**
+         * Allows seeking in the audio player by clicking on the canvas.
+         */
+        function handleCanvasSeek(event) {
+            if (!audioBuffer) return;
+
+            const rect = canvas.getBoundingClientRect();
+            const clickX = event.clientX - rect.left;
+            const canvasWidth = canvas.width;
+
+            // Calculate where the view window starts and ends
+            const viewStart = Math.max(0, audioPlayer.currentTime - VIEW_SPAN / 2);
+            const viewEnd = Math.min(audioBuffer.duration, audioPlayer.currentTime + VIEW_SPAN / 2);
+            const viewDuration = viewEnd - viewStart;
+
+            // Calculate the time corresponding to the clicked X position
+            const clickedTimeOffset = (clickX / canvasWidth) * viewDuration;
+            const newTime = viewStart + clickedTimeOffset;
+
+            // Set the audio player's current time
+            audioPlayer.currentTime = newTime;
+            // The 'timeupdate' listener will automatically redraw the waveform
+        }
+
+
+
+        // #######################################################
+        //      Schuffler: Segmentation/Relocation APPLICATION
+        // #######################################################
+
+        const processBtn = document.getElementById('process-and-download');
+        const downloadLink = document.getElementById('download-link');
+
+        const padding = document.getElementById("padding").value
+        const segmentsize = document.getElementById("segmentsize").value
+        const scrambleSeed = document.getElementById("scramble-seed").value
+        const schuffleSeed = document.getElementById("schuffle-seed").value
+        
+
+        audioPlayer.addEventListener('loadedmetadata', () => {
+            // ... previous code ...
+            processBtn.style.display = 'block'; // Show button when ready
+        });
+
+        applyAudioSchuffling(schuffledAudioBuffer, padding, )
+
+        function random_schuffle_algo(seed, key, segments){
+            // TODO:
+            // Create a audio segment shuffling algoritmh
+            // the lengths of the segemnts defined by the segment variable
+            // the seed detemines the premutation of the algo
+        }
+
+
+        // processBtn.addEventListener('click', async () => {
+        async function applyAudioSchuffling(audioBuffer, segmentSize, pad) {
+            if (!audioBuffer) return;
+
+            
+
+            let len = 10
+            if (segmentSize)
+                len = segmentSize;
+
+            statusEl.textContent = 'Processing and rendering new file...';
+            console.log("Processing and rendering new file...")
+            processBtn.disabled = true;
+
+            // 1. Define segments (e.g., 10 or "len" second chunks for a 60s song)
+            const segments = [];
+            for (let i = 0; i < audioBuffer.duration; i += len) {
+                segments.push({
+                    start: i,
+                    duration: Math.min(len, audioBuffer.duration - i)
+                });
+            }
+
+            // 2. Shuffle segments (using a simple random sort for brevity)
+            // TODO: 
+            const shuffledSegments = random_schuffle_algo(schuffleSeed, key, segments);//[...segments].sort(() => 0.5 - Math.random());
+
+            let padding = 1.0; // 1 second of silence between chunks
+            if (pad)
+                padding = pad;
+
+            // 3. Render the new buffer
+            const newRenderedBuffer = await renderShuffledAudio(audioBuffer, shuffledSegments, padding);
+
+            // 4. Convert to a downloadable URL
+            const downloadUrl = bufferToWavUrl(newRenderedBuffer);
+
+            // 5. Provide link to user
+            downloadLink.href = downloadUrl;
+            downloadLink.download = 'shuffled-audio-with-padding.wav';
+            downloadLink.style.display = 'block';
+            statusEl.textContent = 'Render complete! Click the download link.';
+            processBtn.disabled = false;
+            // });
+        }
+
+
+        // #########################################
+        //      Srcambler: NOISE APPLICATION
+        // #########################################
+
+        const processBtn = document.getElementById('process-and-download');
+        const downloadLink = document.getElementById('download-link');
+
+        const noiselvl = document.getElementById("noiselvl").value
+        const scrambleSeed = document.getElementById("scramble-seed").value
+
+        function generateNoise(noiselvl, scrambleSeed){
+            // Todo:
+            // create a waveform and save it 
+            let noiseWaveform = new Float32Array(originalData.length); // maybe reuse a turncated version of the generated noise profile and loop it
+
+            // create noise based off noiselvl, and scrambleSeed to determine the psuedo random nosie profile
+
+            return noiseWaveform;
+        }
+
+        let generated_noise = new generateNoise(noiselvl, scrambleSeed);
+        
+        applyNoise(scrambledAudioBuffer, generated_noise)
+
+        // --- Process 1: Add Noise (Forward Pass) ---   
+
+        function applyNoise(originalBuffer, noiseBuffer) {
+            // Conceptual JavaScript using Web Audio API buffer data
+            const originalData = originalBuffer.getChannelData(0);
+            const noiseData = noiseBuffer.getChannelData(0);
+            const combinedData = new Float32Array(originalData.length);
+
+            // Apply modulo addition to the channels 
+            for (let i = 0; i < originalData.length; i++) {
+                // Add the samples together
+                combinedData[i] = mod(originalData[i] + noiseData[i], 255)
+                // combinedData[i] = originalData[i] + noiseData[i];
+                // Note: Must ensure combinedData[i] does not exceed the [-1, 1] range (clipping)
+            }
+
+            // Create a new Audio Buffer Data object for the noisy audio
+            return combinedData;
+        }
+
+        // --- Process 2: Remove Noise (Backward Pass) ---   
+
+        function reverseNoise(combinedBuffer, noiseBuffer) {
+            // Conceptual JavaScript for reversal
+            const combinedData = combinedBuffer.getChannelData(0);
+            const noiseData = noiseBuffer.getChannelData(0);
+            const recoveredData = new Float32Array(combinedData.length);
+
+            // Apply modulo addition to the channels 
+            for (let i = 0; i < combinedData.length; i++) {
+                // Subtract the original noise samples
+                recoveredData[i] = mod(originalData[i] - noiseData[i], 255) //combinedData[i] - noiseData[i];
+            }
+
+            // Create a new Audio Buffer Data object for the noise-free audio
+            return recoveredData;
+        }
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+        // const imageWidth = 100; // Example
+        // const imageHeight = 100; // Example
+
+        // // --- Process 1: Add Noise (Forward Pass) ---
+        // function add_noise_reversible(originalImageData, noiseMatrix) {
+        //     let noisyData = new Uint8ClampedArray(originalImageData.data);
+        //     for (let i = 0; i < originalImageData.data.length; i += 4) {
+        //         // Apply modulo addition to R, G, B channels (skip Alpha)
+        //         noisyData[i] = mod(originalImageData.data[i] + noiseMatrix[i], 256);
+        //         noisyData[i + 1] = mod(originalImageData.data[i + 1] + noiseMatrix[i + 1], 256);
+        //         noisyData[i + 2] = mod(originalImageData.data[i + 2] + noiseMatrix[i + 2], 256);
+        //     }
+        //     // Create a new ImageData object for the noisy image
+        //     return new ImageData(noisyData, imageWidth, imageHeight);
+        //     // You would then save this data as a PNG file.
+        // }
+
+        // // --- Process 2: Reverse Noise (Backward Pass) ---
+        // function reverse_noise(noisyImageData, noiseMatrix) {
+        //     let restoredData = new Uint8ClampedArray(noisyImageData.data);
+        //     for (let i = 0; i < noisyImageData.data.length; i += 4) {
+        //         // Apply modulo subtraction to R, G, B channels
+        //         restoredData[i] = mod(noisyImageData.data[i] - noiseMatrix[i], 256);
+        //         restoredData[i + 1] = mod(noisyImageData.data[i + 1] - noiseMatrix[i + 1], 256);
+        //         restoredData[i + 2] = mod(noisyImageData.data[i + 2] - noiseMatrix[i + 2], 256);
+        //     }
+        //     // Create a new ImageData object for the restored image
+        //     return new ImageData(restoredData, imageWidth, imageHeight);
+        // }
+
+
+
+
+        /**
+         * Renders a new AudioBuffer with segments shuffled and padded.
+         * @param {AudioBuffer} originalAudioBuffer - The source audio data.
+         * @param {Array<Object>} shuffledSegments - Array of {start: number, duration: number}.
+         * @param {number} paddingDuration - Silence duration in seconds between segments.
+         * @returns {Promise<AudioBuffer>} A promise that resolves with the new, rendered AudioBuffer.
+         */
+
+        async function renderShuffledAudio(originalAudioBuffer, shuffledSegments, paddingDuration = 0) {
+            // 1. Calculate the total duration of the new file
+            const totalDurationSecs = shuffledSegments.reduce((total, segment) => {
+                return total + segment.duration + paddingDuration;
+            }, 0);
+
+            // Remove the trailing padding duration from the total length
+            const finalDuration = totalDurationSecs - paddingDuration;
+
+            // 2. Create the Offline Audio Context
+            // Args: channels, length (in sample frames), sample rate
+            const offlineCtx = new OfflineAudioContext(
+                originalAudioBuffer.numberOfChannels,
+                finalDuration * originalAudioBuffer.sampleRate,
+                originalAudioBuffer.sampleRate
+            );
+
+            // 3. Schedule segments within the offline context
+            let currentTime = 0;
+
+            shuffledSegments.forEach(segment => {
+                const source = offlineCtx.createBufferSource();
+                source.buffer = originalAudioBuffer;
+
+                // start(when, offset, duration)
+                source.start(currentTime, segment.start, segment.duration);
+                source.connect(offlineCtx.destination);
+
+                // Advance the timeline for the next segment (including padding)
+                currentTime += segment.duration + paddingDuration;
+            });
+
+            // 4. Render the audio graph to a single buffer
+            // This process runs as fast as possible (not real-time speed)
+            console.log("Starting offline rendering...");
+            const renderedBuffer = await offlineCtx.startRendering();
+            console.log("Rendering complete. New audio duration:", renderedBuffer.duration.toFixed(2), "s");
+
+            return renderedBuffer;
+        }
+
+        /**
+         * Converts an AudioBuffer into a downloadable WAV file Blob URL.
+         * @param {AudioBuffer} audioBuffer - The buffer to encode.
+         * @returns {string} An Object URL for download.
+         */
+        function bufferToWavUrl(audioBuffer) {
+            const numOfChan = audioBuffer.numberOfChannels;
+            const separateBuffers = [];
+            const sampleRate = audioBuffer.sampleRate;
+            const resultSize = audioBuffer.length * numOfChan * 2 + 44; // 16-bit PCM
+            const view = new DataView(new ArrayBuffer(resultSize));
+            let offset = 0;
+
+            // Helper to write string to DataView
+            function writeString(view, offset, str) {
+                for (let i = 0; i < str.length; i++) {
+                    view.setUint8(offset + i, str.charCodeAt(i));
+                }
+            }
+
+            // Helper to write 16-bit sample
+            function floatTo16BitPCM(output, offset, input) {
+                for (let i = 0; i < input.length; i++, offset += 2) {
+                    let s = Math.max(-1, Math.min(1, input[i]));
+                    output.setInt16(offset, s < 0 ? s * 0x8000 : s * 0x7FFF, true);
+                }
+            }
+
+            // RIFF identifier
+            writeString(view, offset, 'RIFF'); offset += 4;
+            view.setUint32(offset, 36 + resultSize - 44, true); offset += 4;
+            writeString(view, offset, 'WAVE'); offset += 4;
+            // FMT chunk
+            writeString(view, offset, 'fmt '); offset += 4;
+            view.setUint32(offset, 16, true); offset += 4; // PCM format size
+            view.setUint16(offset, 1, true); offset += 2; // PCM audio format
+            view.setUint16(offset, numOfChan, true); offset += 2;
+            view.setUint32(offset, sampleRate, true); offset += 4;
+            view.setUint32(offset, sampleRate * numOfChan * 2, true); offset += 4; // Byte rate
+            view.setUint16(offset, numOfChan * 2, true); offset += 2; // Block align
+            view.setUint16(offset, 16, true); offset += 2; // Bits per sample
+            // DATA chunk
+            writeString(view, offset, 'data'); offset += 4;
+            view.setUint32(offset, resultSize - offset, true); offset += 4;
+
+            // Write the actual audio data
+            if (numOfChan === 1) {
+                floatTo16BitPCM(view, offset, audioBuffer.getChannelData(0));
+            } else {
+                // Interleave channels for stereo audio
+                const interleaved = new Float32Array(audioBuffer.length * numOfChan);
+                for (let i = 0; i < audioBuffer.length; i++) {
+                    for (let channel = 0; channel < numOfChan; channel++) {
+                        interleaved[i * numOfChan + channel] = audioBuffer.getChannelData(channel)[i];
+                    }
+                }
+                floatTo16BitPCM(view, offset, interleaved);
+            }
+
+            // Create a Blob and URL for download
+            const blob = new Blob([view], { type: 'audio/wav' });
+            return URL.createObjectURL(blob);
+        }
+
+
+    </script>
+</body>
+
+</html>
