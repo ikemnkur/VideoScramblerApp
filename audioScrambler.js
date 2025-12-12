@@ -1,0 +1,1323 @@
+
+// --- Global Variables and Setup ---
+// Original input Audio
+const audioFileInput = document.getElementById('audio-file-input');
+const audioPlayer = document.getElementById('audio-player');
+const canvas = document.getElementById('waveform-canvas');
+const ctx = canvas.getContext('2d');
+const statusEl = document.getElementById('original-status');
+
+// Segmented Re-shuffled Audio
+const shuffledAudioPlayer = document.getElementById('shuffled-audio-player');
+const shuffled_canvas = document.getElementById('shuffled-waveform-canvas');
+const shuffled_ctx = shuffled_canvas.getContext('2d');
+const scrambled_status = document.getElementById('scrambled-status');
+
+// Noisy Scrambled Audio
+const noisyAudioPlayer = document.getElementById('noisy-audio-player');
+const noisy_canvas = document.getElementById('noisy-waveform-canvas');
+const noisy_ctx = noisy_canvas.getContext('2d');
+
+// Final Processed Audio
+const processedAudioPlayer = document.getElementById('processed-audio-player');
+const processed_canvas = document.getElementById('processed-waveform-canvas');
+const processed_ctx = processed_canvas.getContext('2d');
+const final_status = document.getElementById('final-status');
+
+// Buttons and controls
+const applyShuffleBtn = document.getElementById('apply-shuffle-button');
+const applyNoiseBtn = document.getElementById('apply-noise-button');
+const removeNoiseBtn = document.getElementById('remove-noise-button');
+const undoShuffleBtn = document.getElementById('undo-shuffle-button');
+const applyBothBtn = document.getElementById('apply-both-button');
+const reverseAllBtn = document.getElementById('reverse-all-button');
+const downloadLink = document.getElementById('download-link');
+const downloadKeyBtn = document.getElementById('download-key-button');
+
+// Unscramble controls
+const scrambledFileInput = document.getElementById('scrambled-file-input');
+const keyFileInput = document.getElementById('key-file-input');
+const unscrambleBtn = document.getElementById('unscramble-button');
+const unscrambledAudioPlayer = document.getElementById('unscrambled-audio-player');
+const unscrambled_canvas = document.getElementById('unscrambled-waveform-canvas');
+const unscrambled_ctx = unscrambled_canvas.getContext('2d');
+const unscramble_status = document.getElementById('unscramble-status');
+const downloadUnscrambledLink = document.getElementById('download-unscrambled-link');
+
+// Use an AudioContext to decode file data into an AudioBuffer for visualization
+window.AudioContext = window.AudioContext || window.webkitAudioContext;
+const audioContext = new AudioContext();
+let audioBuffer = null;
+const VIEW_SPAN = 10; // 10 seconds total viewable area (5s before, 5s after seeker)
+
+let shuffledAudioBuffer = null;
+let unshuffledAudioBuffer = null;
+let noisyAudioBuffer = null;
+let finalAudioBuffer = null;
+let generatedNoise = null; // Store noise profile for reversal
+let scramblingParameters = null; // Store all parameters for key generation
+
+// Store loaded files for unscrambling
+let scrambledAudioBuffer = null;
+let loadedKeyData = null;
+
+let segments = [];
+let shuffledSegments = [];
+let segmentSize = 2;
+let padding = 0.5;
+let seed = 12345;
+let audioDuration = 60;
+let sampleRate = 48000;
+let numberOfChannels = 2;
+
+
+// --- Event Listeners ---
+audioFileInput.addEventListener('change', handleFileSelect);
+
+// Update waveform display when audio time changes
+audioPlayer.addEventListener('timeupdate', () => drawWaveform(audioBuffer, canvas, ctx, audioPlayer));
+audioPlayer.addEventListener('loadedmetadata', () => drawWaveform(audioBuffer, canvas, ctx, audioPlayer));
+
+// Shuffled audio player waveform updates
+shuffledAudioPlayer.addEventListener('timeupdate', () => drawWaveform(shuffledAudioBuffer, shuffled_canvas, shuffled_ctx, shuffledAudioPlayer));
+shuffledAudioPlayer.addEventListener('loadedmetadata', () => drawWaveform(shuffledAudioBuffer, shuffled_canvas, shuffled_ctx, shuffledAudioPlayer));
+
+// Noisy audio player waveform updates
+noisyAudioPlayer.addEventListener('timeupdate', () => drawWaveform(noisyAudioBuffer, noisy_canvas, noisy_ctx, noisyAudioPlayer));
+noisyAudioPlayer.addEventListener('loadedmetadata', () => drawWaveform(noisyAudioBuffer, noisy_canvas, noisy_ctx, noisyAudioPlayer));
+
+// Processed audio player waveform updates
+processedAudioPlayer.addEventListener('timeupdate', () => drawWaveform(finalAudioBuffer, processed_canvas, processed_ctx, processedAudioPlayer));
+processedAudioPlayer.addEventListener('loadedmetadata', () => drawWaveform(finalAudioBuffer, processed_canvas, processed_ctx, processedAudioPlayer));
+
+// Unscrambled audio player waveform updates
+unscrambledAudioPlayer.addEventListener('timeupdate', () => {
+    if (recoveredAudioBuffer) {
+        drawWaveform(recoveredAudioBuffer, unscrambled_canvas, unscrambled_ctx, unscrambledAudioPlayer);
+    }
+});
+unscrambledAudioPlayer.addEventListener('loadedmetadata', () => {
+    if (recoveredAudioBuffer) {
+        drawWaveform(recoveredAudioBuffer, unscrambled_canvas, unscrambled_ctx, unscrambledAudioPlayer);
+    }
+});
+
+// Allow clicking on the canvas to seek (simple implementation)
+canvas.addEventListener('click', handleCanvasSeek);
+
+// Operation buttons
+applyShuffleBtn.addEventListener('click', handleApplyShuffle);
+undoShuffleBtn.addEventListener('click', handleUndoShuffle);
+applyNoiseBtn.addEventListener('click', handleApplyNoise);
+removeNoiseBtn.addEventListener('click', handleRemoveNoise);
+applyBothBtn.addEventListener('click', handleApplyBoth);
+reverseAllBtn.addEventListener('click', handleReverseAll);
+downloadKeyBtn.addEventListener('click', handleDownloadKey);
+
+// Unscramble buttons
+unscrambleBtn.addEventListener('click', handleUnscramble);
+scrambledFileInput.addEventListener('change', handleScrambledFileSelect);
+keyFileInput.addEventListener('change', handleKeyFileSelect);
+
+
+
+// --- Utility Functions ---
+
+/**
+ * Generate random seed for inputs
+ */
+function generateRandomSeed(inputId) {
+    const seed = Math.floor(Math.random() * 1000000000);
+    document.getElementById(inputId).value = seed;
+}
+
+/**
+ * Simple XOR cipher for key obfuscation
+ */
+function xorEncrypt(text, key) {
+    let result = '';
+    for (let i = 0; i < text.length; i++) {
+        result += String.fromCharCode(text.charCodeAt(i) ^ key.charCodeAt(i % key.length));
+    }
+    return result;
+}
+
+function xorDecrypt(encrypted, key) {
+    return xorEncrypt(encrypted, key); // XOR is symmetric
+}
+
+/**
+ * Encrypt and encode key data
+ */
+function encryptKeyData(keyObject) {
+    // Convert to JSON
+    const jsonStr = JSON.stringify(keyObject);
+
+    // XOR encryption with a fixed key (can be enhanced)
+    const encryptionKey = "AudioProtectionKey2025"; /// TODO hide this later using a fetch to the server or .env variables
+    const encrypted = xorEncrypt(jsonStr, encryptionKey);
+
+    // Base64 encode
+    const base64 = btoa(encrypted);
+
+    return base64;
+}
+
+/**
+ * Decrypt and decode key data
+ */
+function decryptKeyData(encodedData) {
+    try {
+        // Base64 decode
+        const encrypted = atob(encodedData);
+
+        // XOR decrypt
+        const encryptionKey = "AudioProtectionKey2025"; /// TODO hide this later using a fetch to the server or .env variables
+        const jsonStr = xorDecrypt(encrypted, encryptionKey);
+
+        // Parse JSON
+        return JSON.parse(jsonStr);
+    } catch (error) {
+        console.error('Decryption error:', error);
+        throw new Error('Invalid or corrupted key file');
+    }
+}
+
+/**
+ * Compress noise profile for storage (store only unique patterns)
+ */
+function compressNoiseProfile(noiseData) {
+    // Store noise parameters instead of full array
+    // This allows regeneration from seed
+    return {
+        compressed: true,
+        note: "Noise can be regenerated from seed parameters"
+    };
+}
+
+// --- Functions ---
+
+/**
+ * Handles the file input change event, reads the file, and decodes the audio data.
+ */
+async function handleFileSelect(event) {
+    const file = event.target.files[0];
+    if (!file) return;
+
+    statusEl.textContent = 'Decoding audio file... This may take a moment.';
+
+    try {
+        const arrayBuffer = await file.arrayBuffer();
+        // Decode the data into a usable AudioBuffer
+        audioBuffer = await audioContext.decodeAudioData(arrayBuffer);
+
+        // Set the HTML audio element source to the file object URL for playback
+        const objectUrl = URL.createObjectURL(file);
+        audioPlayer.src = objectUrl;
+
+        statusEl.textContent = 'File loaded successfully. Duration: ' + audioBuffer.duration.toFixed(2) + 's';
+        audioDuration = audioBuffer.duration.toFixed(2);
+        drawWaveform(audioBuffer, canvas, ctx, audioPlayer);
+    } catch (error) {
+        console.error("Error processing audio file:", error);
+        statusEl.textContent = 'Error loading audio file.';
+    }
+}
+
+/**
+ * Calculates sample range and draws the waveform to the canvas.
+ */
+function drawWaveform(audioBuffer, canvas, context, audioElement) {
+    if (!audioBuffer) return;
+
+    const { duration, sampleRate } = audioBuffer;
+    const currentTime = audioElement ? audioElement.currentTime : 0;
+    const canvasWidth = canvas.width;
+    const canvasHeight = canvas.height;
+    const channelData = audioBuffer.getChannelData(0); // Use the first channel
+
+    // Define offset padding (half of VIEW_SPAN for symmetry)
+    const offset = VIEW_SPAN / 2;
+
+    // Define the view window: 5 seconds before and 5 seconds after current time
+    // but allow viewing into negative time (before audio starts) and after audio ends
+    const viewStart = currentTime - VIEW_SPAN / 2;
+    const viewEnd = currentTime + VIEW_SPAN / 2;
+    const viewDuration = viewEnd - viewStart;
+
+    // --- Canvas Drawing ---
+    context.clearRect(0, 0, canvasWidth, canvasHeight);
+    drawGridAndTicks(context, canvasWidth, canvasHeight, viewStart, viewEnd, duration);
+
+    context.beginPath();
+    context.strokeStyle = '#007bff';
+    context.lineWidth = 1;
+
+    const ampScale = canvasHeight / 2;
+    const center = canvasHeight / 2;
+
+    // Draw the waveform across the entire canvas width
+    for (let i = 0; i < canvasWidth; i++) {
+        // Map canvas pixel to time in the view window
+        const t = viewStart + (i / canvasWidth) * viewDuration;
+
+        // Check if we're before audio start or after audio end
+        if (t < 0 || t > duration) {
+            // Draw flat line (center) for padding regions
+            if (i === 0) {
+                context.moveTo(i, center);
+            } else {
+                context.lineTo(i, center);
+            }
+        } else {
+            // We're within the actual audio duration
+            const sampleStart = Math.floor(t * sampleRate);
+            const sampleEnd = Math.floor((t + viewDuration / canvasWidth) * sampleRate);
+            const step = Math.max(1, sampleEnd - sampleStart);
+
+            let min = 1.0;
+            let max = -1.0;
+
+            // Aggregate samples for this pixel column
+            for (let j = 0; j < step; j++) {
+                const sampleIndex = sampleStart + j;
+                if (sampleIndex >= 0 && sampleIndex < channelData.length) {
+                    const sample = channelData[sampleIndex];
+                    if (sample < min) min = sample;
+                    if (sample > max) max = sample;
+                }
+            }
+
+            // Draw vertical line from min to max amplitude
+            if (i === 0 || (viewStart + ((i - 1) / canvasWidth) * viewDuration < 0)) {
+                context.moveTo(i, (1 + min) * ampScale);
+            }
+            context.lineTo(i, (1 + min) * ampScale);
+            context.lineTo(i, (1 + max) * ampScale);
+        }
+    }
+    context.stroke();
+
+    // Draw seeker line (always in the middle of the canvas)
+    if (audioElement) {
+        const seekerX = canvasWidth / 2;
+        context.strokeStyle = 'red';
+        context.lineWidth = 2;
+        context.beginPath();
+        context.moveTo(seekerX, 0);
+        context.lineTo(seekerX, canvasHeight);
+        context.stroke();
+    }
+}
+
+/**
+ * Draws grid lines and time ticks on the canvas.
+ */
+function drawGridAndTicks(context, width, height, viewStart, viewEnd, totalDuration) {
+    context.strokeStyle = '#ddd';
+    context.lineWidth = 0.5;
+    context.font = '10px monospace';
+    context.fillStyle = '#555';
+    const center = height / 2;
+
+    // Center horizontal line (0 amplitude)
+    context.beginPath();
+    context.moveTo(0, center);
+    context.lineTo(width, center);
+    context.stroke();
+
+    // Vertical Ticks (seconds)
+    const timeSpan = viewEnd - viewStart;
+    // Draw a tick every second if possible, adjust if zoomed in/out a lot
+    const tickInterval = timeSpan > 15 ? 5 : timeSpan > 5 ? 1 : 0.5;
+
+    for (let t = Math.floor(viewStart); t <= Math.ceil(viewEnd); t += tickInterval) {
+        if (t < 0 || t > totalDuration) continue;
+        // Calculate X position relative to the current view window
+        const x = ((t - viewStart) / timeSpan) * width;
+
+        context.beginPath();
+        context.moveTo(x, height - 10);
+        context.lineTo(x, height);
+        context.stroke();
+
+        context.fillText(t.toFixed(1) + 's', x + 4, height - 2);
+    }
+
+    // Amplitude markers (simple high/low lines)
+    context.strokeStyle = '#eee';
+    context.beginPath();
+    context.moveTo(0, height * 0.25);
+    context.lineTo(width, height * 0.25);
+    context.moveTo(0, height * 0.75);
+    context.lineTo(width, height * 0.75);
+    context.stroke();
+}
+
+/**
+ * Allows seeking in the audio player by clicking on the canvas.
+ */
+function handleCanvasSeek(event) {
+    if (!audioBuffer) return;
+
+    const rect = canvas.getBoundingClientRect();
+    const clickX = event.clientX - rect.left;
+    const canvasWidth = canvas.width;
+
+    // Calculate where the view window starts and ends
+    const viewStart = Math.max(0, audioPlayer.currentTime - VIEW_SPAN / 2);
+    const viewEnd = Math.min(audioBuffer.duration, audioPlayer.currentTime + VIEW_SPAN / 2);
+    const viewDuration = viewEnd - viewStart;
+
+    // Calculate the time corresponding to the clicked X position
+    const clickedTimeOffset = (clickX / canvasWidth) * viewDuration;
+    const newTime = viewStart + clickedTimeOffset;
+
+    // Set the audio player's current time
+    audioPlayer.currentTime = newTime;
+    // The 'timeupdate' listener will automatically redraw the waveform
+}
+
+
+
+// #######################################################
+//      Shuffler: Segmentation/Relocation APPLICATION
+// #######################################################
+
+/*
+ * SHUFFLE ALGORITHM EXPLAINED:
+ * 
+ * Given: 30s audio, 5s segments, 1s padding
+ * 
+ * STEP 1: PARTITION (6 segments)
+ *   Original: [seg0: 0-5s][seg1: 5-10s][seg2: 10-15s][seg3: 15-20s][seg4: 20-25s][seg5: 25-30s]
+ * 
+ * STEP 2: SHUFFLE ORDER (e.g., seed produces: [5, 2, 3, 1, 0, 4])
+ *   Meaning: position 0 gets seg5, position 1 gets seg2, etc.
+ * 
+ * STEP 3: RENDER WITH PADDING (total: 30s + 6×1s = 36s)
+ *   Scrambled: [seg5: 0-5s][pad: 5-6s][seg2: 6-11s][pad: 11-12s][seg3: 12-17s][pad: 17-18s]
+ *              [seg1: 18-23s][pad: 23-24s][seg0: 24-29s][pad: 29-30s][seg4: 30-35s][pad: 35-36s]
+ * 
+ * STEP 4: UNSCRAMBLE (extract segments, remove padding, restore order)
+ *   Extract seg0 from 24-29s -> place at 0-5s
+ *   Extract seg1 from 18-23s -> place at 5-10s
+ *   Extract seg2 from 6-11s -> place at 10-15s
+ *   Extract seg3 from 12-17s -> place at 15-20s
+ *   Extract seg4 from 30-35s -> place at 20-25s
+ *   Extract seg5 from 0-5s -> place at 25-30s
+ *   Result: Original 30s audio restored
+ */
+
+/**
+ * Seeded random number generator using Linear Congruential Generator
+ */
+function seededRandom(seed) {
+    let value = seed;
+    return function () {
+        value = (value * 9301 + 49297) % 233280;
+        return value / 233280;
+    };
+}
+
+/**
+ * Creates a shuffled array based on seed
+ */
+function seededShuffle(array, seed) {
+    const rng = seededRandom(seed);
+    const shuffled = [...array];
+    for (let i = shuffled.length - 1; i > 0; i--) {
+        const j = Math.floor(rng() * (i + 1));
+        [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
+    }
+    return shuffled;
+}
+
+/**
+ * Apply audio shuffling with segmentation
+ */
+async function applyAudioShuffling(sourceBuffer, segmentSize, padding, seed) {
+    if (!sourceBuffer) return null;
+
+    scrambled_status.textContent = 'Shuffling audio segments...';
+    console.log("Shuffling audio segments...");
+
+    // 1. Calculate number of complete segments
+    const numSegments = Math.floor(sourceBuffer.duration / segmentSize);
+    const remainder = sourceBuffer.duration - (numSegments * segmentSize);
+
+    console.log(`Original duration: ${sourceBuffer.duration}s`);
+    console.log(`Segment size: ${segmentSize}s, Padding: ${padding}s`);
+    console.log(`Number of segments: ${numSegments}, Remainder: ${remainder}s`);
+
+    // 2. Create segment array with original indices
+    // const segments = [];
+    segments = [];
+    for (let i = 0; i < numSegments; i++) {
+        segments.push({
+            start: i * segmentSize,
+            duration: segmentSize,
+            originalIndex: i
+        });
+    }
+
+    // Handle remainder as a final segment if it exists
+    if (remainder > 0) {
+        segments.push({
+            start: numSegments * segmentSize,
+            duration: remainder,
+            originalIndex: numSegments
+        });
+    }
+
+    console.log(`Created ${segments.length} segments`);
+
+    // 3. Get shuffle order (indices only)
+    const originalOrder = segments.map(s => s.originalIndex);
+    const shuffleOrder = seededShuffle(originalOrder, seed);
+    console.log('Original order:', originalOrder);
+    console.log('Shuffled order:', shuffleOrder);
+
+    // 4. Reorder segments according to shuffle
+    shuffledSegments = shuffleOrder.map(idx => segments[idx]);
+
+    // 5. Render the new buffer with padding after each segment
+    const newRenderedBuffer = await renderShuffledAudioWithPadding(sourceBuffer, shuffledSegments, padding, "shuffleAudio");
+    shuffledAudioBuffer = newRenderedBuffer;
+
+    const expectedDuration = (segments.length * (segmentSize + padding)) - padding + remainder;
+    console.log(`Expected duration: ~${expectedDuration}s, Actual: ${newRenderedBuffer.duration}s`);
+
+    scrambled_status.textContent = `Shuffled into ${segments.length} segments!`;
+    return { buffer: newRenderedBuffer, shuffleOrder: shuffleOrder };
+}
+
+
+
+/**
+ * Handle shuffle button click
+ */
+async function handleApplyShuffle() {
+    if (!audioBuffer) {
+        alert('Please load an audio file first!');
+        return;
+    }
+
+    segmentSize = parseFloat(document.getElementById('segment-size').value) || 2;
+    padding = parseFloat(document.getElementById('padding').value) || 0.5;
+    seed = parseInt(document.getElementById('shuffle-seed').value) || 12345;
+
+    applyShuffleBtn.disabled = true;
+    undoShuffleBtn.disabled = false;
+
+    try {
+        const result = await applyAudioShuffling(audioBuffer, segmentSize, padding, seed);
+        let shuffledAudioBuffer = result.buffer;
+
+        // Create playable URL
+        const url = bufferToWavUrl(shuffledAudioBuffer);
+        shuffledAudioPlayer.src = url;
+
+        // Draw waveform
+        drawWaveform(shuffledAudioBuffer, shuffled_canvas, shuffled_ctx, shuffledAudioPlayer);
+
+        scrambled_status.textContent = 'Shuffle applied successfully!';
+        undoShuffleBtn.style.display = 'inline-block';
+    } catch (error) {
+        console.error('Shuffle error:', error);
+        scrambled_status.textContent = 'Error during shuffle: ' + error.message;
+    } finally {
+        applyShuffleBtn.disabled = false;
+        // undoShuffleBtn.disabled = true;
+
+    }
+}
+
+/**
+* Handle undoing shuffle button click
+*/
+async function handleUndoShuffle() {
+    if (!audioBuffer) {
+        alert('Please load an audio file first!');
+        return;
+    }
+
+    const segmentSize = parseFloat(document.getElementById('segment-size').value) || 2;
+    const padding = parseFloat(document.getElementById('padding').value) || 0.5;
+    const seed = parseInt(document.getElementById('shuffle-seed').value) || 12345;
+
+    
+
+    try {
+        // const result = await undoAudioShuffling(audioBuffer, segmentSize, padding, seed);
+        const result = unshuffleAudio(shuffledAudioBuffer, segmentSize, padding, seed, audioDuration)
+        const unshuffledAudioBuffer = result.buffer;
+
+        // Create playable URL
+        const url = bufferToWavUrl(unshuffledAudioBuffer, "unshuffle");
+        shuffledAudioPlayer.src = url;
+
+        // Draw waveform
+        drawWaveform(unshuffledAudioBuffer, shuffled_canvas, shuffled_ctx, shuffledAudioPlayer);
+
+        scrambled_status.textContent = 'Unshuffling applied successfully!';
+    } catch (error) {
+        console.error('Unshuffle error:', error);
+        scrambled_status.textContent = 'Error during shuffle: ' + error.message;
+    } finally {
+        applyShuffleBtn.disabled = false;
+        undoShuffleBtn.disabled = true;
+    }
+}
+
+
+// #########################################
+//      Scrambler: NOISE APPLICATION
+// #########################################
+
+/**
+ * Generate a seeded noise profile with multiple frequency bands
+ * This creates 3 layers of noise for better obscuring across frequency spectrum
+ */
+function generateMultiFrequencyNoise(length, noiseLevel, seed) {
+    const rng1 = seededRandom(seed);
+    const rng2 = seededRandom(seed * 2);
+    const rng3 = seededRandom(seed * 3);
+
+    const noiseWaveform = new Float32Array(length);
+
+    // Layer 1: High frequency noise (affects high-pitched sounds)
+    // Layer 2: Mid frequency noise (affects vocals and instruments)
+    // Layer 3: Low frequency noise (affects bass and drums)
+
+    for (let i = 0; i < length; i++) {
+        // High frequency: rapid variations
+        const highFreq = (rng1() * 2 - 1) * noiseLevel * 0.4;
+
+        // Mid frequency: moderate variations (every 4 samples)
+        const midFreq = (i % 4 === 0) ? (rng2() * 2 - 1) * noiseLevel * 0.4 : 0;
+
+        // Low frequency: slow variations (every 16 samples)
+        const lowFreq = (i % 16 === 0) ? (rng3() * 2 - 1) * noiseLevel * 0.3 : 0;
+
+        // Combine all three layers
+        noiseWaveform[i] = highFreq + midFreq + lowFreq;
+
+        // Smooth the mid and low frequencies by carrying over
+        if (i > 0) {
+            if (midFreq === 0 && i % 4 !== 0) {
+                noiseWaveform[i] += noiseWaveform[i - 1] * 0.7;
+            }
+        }
+    }
+
+    console.log(`Generated multi-frequency noise: ${length} samples at level ${noiseLevel}`);
+    return noiseWaveform;
+}
+
+/**
+ * Generate a seeded noise profile (backward compatibility)
+ */
+function generateNoise(length, noiseLevel, seed) {
+    return generateMultiFrequencyNoise(length, noiseLevel, seed);
+}
+
+/**
+ * Create an AudioBuffer from Float32Array data
+ */
+function createAudioBufferFromData(data, sampleRate, numberOfChannels) {
+    const buffer = audioContext.createBuffer(numberOfChannels, data.length, sampleRate);
+
+    // Copy data to all channels
+    for (let channel = 0; channel < numberOfChannels; channel++) {
+        const channelData = buffer.getChannelData(channel);
+        channelData.set(data);
+    }
+
+    return buffer;
+}
+
+/**
+ * Apply noise to audio buffer (forward pass)
+ */
+function applyNoise(originalBuffer, noiseData) {
+    const originalData = originalBuffer.getChannelData(0);
+    const combinedData = new Float32Array(originalData.length);
+
+    // Add noise with clipping to maintain [-1, 1] range
+    for (let i = 0; i < originalData.length; i++) {
+        const noiseIndex = i % noiseData.length;
+        combinedData[i] = Math.max(-1, Math.min(1, originalData[i] + noiseData[noiseIndex]));
+    }
+
+    return createAudioBufferFromData(combinedData, originalBuffer.sampleRate, originalBuffer.numberOfChannels);
+}
+
+/**
+ * Remove noise from audio buffer (backward pass)
+ */
+function reverseNoise(noisyBuffer, noiseData) {
+    const noisyData = noisyBuffer.getChannelData(0);
+    const recoveredData = new Float32Array(noisyData.length);
+
+    // Subtract noise to recover original
+    for (let i = 0; i < noisyData.length; i++) {
+        const noiseIndex = i % noiseData.length;
+        recoveredData[i] = Math.max(-1, Math.min(1, noisyData[i] - noiseData[noiseIndex]));
+    }
+
+    return createAudioBufferFromData(recoveredData, noisyBuffer.sampleRate, noisyBuffer.numberOfChannels);
+}
+
+/**
+ * Handle apply noise button click
+ */
+async function handleApplyNoise() {
+    if (!audioBuffer) {
+        alert('Please load an audio file first!');
+        return;
+    }
+
+    const noiseLevel = parseFloat(document.getElementById('noise-level').value) || 0.3;
+    const seed = parseInt(document.getElementById('noise-seed').value) || 54321;
+
+    applyNoiseBtn.disabled = true;
+    scrambled_status.textContent = 'Applying noise...';
+
+    try {
+        // Generate noise profile
+        generatedNoise = generateNoise(audioBuffer.length, noiseLevel, seed);
+
+        // Apply noise to original audio
+        noisyAudioBuffer = applyNoise(audioBuffer, generatedNoise);
+
+        // Create playable URL
+        const url = bufferToWavUrl(noisyAudioBuffer);
+        noisyAudioPlayer.src = url;
+
+        // Draw waveform
+        drawWaveform(noisyAudioBuffer, noisy_canvas, noisy_ctx, null);
+
+        scrambled_status.textContent = 'Noise applied successfully!';
+        removeNoiseBtn.style.display = 'inline-block';
+    } catch (error) {
+        console.error('Noise application error:', error);
+        scrambled_status.textContent = 'Error applying noise: ' + error.message;
+    } finally {
+        applyNoiseBtn.disabled = false;
+    }
+}
+
+/**
+ * Handle remove noise button click
+ */
+async function handleRemoveNoise() {
+    if (!noisyAudioBuffer || !generatedNoise) {
+        alert('Please apply noise first!');
+        return;
+    }
+
+    removeNoiseBtn.disabled = true;
+    scrambled_status.textContent = 'Removing noise...';
+
+    try {
+        // Reverse the noise
+        const recoveredBuffer = reverseNoise(noisyAudioBuffer, generatedNoise);
+
+        // Create playable URL
+        const url = bufferToWavUrl(recoveredBuffer);
+        noisyAudioPlayer.src = url;
+
+        // Draw waveform
+        drawWaveform(recoveredBuffer, noisy_canvas, noisy_ctx, null);
+
+        scrambled_status.textContent = 'Noise removed successfully!';
+    } catch (error) {
+        console.error('Noise removal error:', error);
+        scrambled_status.textContent = 'Error removing noise: ' + error.message;
+    } finally {
+        removeNoiseBtn.disabled = false;
+    }
+}
+
+
+// #########################################
+//      COMBINED OPERATIONS
+// #########################################
+
+/**
+ * Apply both shuffle and noise operations
+ */
+async function handleApplyBoth() {
+    if (!audioBuffer) {
+        alert('Please load an audio file first!');
+        return;
+    }
+
+    applyBothBtn.disabled = true;
+    final_status.textContent = 'Applying shuffle and noise...';
+
+    try {
+        // Get parameters
+        const segmentSize = parseFloat(document.getElementById('segment-size').value) || 2;
+        const padding = parseFloat(document.getElementById('padding').value) || 0.5;
+        const shuffleSeed = parseInt(document.getElementById('shuffle-seed').value) || 12345;
+        const noiseLevel = parseFloat(document.getElementById('noise-level').value) || 0.3;
+        const noiseSeed = parseInt(document.getElementById('noise-seed').value) || 54321;
+
+        // Step 1: Apply shuffle
+        const shuffleResult = await applyAudioShuffling(audioBuffer, segmentSize, padding, shuffleSeed);
+        const shuffled = shuffleResult.buffer;
+        const shuffleOrder = shuffleResult.shuffleOrder;
+
+        // Step 2: Generate noise and apply to shuffled audio
+        const noise = generateNoise(shuffled.length, noiseLevel, noiseSeed);
+        finalAudioBuffer = applyNoise(shuffled, noise);
+
+        // Store for reversal
+        generatedNoise = noise;
+        shuffledAudioBuffer = shuffled;
+
+        // Store parameters for key generation (including shuffle order)
+        scramblingParameters = {
+            version: "1.0",
+            timestamp: new Date().toISOString(),
+            audio: {
+                duration: audioBuffer.duration,
+                sampleRate: audioBuffer.sampleRate,
+                channels: audioBuffer.numberOfChannels
+            },
+            shuffle: {
+                enabled: true,
+                seed: shuffleSeed,
+                segmentSize: segmentSize,
+                padding: padding,
+                shuffleOrder: shuffleOrder  // Store the actual shuffle permutation
+            },
+            noise: {
+                enabled: true,
+                seed: noiseSeed,
+                level: noiseLevel,
+                multiFrequency: true
+            }
+        };
+
+        // Create playable URL
+        const url = bufferToWavUrl(finalAudioBuffer);
+        processedAudioPlayer.src = url;
+
+        // Draw waveform
+        drawWaveform(finalAudioBuffer, processed_canvas, processed_ctx, null);
+
+        // Setup download
+        downloadLink.href = url;
+        downloadLink.download = 'scrambled-audio.wav';
+        downloadLink.style.display = 'inline-block';
+
+        // Show key download button
+        downloadKeyBtn.style.display = 'inline-block';
+
+        final_status.textContent = '🔒 Audio scrambled! Download both the audio and key file.';
+        reverseAllBtn.style.display = 'inline-block';
+    } catch (error) {
+        console.error('Combined operation error:', error);
+        final_status.textContent = 'Error: ' + error.message;
+    } finally {
+        applyBothBtn.disabled = false;
+    }
+}
+
+/**
+ * Reverse all operations (for demonstration/testing)
+ */
+async function handleReverseAll() {
+    if (!finalAudioBuffer || !generatedNoise) {
+        alert('Please apply operations first!');
+        return;
+    }
+
+    reverseAllBtn.disabled = true;
+    final_status.textContent = 'Reversing operations...';
+
+    try {
+        // Step 1: Remove noise
+        const noiseFree = reverseNoise(finalAudioBuffer, generatedNoise);
+
+        // Step 2: Un-shuffle would require storing the shuffle permutation
+        // For now, just display the noise-removed result
+        const unshuffled = unshuffleAudio(noiseFree, segmentSize, padding, seed, audioDuration)
+
+        // Create playable URL
+        const url = bufferToWavUrl(unshuffled, "unshuffle");
+        processedAudioPlayer.src = url;
+
+        // Draw waveform
+        drawWaveform(noiseFree, processed_canvas, processed_ctx, null);
+
+        // Setup download
+        downloadLink.href = url;
+        downloadLink.download = 'recovered-audio.wav';
+        downloadLink.style.display = 'inline-block';
+
+        final_status.textContent = 'Noise removed! (Shuffle reversal requires storing permutation)';
+    } catch (error) {
+        console.error('Reversal error:', error);
+        final_status.textContent = 'Error: ' + error.message;
+    } finally {
+        reverseAllBtn.disabled = false;
+    }
+}
+
+/**
+ * Download protection key file
+ */
+function handleDownloadKey() {
+    if (!scramblingParameters) {
+        alert('No scrambling parameters to save!');
+        return;
+    }
+
+    try {
+        // Encrypt the key data
+        const encryptedKey = encryptKeyData(scramblingParameters);
+
+        // Create downloadable blob
+        const blob = new Blob([encryptedKey], { type: 'text/plain' });
+        const url = URL.createObjectURL(blob);
+
+        // Create temporary link and trigger download
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = 'audio-protection.key';
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+
+        final_status.textContent = '🔑 Protection key downloaded! Keep it safe.';
+    } catch (error) {
+        console.error('Key download error:', error);
+        alert('Error downloading key: ' + error.message);
+    }
+}
+
+/**
+ * Handle scrambled file selection
+ */
+async function handleScrambledFileSelect(event) {
+    const file = event.target.files[0];
+    if (!file) return;
+
+    unscramble_status.textContent = 'Loading scrambled audio...';
+
+    try {
+        const arrayBuffer = await file.arrayBuffer();
+        scrambledAudioBuffer = await audioContext.decodeAudioData(arrayBuffer);
+
+        unscramble_status.textContent = 'Scrambled audio loaded. Duration: ' + scrambledAudioBuffer.duration.toFixed(2) + 's';
+        drawWaveform(scrambledAudioBuffer, unscrambled_canvas, unscrambled_ctx, null);
+    } catch (error) {
+        console.error("Error loading scrambled audio:", error);
+        unscramble_status.textContent = 'Error loading scrambled audio.';
+    }
+}
+
+/**
+ * Handle key file selection
+ */
+async function handleKeyFileSelect(event) {
+    const file = event.target.files[0];
+    if (!file) return;
+
+    unscramble_status.textContent = 'Loading protection key...';
+
+    try {
+        const text = await file.text();
+        loadedKeyData = decryptKeyData(text);
+
+        unscramble_status.textContent = '🔑 Key loaded successfully! Ready to unscramble.';
+        console.log('Key parameters:', loadedKeyData);
+    } catch (error) {
+        console.error("Error loading key:", error);
+        unscramble_status.textContent = 'Error: Invalid or corrupted key file.';
+        loadedKeyData = null;
+    }
+}
+
+/**
+ * Unscramble audio using loaded key
+ */
+let recoveredAudioBuffer = null; // Store recovered buffer globally for waveform updates
+
+async function handleUnscramble() {
+    if (!scrambledAudioBuffer) {
+        alert('Please load a scrambled audio file first!');
+        return;
+    }
+
+    if (!loadedKeyData) {
+        alert('Please load a protection key file!');
+        return;
+    }
+
+    unscrambleBtn.disabled = true;
+    unscramble_status.textContent = 'Unscrambling audio...';
+
+    try {
+        let recoveredBuffer = scrambledAudioBuffer;
+
+        // Step 1: Remove noise if it was applied
+        if (loadedKeyData.noise && loadedKeyData.noise.enabled) {
+            const noise = generateNoise(
+                scrambledAudioBuffer.length,
+                loadedKeyData.noise.level,
+                loadedKeyData.noise.seed
+            );
+            recoveredBuffer = reverseNoise(recoveredBuffer, noise);
+            console.log('Noise removed');
+        }
+
+        // Step 2: Un-shuffle if it was applied
+        if (loadedKeyData.shuffle && loadedKeyData.shuffle.enabled) {
+            console.log('Starting un-shuffle process...');
+
+            // Use shuffle order from key if available, otherwise use seed
+            const shuffleOrderOrSeed = loadedKeyData.shuffle.shuffleOrder || loadedKeyData.shuffle.seed;
+
+            recoveredBuffer = await unshuffleAudio(
+                recoveredBuffer,
+                loadedKeyData.shuffle.segmentSize,
+                loadedKeyData.shuffle.padding,
+                shuffleOrderOrSeed,
+                loadedKeyData.audio.duration
+            );
+            console.log('Audio un-shuffled successfully');
+        }
+
+        // Store recovered buffer globally for waveform updates
+        recoveredAudioBuffer = recoveredBuffer;
+
+        // Create playable URL
+        const url = bufferToWavUrl(recoveredBuffer, "unshuffle");
+        unscrambledAudioPlayer.src = url;
+
+        // Draw waveform
+        drawWaveform(recoveredBuffer, unscrambled_canvas, unscrambled_ctx, null);
+
+        // Setup download
+        downloadUnscrambledLink.href = url;
+        downloadUnscrambledLink.download = 'recovered-audio.wav';
+        downloadUnscrambledLink.style.display = 'inline-block';
+
+        unscramble_status.textContent = '✅ Audio unscrambled successfully!';
+    } catch (error) {
+        console.error('Unscramble error:', error);
+        unscramble_status.textContent = 'Error: ' + error.message;
+    } finally {
+        unscrambleBtn.disabled = false;
+    }
+}
+
+/**
+ * Un-shuffle audio by reversing the shuffle operation
+ * @param {AudioBuffer} shuffledBuffer - The shuffled audio with padding
+ * @param {number} segmentSize - Original segment size in seconds
+ * @param {number} padding - Padding duration in seconds
+ * @param {Array} shuffleOrder - The shuffle permutation used (or null to derive from seed)
+ * @param {number} seed - The seed used for shuffling (if shuffleOrder not provided)
+ * @param {number} originalDuration - Original audio duration before shuffling
+ */
+async function unshuffleAudio(shuffledBuffer, segmentSize, padding, shuffleOrderOrSeed, originalDuration) {
+    console.log('Un-shuffling audio...');
+    console.log('Shuffled buffer duration:', shuffledBuffer.duration, 'Original duration:', originalDuration);
+    console.log('Segment size:', segmentSize, 'Padding:', padding);
+
+    // Determine shuffle order
+    let shuffleOrder;
+    if (Array.isArray(shuffleOrderOrSeed)) {
+        shuffleOrder = shuffleOrderOrSeed;
+        console.log('Using provided shuffle order:', shuffleOrder);
+    } else {
+        // Calculate from seed
+        const numSegments = Math.ceil(originalDuration / segmentSize);
+        shuffleOrder = getShuffleOrder(numSegments, shuffleOrderOrSeed);
+        console.log('Generated shuffle order from seed:', shuffleOrder);
+    }
+
+    const numSegments = shuffleOrder.length;
+
+    // Create inverse mapping: inverseOrder[i] tells us which original segment is at shuffled position i
+    const inverseOrder = new Array(numSegments);
+    for (let originalPos = 0; originalPos < numSegments; originalPos++) {
+        const shuffledPos = shuffleOrder[originalPos];
+        inverseOrder[shuffledPos] = originalPos;
+    }
+    console.log('Inverse order:', inverseOrder);
+
+    // Extract segments from shuffled buffer (skip padding)
+    // Each segment in shuffled buffer is at position: shuffledPos * (segmentSize + padding)
+    const unshuffledSegments = [];
+
+    for (let originalPos = 0; originalPos < numSegments; originalPos++) {
+        // Find which shuffled position contains this original segment
+        const shuffledPos = shuffleOrder[originalPos];
+
+        // Calculate where this segment is in the shuffled buffer
+        const startTime = shuffledPos * (segmentSize + padding);
+
+        // Segment duration (last segment might be shorter)
+        let duration = segmentSize;
+        if (originalPos === numSegments - 1) {
+            // Last segment: use remaining duration
+            duration = originalDuration - (originalPos * segmentSize);
+        }
+
+        unshuffledSegments.push({
+            start: startTime,
+            duration: duration,
+            originalIndex: originalPos
+        });
+
+        console.log(`Original segment ${originalPos} is at shuffled position ${shuffledPos}, extract from ${startTime.toFixed(2)}s for ${duration.toFixed(2)}s`);
+    }
+
+    // Render segments in original order without padding
+    console.log('Rendering unshuffled audio without padding...');
+    unshuffledAudioBuffer = await renderShuffledAudioWithPadding(shuffledBuffer, unshuffledSegments, 0, "unshuffleAudio");
+    return unshuffledAudioBuffer;
+}
+
+/**
+ * Get the shuffle order for a given seed (matches seededShuffle logic)
+ */
+function getShuffleOrder(length, seed) {
+    const rng = seededRandom(seed);
+    const order = Array.from({ length }, (_, i) => i);
+
+    // Fisher-Yates shuffle
+    for (let i = order.length - 1; i > 0; i--) {
+        const j = Math.floor(rng() * (i + 1));
+        [order[i], order[j]] = [order[j], order[i]];
+    }
+
+    return order;
+}
+
+/**
+ * Test shuffle/unshuffle logic (call from console for debugging)
+ */
+function testShuffleLogic(duration = 30, segmentSize = 5, padding = 1, seed = 12345) {
+    console.log('=== SHUFFLE LOGIC TEST ===');
+    console.log(`Duration: ${duration}s, Segment: ${segmentSize}s, Padding: ${padding}s, Seed: ${seed}`);
+
+    const numSegments = Math.ceil(duration / segmentSize);
+    console.log(`Number of segments: ${numSegments}`);
+
+    // Original order
+    const originalOrder = Array.from({ length: numSegments }, (_, i) => i);
+    console.log('Original order:', originalOrder);
+
+    // Shuffle
+    const shuffleOrder = getShuffleOrder(numSegments, seed);
+    console.log('Shuffle order:', shuffleOrder);
+
+    // Expected scrambled duration
+    const scrambledDuration = duration + (numSegments * padding);
+    console.log(`Expected scrambled duration: ${scrambledDuration}s`);
+
+    // Segment positions in scrambled audio
+    console.log('\nScrambled segment positions:');
+    shuffleOrder.forEach((origIdx, shuffledPos) => {
+        const startTime = shuffledPos * (segmentSize + padding);
+        const endTime = startTime + segmentSize;
+        console.log(`  Position ${shuffledPos}: Segment ${origIdx} (${startTime}s - ${endTime}s) + padding (${endTime}s - ${endTime + padding}s)`);
+    });
+
+    // Inverse mapping for unshuffling
+    const inverseOrder = new Array(numSegments);
+    for (let i = 0; i < numSegments; i++) {
+        inverseOrder[shuffleOrder[i]] = i;
+    }
+    console.log('\nInverse order:', inverseOrder);
+
+    console.log('\nUnshuffling process:');
+    originalOrder.forEach((origIdx) => {
+        const shuffledPos = shuffleOrder[origIdx];
+        const extractFrom = shuffledPos * (segmentSize + padding);
+        console.log(`  Original segment ${origIdx} -> Extract from ${extractFrom}s (shuffled position ${shuffledPos})`);
+    });
+
+    console.log('\n=== TEST COMPLETE ===');
+}
+
+// Make it available globally for console testing
+window.testShuffleLogic = testShuffleLogic;
+
+/**
+ * Renders audio with segments and padding (padding added AFTER each segment)
+ * @param {AudioBuffer} originalAudioBuffer - The source audio data.
+ * @param {Array<Object>} segments - Array of {start: number, duration: number}.
+ * @param {number} paddingDuration - Silence duration in seconds after each segment.
+ * @returns {Promise<AudioBuffer>} A promise that resolves with the new, rendered AudioBuffer.
+ */
+async function renderShuffledAudioWithPadding(originalAudioBuffer, segments, paddingDuration = 0, mode = "") {
+    // Calculate total duration: sum of all segments + padding after each
+    const totalDuration = segments.reduce((total, segment) => {
+        return total + segment.duration + paddingDuration;
+    }, 0);
+
+    // const totalDuration = parseFloat(audioDuration + segments.length * paddingDuration)
+
+    console.log(`Rendering ${segments.length} segments with ${paddingDuration}s padding each`);
+    // console.log(`Total duration: ${totalDuration.toFixed(2)}s`);
+    console.log(`Total duration: ${totalDuration}s`);
+
+    console.log("mode: ", mode)
+
+    console.log("Audiobuffer Duration: ", originalAudioBuffer.duration)
+
+    // Create the Offline Audio Context 
+    let offlineCtx;
+    if (mode == "shuffleAudio") {
+        offlineCtx = new OfflineAudioContext(
+            originalAudioBuffer.numberOfChannels,
+            Math.ceil(totalDuration * originalAudioBuffer.sampleRate),
+            originalAudioBuffer.sampleRate
+        );
+        numberOfChannels = originalAudioBuffer.numberOfChannels;
+        sampleRate = originalAudioBuffer.sampleRate;
+    }
+
+    if (mode == "unshuffleAudio") {
+        // Create the Offline Audio Context
+        offlineCtx = new OfflineAudioContext(
+            2,
+            audioDuration,
+            48000
+        );
+    }
+
+
+    // Schedule segments with padding
+    let currentTime = 0.0;
+
+    segments.forEach((segment, idx) => {
+        const source = offlineCtx.createBufferSource();
+        source.buffer = originalAudioBuffer;
+
+        // Schedule this segment
+        source.start(currentTime, segment.start, segment.duration);
+        source.connect(offlineCtx.destination);
+
+        console.log(`Segment ${idx}: original index ${segment.originalIndex}, play at ${currentTime.toFixed(2)}s, from ${segment.start.toFixed(2)}s, duration ${segment.duration.toFixed(2)}s`);
+
+        // Advance time by segment duration + padding (padding is silence)
+        currentTime += segment.duration + paddingDuration;
+    });
+
+    // Render the audio
+    console.log("Starting offline rendering...");
+    const renderedBuffer = await offlineCtx.startRendering();
+    console.log("Rendering complete. Final duration:", renderedBuffer.duration.toFixed(2), "s");
+
+    return renderedBuffer;
+}
+
+/**
+ * Legacy function for compatibility - renders without padding
+ */
+// async function renderShuffledAudio(originalAudioBuffer, paddingDuration = 0) {
+//     return renderShuffledAudioWithPadding(originalAudioBuffer, paddingDuration);
+// }
+
+/**
+ * Converts an AudioBuffer into a downloadable WAV file Blob URL.
+ * @param {AudioBuffer} audioBuffer - The buffer to encode.
+ * @returns {string} An Object URL for download.
+ */
+function bufferToWavUrl(newAudioBuffer, mode) {
+    // const numOfChan = audioBuffer.numberOfChannels;
+    const numOfChan = numberOfChannels
+    const separateBuffers = [];
+    // const sampleRate = audioBuffer.sampleRate;
+    let resultSize;
+
+    console.log("mode: ", mode)
+
+    if (mode) {
+        resultSize = audioBuffer.length * numOfChan * 2 + 44; // 16-bit PCM
+    }else{
+        resultSize = newAudioBuffer.length * numOfChan * 2 + 44; // 16-bit PCM
+    }
+        
+
+    const view = new DataView(new ArrayBuffer(resultSize));
+    let offset = 0;
+
+    // Helper to write string to DataView
+    function writeString(view, offset, str) {
+        for (let i = 0; i < str.length; i++) {
+            view.setUint8(offset + i, str.charCodeAt(i));
+        }
+    }
+
+    // Helper to write 16-bit sample
+    function floatTo16BitPCM(output, offset, input) {
+        for (let i = 0; i < input.length; i++, offset += 2) {
+            let s = Math.max(-1, Math.min(1, input[i]));
+            output.setInt16(offset, s < 0 ? s * 0x8000 : s * 0x7FFF, true);
+        }
+    }
+
+    // RIFF identifier
+    writeString(view, offset, 'RIFF'); offset += 4;
+    view.setUint32(offset, 36 + resultSize - 44, true); offset += 4;
+    writeString(view, offset, 'WAVE'); offset += 4;
+    // FMT chunk
+    writeString(view, offset, 'fmt '); offset += 4;
+    view.setUint32(offset, 16, true); offset += 4; // PCM format size
+    view.setUint16(offset, 1, true); offset += 2; // PCM audio format
+    view.setUint16(offset, numOfChan, true); offset += 2;
+    view.setUint32(offset, sampleRate, true); offset += 4;
+    view.setUint32(offset, sampleRate * numOfChan * 2, true); offset += 4; // Byte rate
+    view.setUint16(offset, numOfChan * 2, true); offset += 2; // Block align
+    view.setUint16(offset, 16, true); offset += 2; // Bits per sample
+    // DATA chunk
+    writeString(view, offset, 'data'); offset += 4;
+    view.setUint32(offset, resultSize - offset, true); offset += 4;
+
+    // Write the actual audio data
+    if (mode) {
+        if (numOfChan === 1) {
+            floatTo16BitPCM(view, offset, audioBuffer.getChannelData(0));
+        } else {
+            // Interleave channels for stereo audio
+            const interleaved = new Float32Array(audioBuffer.length * numOfChan);
+            for (let i = 0; i < audioBuffer.length; i++) {
+                for (let channel = 0; channel < numOfChan; channel++) {
+                    interleaved[i * numOfChan + channel] = audioBuffer.getChannelData(channel)[i];
+                }
+            }
+            floatTo16BitPCM(view, offset, interleaved);
+        }
+    } else {
+        if (numOfChan === 1) {
+            floatTo16BitPCM(view, offset, newAudioBuffer.getChannelData(0));
+        } else {
+            // Interleave channels for stereo audio
+            const interleaved = new Float32Array(newAudioBuffer.length * numOfChan);
+            for (let i = 0; i < newAudioBuffer.length; i++) {
+                for (let channel = 0; channel < numOfChan; channel++) {
+                    interleaved[i * numOfChan + channel] = newAudioBuffer.getChannelData(channel)[i];
+                }
+            }
+            floatTo16BitPCM(view, offset, interleaved);
+        }
+    }
+   
+    // Create a Blob and URL for download
+    const blob = new Blob([view], { type: 'audio/wav' });
+    return URL.createObjectURL(blob);
+}
+
+
