@@ -206,6 +206,8 @@ async function handleFileSelect(event) {
 
     statusEl.textContent = 'Decoding audio file... This may take a moment.';
 
+    filename = file.name;;
+
     try {
         const arrayBuffer = await file.arrayBuffer();
         // Decode the data into a usable AudioBuffer
@@ -546,7 +548,7 @@ async function handleUndoShuffle() {
     const padding = parseFloat(document.getElementById('padding').value) || 0.5;
     const seed = parseInt(document.getElementById('shuffle-seed').value) || 12345;
 
-    
+
 
     try {
         // const result = await undoAudioShuffling(audioBuffer, segmentSize, padding, seed);
@@ -811,7 +813,8 @@ async function handleApplyBoth() {
 
         // Setup download
         downloadLink.href = url;
-        downloadLink.download = 'scrambled-audio.wav';
+        downloadLink.download = filename ? filename.replace(/\.[^/.]+$/, "") + '-scrambled.wav' : 'scrambled-audio.wav';
+        // downloadLink.download = filename + 'scrambled-audio.wav';
         downloadLink.style.display = 'inline-block';
 
         // Show key download button
@@ -856,7 +859,8 @@ async function handleReverseAll() {
 
         // Setup download
         downloadLink.href = url;
-        downloadLink.download = 'recovered-audio.wav';
+        downloadLink.download = filename ? filename.replace(/\.[^/.]+$/, "") + '-recovered.wav' : 'recovered-audio.wav';
+        // downloadLink.download = filename + 'recovered-audio.wav';
         downloadLink.style.display = 'inline-block';
 
         final_status.textContent = 'Noise removed! (Shuffle reversal requires storing permutation)';
@@ -888,7 +892,7 @@ function handleDownloadKey() {
         // Create temporary link and trigger download
         const a = document.createElement('a');
         a.href = url;
-        a.download = 'audio-protection.key';
+        a.download = filename ? filename.replace(/\.[^/.]+$/, "") + '-unscramble.key' : 'audio-unscramble.key';
         document.body.appendChild(a);
         a.click();
         document.body.removeChild(a);
@@ -1246,10 +1250,10 @@ function bufferToWavUrl(newAudioBuffer, mode) {
 
     if (mode) {
         resultSize = audioBuffer.length * numOfChan * 2 + 44; // 16-bit PCM
-    }else{
+    } else {
         resultSize = newAudioBuffer.length * numOfChan * 2 + 44; // 16-bit PCM
     }
-        
+
 
     const view = new DataView(new ArrayBuffer(resultSize));
     let offset = 0;
@@ -1314,7 +1318,7 @@ function bufferToWavUrl(newAudioBuffer, mode) {
             floatTo16BitPCM(view, offset, interleaved);
         }
     }
-   
+
     // Create a Blob and URL for download
     const blob = new Blob([view], { type: 'audio/wav' });
     return URL.createObjectURL(blob);

@@ -131,9 +131,9 @@
             <input id="shuffle-seed" type="text" placeholder="e.g., 12345" value="12345">
             <button id="gen-shuffle-seed" onclick="generateRandomSeed('shuffle-seed')"
                 style="padding: 4px 8px; font-size: 12px;">🎲 Random</button><br>
-            <label>Segment Size (s):</label>
+            <label>Segment Size: </label>
             <input id="segment-size" type="number" placeholder="Seconds" value="2" step="0.1"><br>
-            <label>Padding (s):</label>
+            <label>Padding: </label>
             <input id="padding" type="number" placeholder="Silence" value="0.5" step="0.1"><br>
             <button id="apply-shuffle-button">Apply Shuffle</button>
             <button id="undo-shuffle-button" style="display:none;">Undo Shuffle</button>
@@ -171,7 +171,7 @@
         <div style="margin-top: 15px;">
             <a id="download-link" style="display: none;">📥 Download Scrambled Audio</a><br>
             <button id="download-key-button" style="display: none; margin-top: 10px; background-color: #dc3545;">🔑
-                Download Protection Key</button>
+                Download Scramble Key</button>
             <p style="font-size: 12px; color: #666; margin-top: 5px;">⚠️ Keep the key file safe - you'll need it to
                 unscramble the audio!</p>
         </div>
@@ -183,7 +183,7 @@
         <div class="control-group">
             <label>Scrambled Audio:</label>
             <input type="file" id="scrambled-file-input" accept="audio/*"><br>
-            <label>Protection Key:</label>
+            <label>Scramble Key:</label>
             <input type="file" id="key-file-input" accept=".key,.json,.txt"><br>
             <button id="unscramble-button">🔓 Unscramble Audio</button>
         </div>

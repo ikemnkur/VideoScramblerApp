@@ -129,9 +129,9 @@
             <label>Shuffle Seed:</label>
             <input id="shuffle-seed" type="text" placeholder="e.g., 12345" value="12345">
             <button id="gen-shuffle-seed" onclick="generateRandomSeed('shuffle-seed')" style="padding: 4px 8px; font-size: 12px;">🎲 Random</button><br>
-            <label>Segment Size (s):</label>
+            <label>Segment Size :</label>
             <input id="segment-size" type="number" placeholder="Seconds" value="2" step="0.1"><br>
-            <label>Padding (s):</label>
+            <label>Padding :</label>
             <input id="padding" type="number" placeholder="Silence" value="0.5" step="0.1"><br>
             <button id="apply-shuffle-button">Apply Shuffle</button>
         </div>
@@ -166,7 +166,7 @@
         <p id="final-status" class="status">Ready to process audio.</p>
         <div style="margin-top: 15px;">
             <a id="download-link" style="display: none;">📥 Download Scrambled Audio</a><br>
-            <button id="download-key-button" style="display: none; margin-top: 10px; background-color: #dc3545;">🔑 Download Protection Key</button>
+            <button id="download-key-button" style="display: none; margin-top: 10px; background-color: #dc3545;">🔑 Download Scramble Key</button>
             <p style="font-size: 12px; color: #666; margin-top: 5px;">⚠️ Keep the key file safe - you'll need it to unscramble the audio!</p>
         </div>
     </div>
@@ -177,7 +177,7 @@
         <div class="control-group">
             <label>Scrambled Audio:</label>
             <input type="file" id="scrambled-file-input" accept="audio/*"><br>
-            <label>Protection Key:</label>
+            <label>Scramble Key:</label>
             <input type="file" id="key-file-input" accept=".key,.json,.txt"><br>
             <button id="unscramble-button">🔓 Unscramble Audio</button>
         </div>
@@ -249,6 +249,7 @@
         // Store loaded files for unscrambling
         let scrambledAudioBuffer = null;
         let loadedKeyData = null;
+        let filename = "";
 
 
         // --- Event Listeners ---
@@ -382,6 +383,8 @@
         async function handleFileSelect(event) {
             const file = event.target.files[0];
             if (!file) return;
+
+            filename = file.name;;
 
             statusEl.textContent = 'Decoding audio file... This may take a moment.';
 
@@ -946,7 +949,7 @@
                 
                 // Setup download
                 downloadLink.href = url;
-                downloadLink.download = 'scrambled-audio.wav';
+                downloadLink.download = filename ? filename.replace(/\.[^/.]+$/, "") + '-scrambled.wav' : 'scrambled-audio.wav';
                 downloadLink.style.display = 'inline-block';
                 
                 // Show key download button
@@ -990,7 +993,7 @@
                 
                 // Setup download
                 downloadLink.href = url;
-                downloadLink.download = 'recovered-audio.wav';
+                downloadLink.download = filename ? filename.replace(/\.[^/.]+$/, "") + '-recovered.wav' : 'recovered-audio.wav';
                 downloadLink.style.display = 'inline-block';
                 
                 final_status.textContent = 'Noise removed! (Shuffle reversal requires storing permutation)';
@@ -1003,7 +1006,7 @@
         }
 
         /**
-         * Download protection key file
+         * Download scramble key file
          */
         function handleDownloadKey() {
             if (!scramblingParameters) {
@@ -1022,13 +1025,13 @@
                 // Create temporary link and trigger download
                 const a = document.createElement('a');
                 a.href = url;
-                a.download = 'audio-protection.key';
+                a.download = filename ? filename.replace(/\.[^/.]+$/, "") + '-unscramble.key' : 'audio-unscramble.key';
                 document.body.appendChild(a);
                 a.click();
                 document.body.removeChild(a);
                 URL.revokeObjectURL(url);
                 
-                final_status.textContent = '🔑 Protection key downloaded! Keep it safe.';
+                final_status.textContent = '🔑 Scramble Key downloaded! Keep it safe.';
             } catch (error) {
                 console.error('Key download error:', error);
                 alert('Error downloading key: ' + error.message);
@@ -1063,7 +1066,7 @@
             const file = event.target.files[0];
             if (!file) return;
 
-            unscramble_status.textContent = 'Loading protection key...';
+            unscramble_status.textContent = 'Loading scramble key...';
 
             try {
                 const text = await file.text();
@@ -1090,7 +1093,7 @@
             }
             
             if (!loadedKeyData) {
-                alert('Please load a protection key file!');
+                alert('Please load a scramble key file!');
                 return;
             }
 
