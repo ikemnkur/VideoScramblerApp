@@ -1,53 +1,92 @@
-// VideoLeakChecker.jsx - Steganography-based leak detection for videos
+// AudioLeakChecker.jsx - Steganography-based leak detection for audios
 import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { Container, Typography, Card, CardContent, Button, Box, Grid, Paper, Alert, CircularProgress, Chip, List, ListItem, ListItemText } from '@mui/material';
-import { Videocam, Search, CheckCircle, Warning, Upload, Person, Movie } from '@mui/icons-material';
+import { Speaker, Search, CheckCircle, Warning, Upload, Person, Movie } from '@mui/icons-material';
 import { useToast } from '../contexts/ToastContext';
 import CreditConfirmationModal from '../components/CreditConfirmationModal';
 import api from '../api/client';
 
 const API_URL = import.meta.env.VITE_API_SERVER_URL || 'http://localhost:3001'; // = import.meta.env.VITE_API_URL || 'http://localhost:3001';
 
-export default function VideoLeakChecker() {
+export default function AudioLeakChecker() {
 
   const API_URL = import.meta.env.VITE_API_SERVER_URL || 'http://localhost:3001'; // = 'http://localhost:3001/api';
 
   const { success, error: showError } = useToast();
   const [selectedFile, setSelectedFile] = useState(null);
+  const [audioFile, setAudioFile] = useState(null);
   const [previewUrl, setPreviewUrl] = useState(null);
   const [isChecking, setIsChecking] = useState(false);
   const [checkStatus, setCheckStatus] = useState('idle');
   const [leakData, setLeakData] = useState(null);
   const [extractedCode, setExtractedCode] = useState('');
   const fileInputRef = useRef(null);
-  const videoRef = useRef(null);
+  const audioRef = useRef(null);
+  const audioPlayerRef = useRef(null);
+  const canvasRef = useRef(null);
+
+  const [audioBuffer, setAudioBuffer] = useState(null);
+  const [filename, setFilename] = useState('');
+  const [audioDuration, setAudioDuration] = useState(0);
+  const [sampleRate, setSampleRate] = useState(48000);
+  const [numberOfChannels, setNumberOfChannels] = useState(2);
+
+  const [audioContext] = useState(() => new (window.AudioContext || window.webkitAudioContext)());
+  const VIEW_SPAN = 10; // 10 seconds viewable area
 
   const [userData, setUserData] = useState(JSON.parse(localStorage.getItem("userdata")));
 
   const [showCreditModal, setShowCreditModal] = useState(false);
   const [allowLeakChecking, setAllowLeakChecking] = useState(false);
   const [userCredits, setUserCredits] = useState(0); // Mock credits, replace with actual user data
-  const SCRAMBLE_COST = 10; // Cost to scramble a photo (less than video)
+  const SCRAMBLE_COST = 10; // Cost to scramble a photo (less than audio)
 
 
 
 
-  const handleFileSelect = (event) => {
+  const handleFileSelect = async (event) => {
     const file = event.target.files?.[0];
-    if (!file || !file.type.startsWith('video/')) {
-      showError("Please select a valid video file");
+    if (!file || !file.type.startsWith('audio/')) {
+      showError("Please select a valid audio file");
       return;
     }
     if (file.size > 50 * 1024 * 1024) {
       showError("File size must be less than 50MB");
       return;
     }
+
     setSelectedFile(file);
-    console.log("Selected file:", file);
-    setPreviewUrl(URL.createObjectURL(file));
+    setAudioFile(file);
+    setFilename(file.name);
+    const objectUrl = URL.createObjectURL(file);
+    setPreviewUrl(objectUrl);
     setCheckStatus('idle');
     setLeakData(null);
-    success(`Selected: ${file.name}`);
+
+    try {
+      const arrayBuffer = await file.arrayBuffer();
+      const buffer = await audioContext.decodeAudioData(arrayBuffer);
+
+      setAudioBuffer(buffer);
+      setAudioDuration(buffer.duration);
+      setSampleRate(buffer.sampleRate);
+      setNumberOfChannels(buffer.numberOfChannels);
+
+      // Set audio player source
+      if (audioRef.current) {
+        audioRef.current.src = objectUrl;
+      }
+
+      // Draw initial waveform
+      if (canvasRef.current) {
+        drawWaveform(buffer, canvasRef.current, audioRef.current);
+      }
+
+      success(`Selected: ${file.name} (${buffer.duration.toFixed(2)}s)`);
+    } catch (err) {
+      console.error("Error processing audio file:", err);
+      showError('Error loading audio file');
+    }
   };
 
   const handleCreditConfirm = useCallback(() => {
@@ -73,7 +112,7 @@ export default function VideoLeakChecker() {
 
   const handleCheckForLeak = async () => {
     if (!selectedFile) {
-      showError("Please select a video file first");
+      showError("Please select a audio file first");
       return;
     }
 
@@ -88,7 +127,7 @@ export default function VideoLeakChecker() {
     try {
       const formData = new FormData();
       formData.append('file', selectedFile);
-      const response = await fetch(`${API_URL}/api/check-video-leak`, {
+      const response = await fetch(`${API_URL}/api/check-audio-leak`, {
         method: 'POST',
         body: formData,
       });
@@ -104,7 +143,7 @@ export default function VideoLeakChecker() {
       } else {
         setCheckStatus('not-found');
         setExtractedCode(data.extractedCode || 'No code found');
-        success('✅ No leak detected. This video is clean.');
+        success('✅ No leak detected. This audio is clean.');
       }
 
       // SHOW MESSAGE DIALOG SAYTHING THAT THE USER HAS SPENT CREDITS TO CHECK THE IMAGE
@@ -118,7 +157,7 @@ export default function VideoLeakChecker() {
 
     } catch (err) {
       setCheckStatus('error');
-      showError(`Failed to check video: ${err.message}`);
+      showError(`Failed to check audio: ${err.message}`);
     } finally {
       setIsChecking(false);
     }
@@ -126,21 +165,128 @@ export default function VideoLeakChecker() {
 
   const handleReset = () => {
     setSelectedFile(null);
+    setAudioFile(null);
     setPreviewUrl(null);
     setCheckStatus('idle');
     setLeakData(null);
     setExtractedCode('');
+    setAudioBuffer(null);
+    setFilename('');
     if (fileInputRef.current) fileInputRef.current.value = '';
+    if (audioRef.current) audioRef.current.src = '';
+  };
+
+  // Update waveforms on time update
+  useEffect(() => {
+    const audioPlayer = audioRef.current;
+    const canvas = canvasRef.current;
+
+    const updateWaveform = () => {
+      if (audioBuffer && canvas && audioPlayer) {
+        drawWaveform(audioBuffer, canvas, audioPlayer);
+      }
+    };
+
+    if (audioPlayer) {
+      audioPlayer.addEventListener('timeupdate', updateWaveform);
+      audioPlayer.addEventListener('loadedmetadata', updateWaveform);
+
+      return () => {
+        audioPlayer.removeEventListener('timeupdate', updateWaveform);
+        audioPlayer.removeEventListener('loadedmetadata', updateWaveform);
+      };
+    }
+  }, [audioBuffer]);
+
+  // =============================
+  // WAVEFORM DRAWING
+  // =============================
+  const drawWaveform = (audioBuffer, canvas, audioElement) => {
+    if (!audioBuffer || !canvas) return;
+
+    const ctx = canvas.getContext('2d');
+    const { duration, sampleRate } = audioBuffer;
+    const currentTime = audioElement?.currentTime || 0;
+    const canvasWidth = canvas.width;
+    const canvasHeight = canvas.height;
+    const channelData = audioBuffer.getChannelData(0);
+
+    const viewStart = currentTime - VIEW_SPAN / 2;
+    const viewEnd = currentTime + VIEW_SPAN / 2;
+    const viewDuration = viewEnd - viewStart;
+
+    ctx.clearRect(0, 0, canvasWidth, canvasHeight);
+
+    // Draw grid
+    ctx.strokeStyle = '#ddd';
+    ctx.lineWidth = 0.5;
+    const center = canvasHeight / 2;
+    ctx.beginPath();
+    ctx.moveTo(0, center);
+    ctx.lineTo(canvasWidth, center);
+    ctx.stroke();
+
+    // Draw waveform
+    ctx.beginPath();
+    ctx.strokeStyle = '#007bff';
+    ctx.lineWidth = 1;
+    const ampScale = canvasHeight / 2;
+
+    for (let i = 0; i < canvasWidth; i++) {
+      const t = viewStart + (i / canvasWidth) * viewDuration;
+
+      if (t < 0 || t > duration) {
+        if (i === 0) {
+          ctx.moveTo(i, center);
+        } else {
+          ctx.lineTo(i, center);
+        }
+      } else {
+        const sampleStart = Math.floor(t * sampleRate);
+        const sampleEnd = Math.floor((t + viewDuration / canvasWidth) * sampleRate);
+        const step = Math.max(1, sampleEnd - sampleStart);
+
+        let min = 1.0;
+        let max = -1.0;
+
+        for (let j = 0; j < step; j++) {
+          const sampleIndex = sampleStart + j;
+          if (sampleIndex >= 0 && sampleIndex < channelData.length) {
+            const sample = channelData[sampleIndex];
+            if (sample < min) min = sample;
+            if (sample > max) max = sample;
+          }
+        }
+
+        if (i === 0 || (viewStart + ((i - 1) / canvasWidth) * viewDuration < 0)) {
+          ctx.moveTo(i, (1 + min) * ampScale);
+        }
+        ctx.lineTo(i, (1 + min) * ampScale);
+        ctx.lineTo(i, (1 + max) * ampScale);
+      }
+    }
+    ctx.stroke();
+
+    // Draw seeker line
+    if (audioElement) {
+      const seekerX = canvasWidth / 2;
+      ctx.strokeStyle = 'red';
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.moveTo(seekerX, 0);
+      ctx.lineTo(seekerX, canvasHeight);
+      ctx.stroke();
+    }
   };
 
   return (
     <Container sx={{ py: 4 }}>
       <Box sx={{ mb: 4, textAlign: 'center' }}>
         <Typography variant="h3" color="primary.main" sx={{ mb: 2, fontWeight: 'bold', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 1 }}>
-          <Search /> 🎥 Video Leak Checker
+          <Search /> 🔊 Audio Leak Checker
         </Typography>
         <Typography variant="h6" color="text.secondary" sx={{ mb: 2 }}>
-          Detect hidden steganographic codes to track leaked video content
+          Detect hidden steganographic codes to track leaked audio content
         </Typography>
         {/* <Box sx={{ display: 'flex', gap: 1, justifyContent: 'center', flexWrap: 'wrap' }}>
           <Chip label="Steganography Detection" size="small" color="primary" />
@@ -151,7 +297,7 @@ export default function VideoLeakChecker() {
 
       <Paper elevation={1} sx={{ p: 2, backgroundColor: '#e3f2fd', mb: 2 }}>
         <Typography variant="body2" color="black">
-          💡 <strong>How it works:</strong> Each scrambled video contains hidden steganographic codes in its frames that uniquely identify the buyer. If the content is leaked, this system can extract the code and trace it back to the original purchaser.
+          💡 <strong>How it works:</strong> Each scrambled audio contains hidden steganographic codes in its frames that uniquely identify the buyer. If the content is leaked, this system can extract the code and trace it back to the original purchaser.
         </Typography>
       </Paper>
 
@@ -159,14 +305,14 @@ export default function VideoLeakChecker() {
       <Card elevation={3} sx={{ backgroundColor: '#424242', color: 'white', mb: 4 }}>
         <CardContent sx={{ p: 4 }}>
           <Typography variant="h4" sx={{ mb: 3, display: 'flex', alignItems: 'center', gap: 1 }}>
-            <Videocam /> Upload Video for Leak Detection
+            <Speaker /> Upload Audio for Leak Detection
           </Typography>
 
           <Box sx={{ mb: 3 }}>
-            <input type="file" accept="video/*" onChange={handleFileSelect} style={{ display: 'none' }} id="video-leak-upload" ref={fileInputRef} />
-            <label htmlFor="video-leak-upload">
+            <input type="file" accept="audio/*" onChange={handleFileSelect} style={{ display: 'none' }} id="audio-leak-upload" ref={fileInputRef} />
+            <label htmlFor="audio-leak-upload">
               <Button variant="contained" component="span" startIcon={<Upload />} sx={{ backgroundColor: '#2196f3', color: 'white', mb: 2 }}>
-                Choose Video File
+                Choose Audio File
               </Button>
             </label>
             {selectedFile && (
@@ -187,19 +333,28 @@ export default function VideoLeakChecker() {
 
           {previewUrl && (
             <Box sx={{ borderTop: '1px solid #666', pt: 3, mb: 3 }}>
-              <Typography variant="h6" sx={{ mb: 2, color: '#e0e0e0' }}>Video Preview</Typography>
-              <Box sx={{ backgroundColor: '#0b1020', border: '1px dashed #666', borderRadius: '8px', padding: 2, display: 'flex', justifyContent: 'center', alignItems: 'center' }}>
-                <video ref={videoRef} controls style={{ maxWidth: '100%', maxHeight: '400px', borderRadius: '8px' }}>
+              <Typography variant="h6" sx={{ mb: 2, color: '#e0e0e0' }}>Audio Preview</Typography>
+              <Box sx={{ mt: 1, color: '#bdbdbd' }}>
+                <Typography variant="caption" sx={{ mb: 2, display: 'block' }}>Preview of the selected audio file before leak checking.</Typography>
+                <canvas ref={canvasRef} width="600" height="150" style={{ width: '100%', height: 'auto', border: '1px solid #666', borderRadius: '4px', marginBottom: '10px' }} />
+                <audio ref={audioRef} controls style={{ width: '100%', borderRadius: '8px' }}>
                   <source src={previewUrl} type={selectedFile?.type} />
-                  Your browser does not support the video tag.
-                </video>
+                  Your browser does not support the audio tag.
+                </audio>
+                {audioBuffer && (
+                  <Typography variant="caption" sx={{ color: '#4caf50', mt: 1, display: 'block' }}>
+                    Duration: {audioDuration.toFixed(2)}s | Sample Rate: {sampleRate}Hz | Channels: {numberOfChannels}
+                  </Typography>
+                )}
               </Box>
             </Box>
           )}
 
-          {checkStatus === 'checking' && <Alert severity="info" icon={<CircularProgress size={20} />} sx={{ mb: 2 }}><strong>Analyzing video...</strong> Extracting hidden code from video frames. This may take a moment.</Alert>}
+
+
+          {checkStatus === 'checking' && <Alert severity="info" icon={<CircularProgress size={20} />} sx={{ mb: 2 }}><strong>Analyzing audio...</strong> Extracting hidden code from audio frames. This may take a moment.</Alert>}
           {checkStatus === 'error' && <Alert severity="error" sx={{ mb: 2 }}><strong>Error occurred during leak check</strong></Alert>}
-          {checkStatus === 'not-found' && <Alert severity="success" icon={<CheckCircle />} sx={{ mb: 2 }}><strong>Clean Video ✅</strong> No leak detected. {extractedCode && extractedCode !== 'No code found' && <Box sx={{ mt: 1 }}>Extracted code: <code>{extractedCode}</code> (not in database)</Box>}</Alert>}
+          {checkStatus === 'not-found' && <Alert severity="success" icon={<CheckCircle />} sx={{ mb: 2 }}><strong>Clean Audio ✅</strong> No leak detected. {extractedCode && extractedCode !== 'No code found' && <Box sx={{ mt: 1 }}>Extracted code: <code>{extractedCode}</code> (not in database)</Box>}</Alert>}
         </CardContent>
       </Card>
 
@@ -208,7 +363,7 @@ export default function VideoLeakChecker() {
           <CardContent sx={{ p: 4 }}>
             <Typography variant="h4" sx={{ mb: 3, display: 'flex', alignItems: 'center', gap: 1 }}><Warning /> �� LEAK DETECTED</Typography>
             <Alert severity="error" sx={{ mb: 3, backgroundColor: '#fff', color: '#000' }}>
-              <strong>This video contains a tracked watermark code!</strong> The content has been leaked or shared without authorization.
+              <strong>This audio contains a tracked watermark code!</strong> The content has been leaked or shared without authorization.
             </Alert>
             <Grid container spacing={3}>
               <Grid item xs={12} md={6}>
@@ -229,7 +384,7 @@ export default function VideoLeakChecker() {
                   <Typography variant="h6" sx={{ mb: 1, display: 'flex', alignItems: 'center', gap: 1 }}><Movie /> File Information</Typography>
                   <List dense>
                     <ListItem><ListItemText primary="Original Filename" secondary={leakData.filename || 'Unknown'} /></ListItem>
-                    <ListItem><ListItemText primary="Media Type" secondary={leakData.media_type || 'video'} /></ListItem>
+                    <ListItem><ListItemText primary="Media Type" secondary={leakData.media_type || 'audio'} /></ListItem>
                     <ListItem><ListItemText primary="Created At" secondary={leakData.created_at ? new Date(leakData.created_at).toLocaleString() : 'Unknown'} /></ListItem>
                     {leakData.device_fingerprint && <ListItem><ListItemText primary="Device Fingerprint" secondary={leakData.device_fingerprint} secondaryTypographyProps={{ sx: { fontFamily: 'monospace', fontSize: '0.75rem' } }} /></ListItem>}
                   </List>
@@ -237,7 +392,7 @@ export default function VideoLeakChecker() {
               </Grid>
             </Grid>
             <Typography variant="body2" sx={{ color: '#ffebee', mt: 3 }}>
-              ⚠️ <strong>Action Required:</strong> This content was distributed with a unique watermark code embedded in the video frames. The original owner can be contacted for copyright enforcement.
+              ⚠️ <strong>Action Required:</strong> This content was distributed with a unique watermark code embedded in the audio frames. The original owner can be contacted for copyright enforcement.
             </Typography>
           </CardContent>
         </Card>
@@ -246,7 +401,7 @@ export default function VideoLeakChecker() {
 
       <Paper elevation={1} sx={{ p: 2, backgroundColor: '#fff3e0' }}>
         <Typography variant="body2" color="black">
-          ⚡ <strong>Note:</strong> Video processing may take longer depending on file size and length. The system analyzes video frames to extract hidden watermark codes. Leak detections are only available for media made with the premium version.
+          ⚡ <strong>Note:</strong> Audio processing may take longer depending on file size and length. The system analyzes audio frames to extract hidden watermark codes. Leak detections are only available for media made with the premium version.
         </Typography>
       </Paper>
 
@@ -255,7 +410,7 @@ export default function VideoLeakChecker() {
         open={showCreditModal}
         onClose={() => setShowCreditModal(false)}
         onConfirm={handleCreditConfirm}
-        mediaType="video"
+        mediaType="audio"
         creditCost={SCRAMBLE_COST}
         currentCredits={userCredits}
         fileName={selectedFile?.name || ''}
@@ -263,17 +418,19 @@ export default function VideoLeakChecker() {
         user={userData}
         isProcessing={false}
         fileDetails={{
-          type: 'video',
+          type: 'audio',
           size: selectedFile?.size || 0,
           name: selectedFile?.name || '',
-          duration: videoRef.current?.duration || 0,
-          horizontal: videoRef.current?.videoWidth || 0,
-          vertical: videoRef.current?.videoHeight || 0
+          duration: audioRef.current?.duration || 0,
+          sampleRate: sampleRate,
+          numberOfChannels: numberOfChannels,
+          // horizontal: audioRef.current?.audioWidth || 0,
+          // vertical: audioRef.current?.audioHeight || 0
         }}
 
 
-        actionType="video-leak-check"
-        actionDescription="video leak detection"
+        actionType="audio-leak-check"
+        actionDescription="audio leak detection"
       />
     </Container>
   );

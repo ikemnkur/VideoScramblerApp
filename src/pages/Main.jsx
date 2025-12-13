@@ -7,7 +7,7 @@ import { useToast } from '../contexts/ToastContext';
 import { useNavigate } from 'react-router-dom';
 import { Password } from '@mui/icons-material';
 
-const API_URL = import.meta.env.VITE_API_SERVER_URL || 'http://localhost:3001';  
+const API_URL = import.meta.env.VITE_API_SERVER_URL || 'http://localhost:3001';
 export default function Wallet() {
     const [balance, setBalance] = useState(null);
     const { success, error } = useToast();
@@ -28,7 +28,7 @@ export default function Wallet() {
                 (Date.now() - parseInt(localStorage.getItem('lastDataFetch') || "0", 10) > 1.5 * 60 * 1000);
 
             if (lastDataFetchTooOld) {
-                response = await  api.post(`api/user`, {
+                response = await api.post(`api/user`, {
                     username: userData.username,
                     email: userData.email,
                     password: localStorage.getItem('passwordtxt')
@@ -132,67 +132,7 @@ export default function Wallet() {
                                 Purchase History
                             </Button>
                         </div>
-                        {/* )} */}
-                        {/* {accountType === 'seller' && (
-                            <div style={{ display: 'flex', flexDirection: 'row', gap: '10px' }}>
-                                <Button
-                                    onClick={() => navigate("/create-key")}
-                                    variant="contained"
-                                    sx={{
-                                        borderColor: '#2e7d32',
-                                        color: '#0e0e06ff',
-                                        '&:hover': {
-                                            backgroundColor: '#7d752eff',
-                                            color: '#fff'
-                                        }
-                                    }}
-                                >
-                                    Create Keys
-                                </Button>
-                                <Button
-                                    onClick={() => navigate("/earnings")}
-                                    variant="outlined"
-                                    sx={{
-                                        borderColor: '#7d7d2eff',
-                                        color: '#7d7d2eff',
-                                        '&:hover': {
-                                            backgroundColor: '#7d752eff',
-                                            color: '#fff'
-                                        }
-                                    }}
-                                >
-                                    Earnings
-                                </Button>
-                                 <Button
-                                    onClick={() => navigate("/listings")}
-                                    variant="outlined"
-                                    sx={{
-                                        borderColor: '#7d7d2eff',
-                                        color: '#7d7d2eff',
-                                        '&:hover': {
-                                            backgroundColor: '#7d752eff',
-                                            color: '#fff'
-                                        }
-                                    }}
-                                >
-                                    Key Listings
-                                </Button>
-                                <Button
-                                    onClick={() => navigate("/redeem")}
-                                    variant="outlined"
-                                    sx={{
-                                        borderColor: '#2e7d32',
-                                        color: '#2e7d32',
-                                        '&:hover': {
-                                            backgroundColor: '#2e7d32',
-                                            color: '#fff'
-                                        }
-                                    }}
-                                >
-                                    Redeem Credits
-                                </Button>
-                            </div>
-                        )} */}
+                       
 
                     </CardContent>
                 </Card>
@@ -210,16 +150,56 @@ export default function Wallet() {
                         {/* create buttons for modes for services: free, basic, standard, premium */}
                         <div style={{ display: 'flex', gap: '16px', mb: 2 }}>
                             <Typography variant="h6" sx={{ color: '#ccc', alignSelf: 'center' }}>Mode:</Typography>
-                            <Button variant="outlined" sx={{ color: '#ffd700', borderColor: '#ffd700' }} onClick={() => setServiceMode('free')}>
+                            <Button
+                                variant={serviceMode === 'free' ? 'contained' : 'outlined'}
+                                sx={{
+                                    color: serviceMode === 'free' ? '#0a0a0a' : '#ffd700',
+                                    borderColor: '#ffd700',
+                                    backgroundColor: serviceMode === 'free' ? '#ffd700' : 'transparent',
+                                    '&:hover': {
+                                        backgroundColor: serviceMode === 'free' ? '#e6c200' : 'rgba(255, 215, 0, 0.1)'
+                                    }
+                                }}
+                                onClick={() => setServiceMode('free')}>
                                 Free
                             </Button>
-                            <Button variant="outlined" sx={{ color: '#ffd700', borderColor: '#ffd700' }} onClick={() => setServiceMode('basic')}>
+                            <Button
+                                variant={serviceMode === 'basic' ? 'contained' : 'outlined'}
+                                sx={{
+                                    color: serviceMode === 'basic' ? '#0a0a0a' : '#ffd700',
+                                    borderColor: '#ffd700',
+                                    backgroundColor: serviceMode === 'basic' ? '#ffd700' : 'transparent',
+                                    '&:hover': {
+                                        backgroundColor: serviceMode === 'basic' ? '#e6c200' : 'rgba(255, 215, 0, 0.1)'
+                                    }
+                                }}
+                                onClick={() => setServiceMode('basic')}>
                                 Basic
                             </Button>
-                            <Button variant="outlined" sx={{ color: '#ffd700', borderColor: '#ffd700' }} onClick={() => setServiceMode('standard')}>
+                            <Button
+                                variant={serviceMode === 'standard' ? 'contained' : 'outlined'}
+                                sx={{
+                                    color: serviceMode === 'standard' ? '#0a0a0a' : '#ffd700',
+                                    borderColor: '#ffd700',
+                                    backgroundColor: serviceMode === 'standard' ? '#ffd700' : 'transparent',
+                                    '&:hover': {
+                                        backgroundColor: serviceMode === 'standard' ? '#e6c200' : 'rgba(255, 215, 0, 0.1)'
+                                    }
+                                }}
+                                onClick={() => setServiceMode('standard')}>
                                 Standard
                             </Button>
-                            <Button variant="outlined" sx={{ color: '#ffd700', borderColor: '#ffd700' }} onClick={() => setServiceMode('premium')}>
+                            <Button
+                                variant={serviceMode === 'premium' ? 'contained' : 'outlined'}
+                                sx={{
+                                    color: serviceMode === 'premium' ? '#0a0a0a' : '#ffd700',
+                                    borderColor: '#ffd700',
+                                    backgroundColor: serviceMode === 'premium' ? '#ffd700' : 'transparent',
+                                    '&:hover': {
+                                        backgroundColor: serviceMode === 'premium' ? '#e6c200' : 'rgba(255, 215, 0, 0.1)'
+                                    }
+                                }}
+                                onClick={() => setServiceMode('premium')}>
                                 Premium
                             </Button>
                         </div>
@@ -239,7 +219,7 @@ export default function Wallet() {
                                     cursor: 'pointer',
                                     transition: 'all 0.3s ease',
                                     '&:hover': {
-                                        backgroundColor: '#2e7d32',
+                                        backgroundColor: '#2e7d3263',
                                         transform: 'translateY(-2px)',
                                         boxShadow: '0 4px 12px rgba(46, 125, 50, 0.3)'
                                     }
@@ -247,7 +227,7 @@ export default function Wallet() {
                                     onClick={() => navigate("/video-scrambler")}>
                                     <CardContent sx={{ p: 2 }}>
                                         <Typography variant="h6" sx={{ color: '#2e7d32', mb: 1, fontWeight: 'bold' }}>
-                                            🎬 Scramble Video ({serviceMode === 'free' ? 'Free' : 'No Ads'})
+                                           🔐🎬 Scramble Video {serviceMode === 'free' ? '' : '    (No Ads)'}
                                         </Typography>
                                         <Typography variant="body2" sx={{ color: '#ccc', lineHeight: 1.4 }}>
                                             Upload and scramble videos into unrecognizable tiles. Generate keys to monetize access to your content.
@@ -265,15 +245,15 @@ export default function Wallet() {
                                     cursor: 'pointer',
                                     transition: 'all 0.3s ease',
                                     '&:hover': {
-                                        backgroundColor: '#2e7d32',
+                                        backgroundColor: '#2e7d327a',
                                         transform: 'translateY(-2px)',
                                         boxShadow: '0 4px 12px rgba(46, 125, 50, 0.3)'
                                     }
                                 }}
                                     onClick={() => navigate("/photo-scrambler")}>
                                     <CardContent sx={{ p: 2 }}>
-                                        <Typography variant="h6" sx={{ color: '#2e7d32', mb: 1, fontWeight: 'bold' }}>
-                                            📸 Scramble Photo ({serviceMode === 'free' ? 'Free' : 'No Ads'})
+                                        <Typography variant="h6" sx={{ color: '#2e7d32ff', mb: 1, fontWeight: 'bold' }}>
+                                            🔐📸 Scramble Photo {serviceMode === 'free' ? '' : '\n    (No Ads)'}
                                         </Typography>
                                         <Typography variant="body2" sx={{ color: '#ccc', lineHeight: 1.4 }}>
                                             Protect your images by scrambling them with watermarks and metadata headers for secure sharing.
@@ -281,6 +261,33 @@ export default function Wallet() {
                                     </CardContent>
                                 </Card>
                             )}
+
+                            {/* Scramble Photo Service */}
+                            {(serviceMode === 'basic') && (
+                                <Card sx={{
+                                    backgroundColor: '#2a2a2a',
+                                    border: '1px solid #2e7d32',
+                                    borderRadius: 2,
+                                    cursor: 'pointer',
+                                    transition: 'all 0.3s ease',
+                                    '&:hover': {
+                                        backgroundColor: '#2e7d3253',
+                                        transform: 'translateY(-2px)',
+                                        boxShadow: '0 4px 12px rgba(46, 125, 50, 0.3)'
+                                    }
+                                }}
+                                    onClick={() => navigate("/audio-scrambler")}>
+                                    <CardContent sx={{ p: 2 }}>
+                                        <Typography variant="h6" sx={{ color: '#2e7d32ff', mb: 1, fontWeight: 'bold' }}>
+                                            🔐🎵 Scramble Audio {serviceMode === 'free' ? '' : '    (No Ads)'}
+                                        </Typography>
+                                        <Typography variant="body2" sx={{ color: '#ccc', lineHeight: 1.4 }}>
+                                            Protect your audio/music by scrambling them with reversible noise for secure sharing.
+                                        </Typography>
+                                    </CardContent>
+                                </Card>
+                            )}
+
 
                             {/* Scramble Photo Service */}
                             {(serviceMode === 'premium' || serviceMode === 'standard') && (
@@ -291,15 +298,15 @@ export default function Wallet() {
                                     cursor: 'pointer',
                                     transition: 'all 0.3s ease',
                                     '&:hover': {
-                                        backgroundColor: '#2e7d32',
+                                        backgroundColor: '#2e7d323a',
                                         transform: 'translateY(-2px)',
                                         boxShadow: '0 4px 12px rgba(46, 125, 50, 0.3)'
                                     }
                                 }}
                                     onClick={() => navigate("/photo-scrambler-pro")}>
                                     <CardContent sx={{ p: 2 }}>
-                                        <Typography variant="h6" sx={{ color: '#2e7d32', mb: 1, fontWeight: 'bold' }}>
-                                            🔐📸 Scramble Photo Pro
+                                        <Typography variant="h6" sx={{ color: '#2e7d32ff', mb: 1, fontWeight: 'bold' }}>
+                                            🔐📸 Scramble Photo {serviceMode === 'premium' ? '(FHD)' : '(HD)'}
                                         </Typography>
                                         <Typography variant="body2" sx={{ color: '#ccc', lineHeight: 1.4 }}>
                                             Protect your images by scrambling them with watermarks and metadata headers for secure sharing.
@@ -308,30 +315,7 @@ export default function Wallet() {
                                 </Card>
                             )}
 
-                            {/* Encode Mode Service */}
-                            {/* <Card sx={{
-                                backgroundColor: '#2a2a2a',
-                                border: '1px solid #2e7d32',
-                                borderRadius: 2,
-                                cursor: 'pointer',
-                                transition: 'all 0.3s ease',
-                                '&:hover': {
-                                    backgroundColor: '#2e7d32',
-                                    transform: 'translateY(-2px)',
-                                    boxShadow: '0 4px 12px rgba(46, 125, 50, 0.3)'
-                                }
-                            }}
-                                onClick={() => navigate("/encode-mode")}>
-                                <CardContent sx={{ p: 2 }}>
-                                    <Typography variant="h6" sx={{ color: '#2e7d32', mb: 1, fontWeight: 'bold' }}>
-                                        🔐 Encode Mode
-                                    </Typography>
-                                    <Typography variant="body2" sx={{ color: '#ccc', lineHeight: 1.4 }}>
-                                        Advanced encoding features for creating secure, encrypted content with custom algorithms.
-                                    </Typography>
-                                </CardContent>
-                            </Card> */}
-
+                           
                             {/* Free Services */}
 
                             {/* Unscramble Video Service */}
@@ -343,15 +327,15 @@ export default function Wallet() {
                                     cursor: 'pointer',
                                     transition: 'all 0.3s ease',
                                     '&:hover': {
-                                        backgroundColor: '#ff9800',
+                                        backgroundColor: '#ff990057',
                                         transform: 'translateY(-2px)',
                                         boxShadow: '0 4px 12px rgba(255, 152, 0, 0.3)'
                                     }
                                 }}
                                     onClick={() => navigate("/video-unscrambler")}>
                                     <CardContent sx={{ p: 2 }}>
-                                        <Typography variant="h6" sx={{ color: '#ff9800', mb: 1, fontWeight: 'bold' }}>
-                                            🔓🎬 Unscramble Video ({serviceMode === 'free' ? 'Free' : 'No Ads'})
+                                        <Typography variant="h6" sx={{ color: '#ff9900ff', mb: 1, fontWeight: 'bold' }}>
+                                            🎬 Unscramble Video {serviceMode === 'free' ? '' : '    (No Ads)'}
                                         </Typography>
                                         <Typography variant="body2" sx={{ color: '#ccc', lineHeight: 1.4 }}>
                                             Use your keys to unscramble videos back to their original form. Restore scrambled content.
@@ -369,7 +353,7 @@ export default function Wallet() {
                                     cursor: 'pointer',
                                     transition: 'all 0.3s ease',
                                     '&:hover': {
-                                        backgroundColor: '#ff9800',
+                                        backgroundColor: '#ff990050',
                                         transform: 'translateY(-2px)',
                                         boxShadow: '0 4px 12px rgba(255, 152, 0, 0.3)'
                                     }
@@ -377,7 +361,7 @@ export default function Wallet() {
                                     onClick={() => navigate("/photo-unscrambler")}>
                                     <CardContent sx={{ p: 2 }}>
                                         <Typography variant="h6" sx={{ color: '#ff9800', mb: 1, fontWeight: 'bold' }}>
-                                            🖼️ Unscramble Photo ({serviceMode === 'free' ? 'Free' : 'No Ads'})
+                                            🖼️ Unscramble Photo {serviceMode === 'free' ? '' : '    (No Ads)'}
                                         </Typography>
                                         <Typography variant="body2" sx={{ color: '#ccc', lineHeight: 1.4 }}>
                                             Restore scrambled images using unscramble keys. View protected photos in their original form.
@@ -386,9 +370,37 @@ export default function Wallet() {
                                 </Card>
                             )}
 
+
+
+                            {/* Unscramble Audio Service */}
+                            {(serviceMode === 'basic') && (
+                                <Card sx={{
+                                    backgroundColor: '#2a2a2a',
+                                    border: '1px solid #ff9800',
+                                    borderRadius: 2,
+                                    cursor: 'pointer',
+                                    transition: 'all 0.3s ease',
+                                    '&:hover': {
+                                        backgroundColor: '#ff99002b',
+                                        transform: 'translateY(-2px)',
+                                        boxShadow: '0 4px 12px rgba(255, 152, 0, 0.3)'
+                                    }
+                                }}
+                                    onClick={() => navigate("/audio-unscrambler")}>
+                                    <CardContent sx={{ p: 2 }}>
+                                        <Typography variant="h6" sx={{ color: '#ff9800', mb: 1, fontWeight: 'bold' }}>
+                                           🎵 Unscramble Audio {serviceMode === 'free' ? '' : '    (No Ads)'}
+                                        </Typography>
+                                        <Typography variant="body2" sx={{ color: '#ccc', lineHeight: 1.4 }}>
+                                            Unlock newly released audio/music by unscrambling them with special algorithms.
+                                        </Typography>
+                                    </CardContent>
+                                </Card>
+                            )}
+
                             {/* Pro Services */}
 
-                  
+
 
                             {/* Pro Unscramble Photo Service */}
                             {(serviceMode === 'premium' || serviceMode === 'standard') && (
@@ -400,7 +412,7 @@ export default function Wallet() {
                                     cursor: 'pointer',
                                     transition: 'all 0.3s ease',
                                     '&:hover': {
-                                        backgroundColor: '#ff9800',
+                                        backgroundColor: '#ff990056',
                                         transform: 'translateY(-2px)',
                                         boxShadow: '0 4px 12px rgba(255, 152, 0, 0.3)'
                                     }
@@ -408,7 +420,7 @@ export default function Wallet() {
                                     onClick={() => navigate("/photo-unscrambler-pro")}>
                                     <CardContent sx={{ p: 2 }}>
                                         <Typography variant="h6" sx={{ color: '#ff9800', mb: 1, fontWeight: 'bold' }}>
-                                            🖼️ Unscramble Photo (Pro)
+                                            🖼️ Unscramble Photo {serviceMode === 'premium' ? '(FHD)' : '(HD)'}
                                         </Typography>
                                         <Typography variant="body2" sx={{ color: '#ccc', lineHeight: 1.4 }}>
                                             Restore scrambled images using unscramble keys. View protected photos in their original form.
@@ -426,7 +438,7 @@ export default function Wallet() {
                                     cursor: 'pointer',
                                     transition: 'all 0.3s ease',
                                     '&:hover': {
-                                        backgroundColor: '#2e7d32',
+                                        backgroundColor: '#2e7d3275',
                                         transform: 'translateY(-2px)',
                                         boxShadow: '0 4px 12px rgba(46, 125, 50, 0.3)'
                                     }
@@ -434,7 +446,7 @@ export default function Wallet() {
                                     onClick={() => navigate("/video-scrambler-pro")}>
                                     <CardContent sx={{ p: 2 }}>
                                         <Typography variant="h6" sx={{ color: '#2e7d32', mb: 1, fontWeight: 'bold' }}>
-                                          🔐🎬 Scramble Video (Pro)
+                                            🔐🎬 Scramble Video {serviceMode === 'premium' ? '(FHD)' : '(HD)'}
                                         </Typography>
                                         <Typography variant="body2" sx={{ color: '#ccc', lineHeight: 1.4 }}>
                                             Upload and scramble videos into unrecognizable tiles. Generate keys to monetize access to your content.
@@ -444,7 +456,7 @@ export default function Wallet() {
                             )}
 
                             {/* Pro Unscramble Video Service */}
-                            {( serviceMode === 'premium' || serviceMode === 'standard') && (
+                            {(serviceMode === 'premium' || serviceMode === 'standard') && (
 
                                 <Card sx={{
                                     backgroundColor: '#2a2a2a',
@@ -453,7 +465,7 @@ export default function Wallet() {
                                     cursor: 'pointer',
                                     transition: 'all 0.3s ease',
                                     '&:hover': {
-                                        backgroundColor: '#ff9800',
+                                        backgroundColor: '#ff99004d',
                                         transform: 'translateY(-2px)',
                                         boxShadow: '0 4px 12px rgba(255, 152, 0, 0.3)'
                                     }
@@ -461,14 +473,14 @@ export default function Wallet() {
                                     onClick={() => navigate("/video-unscrambler-pro")}>
                                     <CardContent sx={{ p: 2 }}>
                                         <Typography variant="h6" sx={{ color: '#ff9800', mb: 1, fontWeight: 'bold' }}>
-                                           🎬 Unscramble Video (Pro)  
+                                            🎬 Unscramble Video {serviceMode === 'premium' ? '(FHD)' : '(HD)'}
                                         </Typography>
                                         <Typography variant="body2" sx={{ color: '#ccc', lineHeight: 1.4 }}>
                                             Restore scrambled videos using unscramble keys. View protected content in its original form.
                                         </Typography>
                                     </CardContent>
                                 </Card>
-                            )} 
+                            )}
 
 
                             {/* Photo Leak Checker Service */}
@@ -480,7 +492,33 @@ export default function Wallet() {
                                     cursor: 'pointer',
                                     transition: 'all 0.3s ease',
                                     '&:hover': {
-                                        backgroundColor: '#e91e63',
+                                        backgroundColor: '#e91e625d',
+                                        transform: 'translateY(-2px)',
+                                        boxShadow: '0 4px 12px rgba(233, 30, 99, 0.3)'
+                                    }
+                                }}
+                                    onClick={() => navigate("/audio-leak-checker")}>
+                                    <CardContent sx={{ p: 2 }}>
+                                        <Typography variant="h6" sx={{ color: '#e91e63', mb: 1, fontWeight: 'bold' }}>
+                                            🔍🔊 Audio Leak Scanner
+                                        </Typography>
+                                        <Typography variant="body2" sx={{ color: '#ccc', lineHeight: 1.4 }}>
+                                            Scan and detect if your audios have been leaked or shared without permission online.
+                                        </Typography>
+                                    </CardContent>
+                                </Card>
+                            )}
+
+                            {/* Photo Leak Checker Service */}
+                            {serviceMode === 'premium' && (
+                                <Card sx={{
+                                    backgroundColor: '#2a2a2a',
+                                    border: '1px solid #e91e63',
+                                    borderRadius: 2,
+                                    cursor: 'pointer',
+                                    transition: 'all 0.3s ease',
+                                    '&:hover': {
+                                        backgroundColor: '#e91e6250',
                                         transform: 'translateY(-2px)',
                                         boxShadow: '0 4px 12px rgba(233, 30, 99, 0.3)'
                                     }
@@ -488,7 +526,7 @@ export default function Wallet() {
                                     onClick={() => navigate("/photo-leak-checker")}>
                                     <CardContent sx={{ p: 2 }}>
                                         <Typography variant="h6" sx={{ color: '#e91e63', mb: 1, fontWeight: 'bold' }}>
-                                            🔍 Photo Leak Scanner
+                                            🔍🖼️  Photo Leak Scanner
                                         </Typography>
                                         <Typography variant="body2" sx={{ color: '#ccc', lineHeight: 1.4 }}>
                                             Scan and detect if your images have been leaked or shared without permission online.
@@ -506,7 +544,7 @@ export default function Wallet() {
                                     cursor: 'pointer',
                                     transition: 'all 0.3s ease',
                                     '&:hover': {
-                                        backgroundColor: '#e91e63',
+                                        backgroundColor: '#e91e6249',
                                         transform: 'translateY(-2px)',
                                         boxShadow: '0 4px 12px rgba(233, 30, 99, 0.3)'
                                     }
@@ -514,7 +552,7 @@ export default function Wallet() {
                                     onClick={() => navigate("/video-leak-checker")}>
                                     <CardContent sx={{ p: 2 }}>
                                         <Typography variant="h6" sx={{ color: '#e91e63', mb: 1, fontWeight: 'bold' }}>
-                                            🎥 Video Leak Scanner
+                                            🔍🎥 Video Leak Scanner
                                         </Typography>
                                         <Typography variant="body2" sx={{ color: '#ccc', lineHeight: 1.4 }}>
                                             Monitor and check if your videos have been leaked or distributed without authorization.

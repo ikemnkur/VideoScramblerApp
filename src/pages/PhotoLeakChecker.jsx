@@ -20,6 +20,8 @@ export default function PhotoLeakChecker() {
   const [leakData, setLeakData] = useState(null);
   const [extractedCode, setExtractedCode] = useState('');
   const fileInputRef = useRef(null);
+  const imageRef = useRef(null);
+
 
   const [userData, setUserData] = useState(JSON.parse(localStorage.getItem("userdata")));
 
@@ -50,6 +52,8 @@ export default function PhotoLeakChecker() {
     setShowCreditModal(false);
 
     setAllowLeakChecking(true);
+
+    handleCheckForLeak();
 
   }, []);
 
@@ -108,16 +112,20 @@ export default function PhotoLeakChecker() {
     }
   };
 
-  useEffect(async () => {
-    response = await api.post(`api/wallet/balance/${userData.username}`, {
-      username: userData.username,
-      email: userData.email,
-      password: localStorage.getItem('passwordtxt')
-    });
+  useEffect(() => {
 
-    if (response.status === 200 && response.data) {
-      setUserCredits(response.data.credits);
+    async function fetchData() {
+      let response = await api.post(`api/wallet/balance/${userData.username}`, {
+        username: userData.username,
+        email: userData.email,
+        password: localStorage.getItem('passwordtxt')
+      });
+
+      if (response.status === 200 && response.data) {
+        setUserCredits(response.data.credits);
+      }
     }
+    fetchData();
   }, []);
 
   const handleReset = () => {
@@ -146,6 +154,13 @@ export default function PhotoLeakChecker() {
         </Box> */}
       </Box>
 
+      <Paper elevation={1} sx={{ p: 2, backgroundColor: '#e3f2fd', mb: 2 }}>
+        <Typography variant="body2" color="black">
+          💡 <strong>How it works:</strong> Each scrambled photo contains a hidden steganographic code that uniquely identifies the buyer. If the content is leaked, this system can extract the code and trace it back to the original purchaser.
+        </Typography>
+      </Paper>
+
+
       <Card elevation={3} sx={{ backgroundColor: '#424242', color: 'white', mb: 4 }}>
         <CardContent sx={{ p: 4 }}>
           <Typography variant="h4" sx={{ mb: 3, display: 'flex', alignItems: 'center', gap: 1 }}>
@@ -168,7 +183,7 @@ export default function PhotoLeakChecker() {
           </Box>
 
           <Box sx={{ display: 'flex', gap: 2, flexWrap: 'wrap', mb: 3 }}>
-            <Button variant="contained" onClick={handleCheckForLeak} startIcon={isChecking ? <CircularProgress size={20} color="inherit" /> : <Search />} disabled={!selectedFile || isChecking}
+            <Button variant="contained" onClick={() => setShowCreditModal(true)} startIcon={isChecking ? <CircularProgress size={20} color="inherit" /> : <Search />} disabled={!selectedFile || isChecking}
               sx={{ backgroundColor: (!selectedFile || isChecking) ? '#666' : '#22d3ee', color: (!selectedFile || isChecking) ? '#999' : '#001018', fontWeight: 'bold', minWidth: 200 }}>
               {isChecking ? 'Checking for Leaks...' : 'Check for Leak'}
             </Button>
@@ -179,7 +194,7 @@ export default function PhotoLeakChecker() {
             <Box sx={{ borderTop: '1px solid #666', pt: 3, mb: 3 }}>
               <Typography variant="h6" sx={{ mb: 2, color: '#e0e0e0' }}>Image Preview</Typography>
               <Box sx={{ backgroundColor: '#0b1020', border: '1px dashed #666', borderRadius: '8px', padding: 2, display: 'flex', justifyContent: 'center', alignItems: 'center' }}>
-                <img src={previewUrl} alt="Preview" style={{ maxWidth: '100%', maxHeight: '400px', borderRadius: '8px' }} />
+                <img ref={imageRef} src={previewUrl} alt="Preview" style={{ maxWidth: '100%', maxHeight: '400px', borderRadius: '8px' }} />
               </Box>
             </Box>
           )}
@@ -227,9 +242,10 @@ export default function PhotoLeakChecker() {
         </Card>
       )}
 
-      <Paper elevation={1} sx={{ p: 2, backgroundColor: '#e3f2fd', mb: 2 }}>
+
+      <Paper elevation={1} sx={{ p: 2, backgroundColor: '#fff3e0' }}>
         <Typography variant="body2" color="black">
-          💡 <strong>How it works:</strong> Each scrambled photo contains a hidden steganographic code that uniquely identifies the buyer. If the content is leaked, this system can extract the code and trace it back to the original purchaser.
+          ⚡ <strong>Note:</strong> Video processing may take longer depending on file size and length. The system analyzes video frames to extract hidden watermark codes. Leak detections are only available for media made with the premium version.
         </Typography>
       </Paper>
 
@@ -248,8 +264,8 @@ export default function PhotoLeakChecker() {
         file={selectedFile}
         fileDetails={{
           type: 'image',
-          size: imageFile?.size || 0,
-          name: imageFile?.name || '',
+          size: selectedFile?.size || 0,
+          name: selectedFile?.name || '',
           horizontal: imageRef.current?.naturalWidth || 0,
           vertical: imageRef.current?.naturalHeight || 0
         }}

@@ -2,6 +2,8 @@
 import React, { useState, useEffect } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { PhotoCamera } from '@mui/icons-material';
+import { QrCode } from '@mui/icons-material';
+
 import { Container, Stack, Typography, Card, CardContent, Divider, Skeleton } from '@mui/material';
 import api from '../api/client';
 import { uploadTransactionScreenshot } from '../api/api';
@@ -45,7 +47,7 @@ export default function Purchase() {
   const [rate, setRate] = useState(0);
   const [errorMessage, setErrorMessage] = useState('');
   const [message, setMessage] = useState(''); // For success messages
-  const [walletAddress, setWalletAddress] = useState(walletAddressMap[currency] || 'YOUR_WALLET_ADDRESS_HERE');
+  // const [walletAddress, setWalletAddress] = useState('YOUR_WALLET_ADDRESS_HERE');
   const [userDetails, setUserDetails] = useState({
     name: '',
     email: '',
@@ -56,6 +58,7 @@ export default function Purchase() {
   });
 
   const [txFile, setTXFile] = useState(null);
+  const [cashAppTag, setCashAppTag] = useState('$YourCashAppTag');
   // const [filePreview, setFilePreview] = useState(null);
   // const [fileError, setFileError] = useState('');
 
@@ -120,7 +123,7 @@ export default function Purchase() {
   // };
 
   const handleCopyAddress = () => {
-    const walletAddress = walletAddressMap[currency] || 'YOUR_WALLET_ADDRESS_HERE';
+    const walletAddress = cashAppTag || 'YOUR_WALLET_ADDRESS_HERE';
     navigator.clipboard
       .writeText(walletAddress)
       .then(() => {
@@ -759,7 +762,7 @@ export default function Purchase() {
             )}
 
             <Divider sx={{ my: 2 }} />
-            <Typography variant="h4">Step 2</Typography>
+            <Typography variant="h4">Step 1</Typography>
             <Typography variant="h6">Purchase Credits</Typography>
             <Typography variant="body2" sx={{ opacity: 0.8, mb: 2 }}>
               Select an amount of credits to purchase. Current selection: <strong>{parseInt(amount).toLocaleString()} credits</strong>
@@ -884,7 +887,7 @@ export default function Purchase() {
             </div>
 
             <Divider sx={{ my: 2 }} />
-            <Typography variant="h4" data-step="3">Step 3</Typography>
+            <Typography variant="h4" data-step="3">Step 2</Typography>
             <Typography variant="h6">Send Cryptocurrency</Typography>
             <Typography variant="body2" sx={{ opacity: 0.8, mb: 2 }}>
               Send the exact amount of money to the Cashapp Tag below.
@@ -906,11 +909,15 @@ export default function Purchase() {
                 borderRadius: '12px',
                 marginBottom: '20px',
                 textAlign: 'center',
-                color: 'white'
+                color: 'white',
+                flexDirection: 'column',
+                display: 'flex',
+                alignItems: 'center'
               }}>
               {/* Display cashapp tag qr code */}
-                <h4 style={{ marginBottom: '15px' }}>CashApp Tag QR Code</h4>
-                {/* <QRCode value={cashAppTag} size={128} /> */}
+                <h4 style={{ marginBottom: '5px' }}>CashApp Tag QR Code</h4>
+                <QrCode style={{ fontSize: 32, margin: 5 }} />
+                <img src="./public/CashappQR.jpg" alt="" style={{width: "90%", margin: "0px 10px"}}/>
               </div>
 
               <div style={{
@@ -924,12 +931,13 @@ export default function Purchase() {
                   Payment Instructions
                 </h4>
                 <p style={{ marginBottom: '15px', textAlign: 'center' }}>
-                  Please send <strong style={{ color: '#ffd700' }}>{amount} USD</strong> to the following CashApp Tag:
+                  Please send <strong style={{ color: '#ffd700' }}>{price} USD</strong> to the following CashApp Tag:
                 </p>
+                
 
                 <div style={styles.walletAddressContainer}>
                   <p style={{ ...styles.walletAddress, fontSize: '18px', fontWeight: 'bold' }}>
-                    {amount} USD
+                    {price} USD
                   </p>
                   <button style={styles.button} onClick={handleCopyAmount}>
                     Copy Amount
@@ -937,34 +945,18 @@ export default function Purchase() {
                 </div>
 
                 <div style={styles.walletAddressContainer}>
-                  <p style={styles.walletAddress}>{walletAddress}</p>
+                  <p style={styles.walletAddress}>{cashAppTag}</p>
                   <button style={styles.button} onClick={handleCopyAddress}>
-                    Copy Address
+                    Copy Tag
                   </button>
                 </div>
 
-                <div style={{
-                  backgroundColor: '#2a2a2a',
-                  padding: '15px',
-                  borderRadius: '8px',
-                  marginTop: '15px',
-                  border: '1px solid #444'
-                }}>
-                  <p style={{ fontSize: '14px', margin: '5px 0' }}>
-                    <strong>Network:</strong> {depositWalletAddressMap[currency]?.blockchain || 'Unknown'}
-                  </p>
-                  <p style={{ fontSize: '14px', margin: '5px 0' }}>
-                    <strong>Rate:</strong> 1 {currency} = ${rate} USD ≈ {(1000 * rate).toLocaleString()} Credits ("without promo" rate)
-                  </p>
-                  <p style={{ fontSize: '12px', margin: '5px 0', opacity: 0.7 }}>
-                    Maximum purchase: 100,000 credits per transaction
-                  </p>
-                </div>
+               
               </div>
             </div>
 
             <Divider sx={{ my: 2 }} />
-            <Typography variant="h4">Step 4</Typography>
+            <Typography variant="h4">Step 3</Typography>
             <Typography variant="h6">Log Transaction Details</Typography>
             <Typography variant="body2" sx={{ opacity: 0.8, mb: 2 }}>
               After sending a payment with Cashapp, please fill out the form below to log your order.
@@ -974,7 +966,7 @@ export default function Purchase() {
             <form onSubmit={handleOrderSubmit} style={styles.form}>
               <div style={styles.formGroup}>
                 <p style={{ marginBottom: '20px', textAlign: 'center', color: '#ffd700' }}>
-                  After sending <strong>{cryptoAmount} {currency}</strong> to wallet: {walletAddress.slice(0, 20)}...
+                  After sending <strong>{cryptoAmount} {currency}</strong> to wallet: {cashAppTag.slice(0, 20)}...
                   <br />Fill out the form below to log your order for manual review.
                 </p>
               </div>
@@ -1070,7 +1062,7 @@ export default function Purchase() {
                   onChange={handleInputChange}
                   required
                   style={styles.input}
-                  placeholder="Enter the transaction ID or hash"
+                  placeholder="Enter the a link to the web receipt of the transaction"
                 />
                 <small style={{ color: '#cccccc', fontSize: '12px' }}>
                   Details from your CashApp Web receipt or transaction confirmation
@@ -1098,7 +1090,7 @@ export default function Purchase() {
                   value={userDetails.blockExplorerLink}
                   onChange={handleInputChange}
                   style={styles.input}
-                  placeholder="https://blockchair.com/bitcoin/transaction/..."
+                  placeholder="https://cash.app/..."
                 />
                 <small style={{ color: '#cccccc', fontSize: '12px' }}>
                   Link to view your transaction on a block explorer
@@ -1191,7 +1183,7 @@ export default function Purchase() {
             </form>
 
             <Divider sx={{ my: 2 }} />
-            <Typography variant="h4" data-step="5">Step 5</Typography>
+            <Typography variant="h4" data-step="5">Step 4</Typography>
             <Typography variant="h6">Log Transaction</Typography>
             <Typography variant="body2" sx={{ opacity: 0.8, mb: 2 }}>
               {orderSubmitted

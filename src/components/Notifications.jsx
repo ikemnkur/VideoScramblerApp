@@ -342,7 +342,7 @@ const Notifications = () => {
                         >
                           {notif.title}
                         </Typography>
-                        <Chip
+                        {/* <Chip
                           size="small"
                           label={notif.category === 'seller' ? 'Seller' : 'Buyer'}
                           sx={{
@@ -351,7 +351,7 @@ const Notifications = () => {
                             backgroundColor: notif.category === 'seller' ? '#2e7d32' : '#1976d2',
                             color: '#fff'
                           }}
-                        />
+                        /> */}
                       </Box>
                     }
                     secondary={

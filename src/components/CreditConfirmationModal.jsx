@@ -77,17 +77,23 @@ export default function CreditConfirmationModal({
   // =============================
 
 
-  useEffect(async () => {
-    console.log('Fetching user credits for', user.username);
-    const response = await api.post(`api/wallet/balance/${user.username}`, {
-      username: user.username,
-      email: user.email,
-      password: localStorage.getItem('passwordtxt')
-    });
+  useEffect(() => {
 
-    if (response.status === 200 && response.data) {
-      setUserCredits(response.data.credits);
+
+    async function fetchData(params) {
+      console.log('Fetching user credits for', user.username);
+      const response = await api.post(`api/wallet/balance/${user.username}`, {
+        username: user.username,
+        email: user.email,
+        password: localStorage.getItem('passwordtxt')
+      });
+
+      if (response.status === 200 && response.data) {
+        setUserCredits(response.data.credits);
+      }
     }
+
+    fetchData();
   }, []);
 
 
@@ -181,7 +187,35 @@ export default function CreditConfirmationModal({
         calculatedCost = creditCost + LQ;
       }
 
+      calculatedCost = Math.ceil(calculatedCost * (1 + fileDetails.size / (1000 * 1000 * 0.5))); // scale by size in MB over 0.5MB
+
       console.log('Calculated Photo Cost:', calculatedCost);
+
+    } else if (mediaType === 'audio') {
+      // Calculate cost based on video resolution and duration from fileDetails
+      // const width = fileDetails.horizontal;
+      // const height = fileDetails.vertical;
+      const duration = Math.ceil((fileDetails.duration || 0) / 60); // duration in minutes
+      const sampleRate = fileDetails.sampleRate || 44100;
+      const numberOfChannels = fileDetails.numberOfChannels || 2;
+
+
+      console.log('Audio Duration:', fileDetails.duration, 'seconds (', duration, 'minutes)');
+      // console.log('Audio Resolution:', width, 'x', height);
+      console.log('Audio Size:', fileDetails.size, 'bytes');
+
+      // let resolutionCost = LQ;
+      // if (width >= 1920 && height >= 1080) {
+      //   resolutionCost = FHDCharge;
+      // } else if (width >= 1280 && height >= 720) {
+      //   resolutionCost = HDcharge;
+      // } else if (width >= 854 && height >= 480) {
+      //   resolutionCost = SDcharge;
+      // }
+
+      calculatedCost = Math.ceil((sampleRate / 24000) + duration * (numberOfChannels + fileDetails.size / (1000 * 1000 * 1))); // scale by size in MB over 1MB
+
+      console.log('Calculated Audio Cost:', calculatedCost);
 
     } else if (mediaType === 'video') {
       // Calculate cost based on video resolution and duration from fileDetails
@@ -202,7 +236,7 @@ export default function CreditConfirmationModal({
         resolutionCost = SDcharge;
       }
 
-      calculatedCost = creditCost + (duration * resolutionCost);
+      calculatedCost = Math.ceil(creditCost + (duration * resolutionCost * 2) * (1+ fileDetails.size / (1000 * 1000 * 1))); // scale by size in MB over 1MB
 
       console.log('Calculated Video Cost:', calculatedCost);
     }
@@ -245,7 +279,7 @@ export default function CreditConfirmationModal({
             {/* list attributes of video or photo */}
             <Typography variant="body2" color="text.secondary">
               {mediaType === 'video'
-                ? `Duration: ${fileDetails.duration ?? 'Unknown'} | Resolution: ${fileDetails.horizontal}x${fileDetails.vertical} | Size: ${fileDetails.size ?? 'Unknown'}`
+                ? `Duration: ${fileDetails.duration ?? 'Unknown'}s | Resolution: ${fileDetails.horizontal}x${fileDetails.vertical} | Size: ${Math.floor(fileDetails.size / (1000 * 100))/10 ?? 'Unknown'} MB`
                 : `Dimensions: ${fileDetails.horizontal}x${fileDetails.vertical} | Size: ${Math.floor(fileDetails.size / 1000) ?? 'Unknown'} KB`}
             </Typography>
           </Typography>

@@ -21,6 +21,10 @@ import { useNavigate } from 'react-router-dom';
 // import YourKeys from './pages/YourKeys';
 // import Listings from './pages/Listing';
 import Purchase from './pages/PurchaseCrypto';
+import PurchaseCrypto from './pages/PurchaseCrypto';
+import PurchaseCashApp from './pages/PurchaseCashApp';
+import PurchasePaypal from './pages/PurchasePaypal';
+import PurchaseStripe from './pages/PurchaseStripe';
 import Info from './pages/Info';
 // import SignUp2Unlock from './pages/SignUp2Unlock';
 // import UnlockPreview from './pages/UnlockPreview';
@@ -28,11 +32,12 @@ import LoadingPage from './pages/Loading';
 
 import VideoScrambler from './pages/VideoScrambler';
 import VideoUnscrambler from './pages/VideoUnscrambler';
-// import Scrambler from './pages/Scrambler';
-// import Unscrambler from './pages/Unscrambler';
 
 import ScramblerPhotos from './pages/ScramblerPhotos';
 import UnscramblerPhotos from './pages/UnscramblerPhotos';
+
+import AudioScrambler from './pages/AudioScrambler';
+import AudioUnscrambler from './pages/AudioUnscrambler';
 
 import ScramblerPhotosPro from './pages/ScramblerPhotosPro';
 import UnscramblerPhotosPro from './pages/UnscramblerPhotosPro';
@@ -42,6 +47,7 @@ import VideoUnscramblerPro from './pages/VideoUnscramblerPro';
 
 import PhotoLeakChecker from './pages/PhotoLeakChecker';
 import VideoLeakChecker from './pages/VideoLeakChecker';
+import AudioLeakChecker from './pages/AudioLeakChecker';
 
 import Plans from './pages/Plans';
 
@@ -52,8 +58,8 @@ import { StripeCheckoutForm, Return } from "./components/Stripe";
 
 import Subscribe from './pages/Subscribe';
 import SubscribeConfirmation from './pages/SubscribeConfirmation';
-import PurchaseCrypto from './pages/PurchaseCrypto';
-import PurchaseStripe from './pages/PurchaseStripe';
+// import PurchaseCrypto from './pages/PurchaseCrypto';
+// import PurchaseStripe from './pages/PurchaseStripe';
 
 import SubscriptionPlans from './pages/SubscriptionPlans';
 import SubscriptionSuccess from './pages/SubscriptionSuccess';
@@ -97,6 +103,8 @@ export default function App() {
               {/* <Route path="/wallet" element={<Wallet />} /> */}
               <Route path="/purchase-crypto" element={<PurchaseCrypto />} />
               <Route path="/purchase-stripe" element={<PurchaseStripe />} />
+              <Route path="/purchase-paypal" element={<PurchasePaypal />} />
+              <Route path="/purchase-cashapp" element={<PurchaseCashApp />} />
               {/* <Route path="/your-keys" element={<YourKeys />} /> */}
               <Route path="/purchase-history" element={<PurchaseHistory />} />
               <Route path="/account" element={<Account />} />
@@ -131,6 +139,7 @@ export default function App() {
             <Route path="/plans" element={<Plans />} />
 
             <Route path="/subscribe" element={<Subscribe />} />
+
             <Route path="/subscribe-confirmation" element={<SubscribeConfirmation />} />
 
             <Route path="/stripe-checkout" element={
@@ -143,6 +152,7 @@ export default function App() {
             {/* <Route path="/intro" element={<Intro />} /> */}
 
             {/* Video Editor */}
+
             <Route path="/video-scrambler" element={<VideoScrambler />} />
 
             <Route path="/video-unscrambler" element={<VideoUnscrambler />} />
@@ -153,23 +163,34 @@ export default function App() {
 
             <Route path="/photo-unscrambler" element={<UnscramblerPhotos />} />
 
+            {/* Audio Editor Routes (in future) */}
+
+            <Route path="/audio-scrambler" element={<AudioScrambler />} />
+
+            <Route path="/audio-unscrambler" element={<AudioUnscrambler />} />
+
             {/* Pro services */}
 
             <Route path="/photo-scrambler-pro" element={<ScramblerPhotosPro />} />
 
             <Route path="/photo-unscrambler-pro" element={<UnscramblerPhotosPro />} />
 
-              <Route path="/video-scrambler-pro" element={<VideoScramblerPro />} />
+
+            <Route path="/video-scrambler-pro" element={<VideoScramblerPro />} />
 
             <Route path="/video-unscrambler-pro" element={<VideoUnscramblerPro />} />
 
+            {/* Leak Checkers */}
             <Route path="/photo-leak-checker" element={<PhotoLeakChecker />} />
 
             <Route path="/video-leak-checker" element={<VideoLeakChecker />} />
 
-            <Route path="/subscription/plans" element={<SubscriptionPlans />} />
-            <Route path="/subscription/success" element={<SubscriptionSuccess />} />
+            <Route path="/audio-leak-checker" element={<AudioLeakChecker />} />
 
+            {/* Subscription Plans */}
+            <Route path="/subscription/plans" element={<SubscriptionPlans />} />
+
+            <Route path="/subscription/success" element={<SubscriptionSuccess />} />
 
             {/* need a redirect or fallback route if not logged in and the user tries to visit a protected route */}
             <Route path="*" element={<LoadingPage />} />
