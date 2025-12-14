@@ -1,8 +1,9 @@
 // src/components/DotCaptcha.jsx
-require('dotenv').config();
-import React, { useRef, useEffect, useState } from 'react';
+// require('dotenv').config();
+import React, { useEffect, useState, useRef, useMemo } from 'react';
+// import React, { useRef, useEffect, useState } from 'react';
 import { Box, TextField, Button, Typography } from '@mui/material';
-import { grey } from '@mui/material/colors';
+// import { grey } from '@mui/material/colors';
 
 const DotCaptcha = ({ onSuccess, onFailure }) => {
   const canvasRef = useRef(null);
@@ -19,6 +20,8 @@ const DotCaptcha = ({ onSuccess, onFailure }) => {
   const balls = useRef([]);
   const animationFrameId = useRef(null);
   const timerId = useRef(null);
+
+  const grey = '#b0b0b0';
 
   // Function to initialize balls
   function initializeBalls() {
@@ -157,6 +160,7 @@ const DotCaptcha = ({ onSuccess, onFailure }) => {
     e.preventDefault();
     if (parseInt(userInput, 10) === targetCount) {
       if (onSuccess) onSuccess();
+      console.log('CAPTCHA passed');
     } else {
       setAttempts((prevAttempts) => {
         const newAttempts = prevAttempts + 1;
@@ -182,9 +186,9 @@ const DotCaptcha = ({ onSuccess, onFailure }) => {
   }
 
   return (
-    <Box sx={{ mt: 4 }} style={{ backgroundColor: "#16161eff", padding: 7 }}  >
-      <div style={{ background: grey, padding: 5 }}>
-        <Typography style={{ backgroundColor: grey }} variant="h6" align="center">
+    <Box sx={{ mt: 4 }} style={{ padding: 7 }}  >
+      <div style={{  padding: 5 }}>
+        <Typography style={{  }} variant="h6" align="center">
           Count the number of <span style={{ color: targetColor, background: "lightgrey", padding: 5 , borderRadius: 5 }}>{targetColor}</span> dots:
         </Typography>
       </div>
@@ -206,7 +210,7 @@ const DotCaptcha = ({ onSuccess, onFailure }) => {
           type="number"
           sx={{ width: '150px', marginRight: '10px' }}
         />
-        <Button style={{ marginTop: "10px " }} type="submit" variant="contained" color="primary">
+        <Button style={{ marginTop: "10px " }} onClick={handleSubmit} variant="contained" color="primary">
           Enter
         </Button>
       </form>

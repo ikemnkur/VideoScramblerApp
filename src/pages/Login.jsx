@@ -22,15 +22,42 @@ export default function Login() {
     };
 
 
+    const [isMobile, setIsMobile] = useState(false);
+
     return (
         <Container sx={{ py: 4 }}>
             <Card variant="elevated">
                 <CardContent>
                     <Stack spacing={2}>
-                        <Typography variant="h5">Login</Typography>
+                        <Typography variant="h5">Login!</Typography>
+
+                        <Stack direction="row" spacing={2} alignItems="center">
+                            <Typography variant="body2">Desktop Mode</Typography>
+                            <Button 
+                                variant={isMobile ? "outlined" : "contained"} 
+                                size="small"
+                                onClick={() => setIsMobile(false)}
+                            >
+                                PC
+                            </Button>
+                            <Button 
+                                variant={isMobile ? "contained" : "outlined"} 
+                                size="small"
+                                onClick={() => setIsMobile(true)}
+                            >
+                                Mobile
+                            </Button>
+                        </Stack>
+
                         <TextField label="Email" value={email} onChange={e => setEmail(e.target.value)} />
                         <TextField label="Password" type="password" value={password} onChange={e => setPassword(e.target.value)} />
-                        <SimpleDotCaptcha maxDots={10} onPass={() => setCaptchaOK(true)} onFail={() => setCaptchaOK(false)} />
+                        
+                        {isMobile ? (
+                            <DotCaptcha onsuccess={() => setCaptchaOK(true)} onFail={() => setCaptchaOK(false)} />
+                        ) : (
+                            <SimpleDotCaptcha maxDots={10} onPass={() => setCaptchaOK(true)} onFail={() => setCaptchaOK(false)} />
+                        )}
+                        
                         <Button variant="contained" color="secondary" onClick={submit}>Login</Button>
                         <Typography variant="body2">No account? <Button component={RouterLink} to="/register" size="small">Register</Button></Typography>
                     </Stack>

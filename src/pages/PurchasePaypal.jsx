@@ -28,6 +28,8 @@ export default function PurchasePaypal() {
   const { success } = useToast();
   const [notifyRequested, setNotifyRequested] = useState(false);
 
+  const [ud, setUd] = useState(JSON.parse(localStorage.getItem("userdata")));
+
   const handleNotifyMe = () => {
     setNotifyRequested(true);
     success('Thank you for your interest! We will notify you when this feature launches.');

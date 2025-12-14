@@ -1,7 +1,7 @@
 // require('dotenv').config();
 import React, { useState, useEffect } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
-import { PhotoCamera } from '@mui/icons-material';
+import { Password, PhotoCamera } from '@mui/icons-material';
 import { Container, Stack, Typography, Card, CardContent, Divider, Skeleton } from '@mui/material';
 import api from '../api/client';
 import { uploadTransactionScreenshot } from '../api/api';
@@ -67,8 +67,8 @@ export default function Purchase() {
   const initialAmount = query.get('amount') || 12500; // Default to most popular
   const [amount, setAmount] = useState(initialAmount);
   const [price, setPrice] = useState(11);
-  let ud = JSON.parse(localStorage.getItem("userdata"))
-
+  const [ud, setUd] = useState(JSON.parse(localStorage.getItem("userdata")));
+  
   const [orderSubmitted, setOrderSubmitted] = useState(false);
   const [currency, setCurrency] = useState('BTC'); // Default currency
   const [rate, setRate] = useState(0);
@@ -95,7 +95,7 @@ export default function Purchase() {
 
   const load = async () => {
     try {
-      const { data } = await api.post(`/api/wallet/balance/${ud.username}`);
+      const { data } = await api.post(`/api/wallet/balance/${ud.username}`, {Password: ud.password, email: ud.email});
       setBalance(data?.balance ?? 0);
     } catch (e) {
       console.error(e);

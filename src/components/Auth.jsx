@@ -15,11 +15,13 @@ import {
   InputLabel,
   Select,
   MenuItem,
-  Link
+  Link,
+  Stack
 } from '@mui/material';
 import LockOutlinedIcon from '@mui/icons-material/LockOutlined';
 import { Link as RouterLink } from 'react-router-dom';
 import SimpleDotCaptcha from './SimpleDotCaptcha';
+import DotCaptcha from './DotCaptcha';
 import CoinAnimationCanvas from '../components/CoinAnimationCanvas';
 import { useFingerprint } from '../contexts/FingerprintContext';
 import api from '../api/client';
@@ -44,8 +46,10 @@ const Auth = ({ isLogin, onLoginSuccess }) => {
   const [showCaptcha, setShowCaptcha] = useState(false);
   const [accountType, setAccountType] = useState('buyer'); // New state for account type
 
+  const [isMobile, setIsMobile] = useState(false);
+
   const navigate = useNavigate();
-  const API_URL = import.meta.env.VITE_API_SERVER_URL || 'http://localhost:3001';  
+  const API_URL = import.meta.env.VITE_API_SERVER_URL || 'http://localhost:3001';
   const [userData, setUserData] = useState({
     "id": 1,
     "loginStatus": true,
@@ -349,7 +353,7 @@ const Auth = ({ isLogin, onLoginSuccess }) => {
     localStorage.setItem('failedCaptcha', failedAttempts);
     if (failedAttempts >= 3) {
       localStorage.setItem('captchaBlock', JSON.stringify({ timestamp: Date.now() }));
-      setBlockTime(Date.now() + 60 * 60 * 1000); // Block for 1 hour
+      setBlockTime(Date.now() + 15 * 60 * 1000); // Block for 15 minutes
       setCaptchaFailed(true);
     }
   }, []);
@@ -454,57 +458,6 @@ const Auth = ({ isLogin, onLoginSuccess }) => {
                 {!isLogin && (
                   <div>
 
-
-                    Chose your account type:
-                    {/* <FormControl fullWidth margin="normal" style={{ background: '#161616' }}>
-                      <InputLabel>Account Type</InputLabel>
-                      <Select 
-                      style={{ background: '#161616' }}
-                        value={accountType}
-                        onChange={(e) => setAccountType(e.target.value)}
-                        required
-                        
-                      >
-                        <MenuItem style={{ background: '#161616' }} value="buyer">buyer/Supporter</MenuItem>
-                        <MenuItem style={{ background: '#161616' }} value="seller">Creator/Receiver</MenuItem>
-                      </Select>
-                    </FormControl> */}
-                    {/* <Box sx={{ display: 'flex', justifyContent: 'center', gap: 2, my: 2 }}>
-                      <Button
-                        variant={accountType === 'buyer' ? 'contained' : 'outlined'}
-                        color={accountType === 'buyer' ? 'primary' : 'inherit'}
-                        onClick={() => setAccountType('buyer')}
-                        sx={{
-                          flex: 1,
-                          py: 2,
-                          borderRadius: 2,
-                          boxShadow: accountType === 'buyer' ? 2 : 0,
-                          background: accountType === 'buyer' ? '#1976d2' : '#161616',
-                          color: accountType === 'buyer' ? '#fff' : '#ccc',
-                          fontWeight: 'bold',
-                          fontSize: '1rem'
-                        }}
-                      >
-                        Buyer
-                      </Button>
-                      <Button
-                        variant={accountType === 'seller' ? 'contained' : 'outlined'}
-                        color={accountType === 'seller' ? 'primary' : 'inherit'}
-                        onClick={() => setAccountType('seller')}
-                        sx={{
-                          flex: 1,
-                          py: 2,
-                          borderRadius: 2,
-                          boxShadow: accountType === 'seller' ? 2 : 0,
-                          background: accountType === 'seller' ? '#1976d2' : '#161616',
-                          color: accountType === 'seller' ? '#fff' : '#ccc',
-                          fontWeight: 'bold',
-                          fontSize: '1rem'
-                        }}
-                      >
-                        Vendor/Seller
-                      </Button>
-                    </Box> */}
 
                     <TextField
                       label="Username"
@@ -630,12 +583,44 @@ const Auth = ({ isLogin, onLoginSuccess }) => {
 
           {/* Show CAPTCHA only after submit is clicked and showCaptcha is true */}
           {showCaptcha && !captchaPassed && (
-            <Box sx={{ mt: 2 }}>
-              <SimpleDotCaptcha
-                onPass={handleCaptchaSuccess}
-                onFail={handleCaptchaFailure}
-              />
-            </Box>
+
+            <>
+              <Stack direction="row" spacing={2} alignItems="center" margin="auto" sx={{ justifyContent: 'center' }}>
+                {/* <Typography variant="body2">Desktop Mode</Typography> */}
+                <Button
+                  variant={isMobile ? "outlined" : "contained"}
+                  size="small"
+                  onClick={() => setIsMobile(false)}
+                >
+                  PC
+                </Button>
+                <Button
+                  variant={isMobile ? "contained" : "outlined"}
+                  size="small"
+                  onClick={() => setIsMobile(true)}
+                >
+                  Mobile
+                </Button>
+              </Stack>
+
+              <Box sx={{ mt: 2 }}>
+
+                {isMobile ? (
+                  <DotCaptcha
+                    onSuccess={handleCaptchaSuccess}
+                    onFail={handleCaptchaFailure}
+                  />
+                ) : (
+
+                <SimpleDotCaptcha
+                  onPass={handleCaptchaSuccess}
+                  onFail={handleCaptchaFailure}
+                />
+                )}
+              </Box>
+            </>
+
+
           )}
           {captchaFailed && (
             <Typography variant="body2" color="error" align="center" sx={{ mt: 2 }}>

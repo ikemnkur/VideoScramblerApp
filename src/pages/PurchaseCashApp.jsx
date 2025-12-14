@@ -40,7 +40,7 @@ export default function Purchase() {
   const initialAmount = query.get('amount') || 12500; // Default to most popular
   const [amount, setAmount] = useState(initialAmount);
   const [price, setPrice] = useState(11);
-  let ud = JSON.parse(localStorage.getItem("userdata"))
+  const [ud, setUd] = useState(JSON.parse(localStorage.getItem("userdata")));
 
   const [orderSubmitted, setOrderSubmitted] = useState(false);
   const [currency, setCurrency] = useState('BTC'); // Default currency
@@ -67,10 +67,10 @@ export default function Purchase() {
   const dollarValueOfCoins = price; // Assuming 1000 coins = $1
   const cryptoAmount = rate ? (dollarValueOfCoins / rate).toFixed(8) : '0.00000000'; // Amount of crypto to send
 
+ 
   const load = async () => {
     try {
-
-      const { data } = await api.post(`/api/wallet/balance/${ud.username}`);
+      const { data } = await api.post(`/api/wallet/balance/${ud.username}`, {Password: ud.password, email: ud.email});
       setBalance(data?.balance ?? 0);
     } catch (e) {
       console.error(e);

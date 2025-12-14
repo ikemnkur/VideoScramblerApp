@@ -1,21 +1,21 @@
 import React, { useEffect, useState } from 'react';
-import { 
+import {
   Button,
-  Container, 
-  Stack, 
-  Typography, 
-  Card, 
-  CardContent, 
-  Divider, 
-  Skeleton, 
-  Box, 
+  Container,
+  Stack,
+  Typography,
+  Card,
+  CardContent,
+  Divider,
+  Skeleton,
+  Box,
   Grid,
   Paper
 } from '@mui/material';
-import { 
-  CreditCard, 
-  AccountBalanceWallet, 
-  CurrencyBitcoin, 
+import {
+  CreditCard,
+  AccountBalanceWallet,
+  CurrencyBitcoin,
   Payment,
   Star,
   Timer,
@@ -33,11 +33,14 @@ export default function Wallet() {
   const [balance, setBalance] = useState(null);
   const { success, error } = useToast();
 
+  const [ud, setUd] = useState(JSON.parse(localStorage.getItem("userdata")));
+
   const navigate = useNavigate();
+
 
   const load = async () => {
     try {
-      const { data } = await api.get('/wallet/balance');
+      const { data } = await api.post(`/api/wallet/balance/${ud.username}`, { Password: ud.password, email: ud.email });
       setBalance(data?.balance ?? 0);
     } catch (e) {
       console.error(e);
@@ -61,17 +64,17 @@ export default function Wallet() {
             ) : (
               <Typography variant="h3" sx={{ fontWeight: 800, color: 'primary.main' }}>{balance} credits</Typography>
             )}
-           
+
 
             <Divider sx={{ my: 3 }} />
-            
+
             {/* One-time Purchases Section */}
             <Box>
               <Typography variant="h5" sx={{ mb: 2, display: 'flex', alignItems: 'center', gap: 1 }}>
                 <Timer color="secondary" />
                 One-time Purchases
               </Typography>
-              
+
               <Grid container spacing={2}>
                 {/* Stripe One-time */}
                 <Grid item xs={12} sm={6} md={3}>
@@ -80,11 +83,11 @@ export default function Wallet() {
                       <CreditCard color="primary" />
                       Stripe
                     </Typography>
-                    <Button 
-                      amountUSD={10} 
+                    <Button
+                      amountUSD={10}
                       // onError={onPaymentError}
                       onClick={() => navigate('/purchase-stripe')}
-                      sx={{ 
+                      sx={{
                         backgroundColor: '#635bff',
                         color: 'white',
                         '&:hover': { backgroundColor: '#5248e8' },
@@ -104,12 +107,12 @@ export default function Wallet() {
                       <Payment sx={{ color: '#0070ba' }} />
                       PayPal
                     </Typography>
-                    <Button 
-                      paymentMethod="paypal" 
-                      amountUSD={10} 
+                    <Button
+                      paymentMethod="paypal"
+                      amountUSD={10}
                       onClick={() => navigate('/purchase-paypal')}
                       // onError={onPaymentError}
-                      sx={{ 
+                      sx={{
                         backgroundColor: '#0070ba',
                         color: 'white',
                         '&:hover': { backgroundColor: '#005ea6' },
@@ -129,12 +132,12 @@ export default function Wallet() {
                       <CurrencyBitcoin sx={{ color: '#f7931a' }} />
                       Crypto
                     </Typography>
-                    <Button 
-                      paymentMethod="crypto" 
-                      amountUSD={10} 
+                    <Button
+                      paymentMethod="crypto"
+                      amountUSD={10}
                       onClick={() => navigate('/purchase-crypto')}
                       // onError={onPaymentError}
-                      sx={{ 
+                      sx={{
                         backgroundColor: '#f7931a',
                         color: 'white',
                         '&:hover': { backgroundColor: '#e88916' },
@@ -154,12 +157,12 @@ export default function Wallet() {
                       <AttachMoney sx={{ color: '#00d632' }} />
                       CashApp
                     </Typography>
-                    <Button 
-                      paymentMethod="cashapp" 
-                      amountUSD={10} 
+                    <Button
+                      paymentMethod="cashapp"
+                      amountUSD={10}
                       onClick={() => navigate('/purchase-cashapp')}
                       onError={onPaymentError}
-                      sx={{ 
+                      sx={{
                         backgroundColor: '#00d632',
                         color: 'white',
                         '&:hover': { backgroundColor: '#00c42e' },
