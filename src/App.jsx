@@ -2,7 +2,7 @@ import { useState } from 'react'
 import React from 'react';
 import { CssBaseline, ThemeProvider } from '@mui/material';
 import theme from './theme';
-import { BrowserRouter, Routes, Route } from 'react-router-dom';
+// import { BrowserRouter, Routes, Route } from 'react-router-dom';
 import NavBar from './components/NavBar';
 // import YourKeys from './pages/YourKeys';
 import Wallet from './pages/Wallet';
