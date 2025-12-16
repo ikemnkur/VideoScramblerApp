@@ -71,6 +71,21 @@ import { loadStripe } from '@stripe/stripe-js';
 import './styles.css';
 import { ToastProvider } from './contexts/ToastContext';
 
+import { BrowserRouter as Router, Routes, Route, useLocation } from 'react-router-dom';
+import { GA_TRACKING_ID, pageview } from './utils/gtag';
+
+
+// A component to track page views
+function TrackPageViews() {
+  const location = useLocation();
+  React.useEffect(() => {
+    if (GA_TRACKING_ID) {
+      pageview(location.pathname);
+    }
+  }, [location]);
+  return null;
+}
+
 export default function App() {
 
 
@@ -81,12 +96,14 @@ export default function App() {
         <BrowserRouter>
           <NavBar />
           <Routes>
+
+            <TrackPageViews />
             {/* Public Routes */}
             {/* {!(localStorage.getItem('userdata') ? JSON.parse(localStorage.getItem('userdata')).loginStatus : false) && ( */}
-              <>
-                <Route path="/login" element={<Auth isLogin={true} />} />
-                <Route path="/register" element={<Auth isLogin={false} />} />
-              </>
+            <>
+              <Route path="/login" element={<Auth isLogin={true} />} />
+              <Route path="/register" element={<Auth isLogin={false} />} />
+            </>
             {/* )} */}
 
             {/* {!(localStorage.getItem('userdata') ? JSON.parse(localStorage.getItem('userdata')).loginStatus : false) && (
