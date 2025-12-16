@@ -2,7 +2,7 @@ import { useState } from 'react'
 import React from 'react';
 import { CssBaseline, ThemeProvider } from '@mui/material';
 import theme from './theme';
-// import { BrowserRouter, Routes, Route } from 'react-router-dom';
+import { BrowserRouter, Routes, Route, useLocation } from 'react-router-dom';
 import NavBar from './components/NavBar';
 // import YourKeys from './pages/YourKeys';
 import Wallet from './pages/Wallet';
@@ -71,7 +71,7 @@ import { loadStripe } from '@stripe/stripe-js';
 import './styles.css';
 import { ToastProvider } from './contexts/ToastContext';
 
-import { BrowserRouter as Router, Routes, Route, useLocation } from 'react-router-dom';
+// import { BrowserRouter as Router, Routes, Route, useLocation } from 'react-router-dom';
 import { GA_TRACKING_ID, pageview } from './utils/gtag';
 
 
