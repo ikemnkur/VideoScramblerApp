@@ -94,10 +94,10 @@ export default function App() {
       <CssBaseline />
       <ToastProvider>
         <BrowserRouter>
+          <TrackPageViews />
           <NavBar />
           <Routes>
 
-            <TrackPageViews />
             {/* Public Routes */}
             {/* {!(localStorage.getItem('userdata') ? JSON.parse(localStorage.getItem('userdata')).loginStatus : false) && ( */}
             <>
