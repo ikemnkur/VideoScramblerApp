@@ -71,6 +71,10 @@ export default function CreditConfirmationModal({
   const [userCredits, setUserCredits] = useState(currentCredits);
   const [hasEnoughCredits, setHasEnoughCredits] = useState(false);
   const [remainingCredits, setRemainingCredits] = useState(0);
+  const [userData, setUserData] = useState(() => {
+    const stored = localStorage.getItem('userdata');
+    return stored ? JSON.parse(stored) : {};
+  });
 
   // =============================
   // API CALLS
@@ -81,10 +85,10 @@ export default function CreditConfirmationModal({
 
 
     async function fetchData(params) {
-      console.log('Fetching user credits for', user.username);
-      const response = await api.post(`api/wallet/balance/${user.username}`, {
-        username: user.username,
-        email: user.email,
+      console.log('Fetching user credits for',  userData.username);
+      const response = await api.post(`api/wallet/balance/${userData.username}`, {
+        username: userData.username,
+        email: userData.email,
         password: localStorage.getItem('passwordtxt')
       });
 
@@ -236,7 +240,7 @@ export default function CreditConfirmationModal({
         resolutionCost = SDcharge;
       }
 
-      calculatedCost = Math.ceil(creditCost + (duration * resolutionCost * 2) * (1+ fileDetails.size / (1000 * 1000 * 1))); // scale by size in MB over 1MB
+      calculatedCost = Math.ceil(creditCost + (duration * resolutionCost * 2) * (1 + fileDetails.size / (1000 * 1000 * 1))); // scale by size in MB over 1MB
 
       console.log('Calculated Video Cost:', calculatedCost);
     }
@@ -279,7 +283,7 @@ export default function CreditConfirmationModal({
             {/* list attributes of video or photo */}
             <Typography variant="body2" color="text.secondary">
               {mediaType === 'video'
-                ? `Duration: ${fileDetails.duration ?? 'Unknown'}s | Resolution: ${fileDetails.horizontal}x${fileDetails.vertical} | Size: ${Math.floor(fileDetails.size / (1000 * 100))/10 ?? 'Unknown'} MB`
+                ? `Duration: ${fileDetails.duration ?? 'Unknown'}s | Resolution: ${fileDetails.horizontal}x${fileDetails.vertical} | Size: ${Math.floor(fileDetails.size / (1000 * 100)) / 10 ?? 'Unknown'} MB`
                 : `Dimensions: ${fileDetails.horizontal}x${fileDetails.vertical} | Size: ${Math.floor(fileDetails.size / 1000) ?? 'Unknown'} KB`}
             </Typography>
           </Typography>
