@@ -77,7 +77,7 @@ export default function VideoUnscrambler() {
   const [allowScrambling, setAllowScrambling] = useState(false);
   const [showCreditModal, setShowCreditModal] = useState(false);
   const [userCredits, setUserCredits] = useState(0); // Mock credits, replace with actual user data
-  const SCRAMBLE_COST = 3; // Cost to scramble a photo (less than video)
+  const actionCost = 3; // Cost to scramble a photo (less than video)
 
   // Rectangles for unscrambling
   const [rectsDest, setRectsDest] = useState([]);
@@ -750,7 +750,7 @@ export default function VideoUnscrambler() {
         onClose={() => setShowCreditModal(false)}
         onConfirm={handleCreditConfirm}
         mediaType="video"
-        creditCost={SCRAMBLE_COST}
+        creditCost={actionCost}
         currentCredits={userCredits}
         fileName={selectedFile?.name || ''}
         user={userData}

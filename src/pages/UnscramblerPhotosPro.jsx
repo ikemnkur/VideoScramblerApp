@@ -62,7 +62,8 @@ export default function UnscramblerPhotosPro() {
     const [showCreditModal, setShowCreditModal] = useState(false);
     const [allowScrambling, setAllowScrambling] = useState(false);
     const [userCredits, setUserCredits] = useState(0); // Mock credits, replace with actual user data
-    const SCRAMBLE_COST = 10; // Cost to scramble a photo (less than video)
+    // const actionCost = 10; // Cost to scramble a photo (less than video)
+    const [actionCost, setActionCost] = useState(15); // Cost to unscramble a photo (pro version)
 
 
 
@@ -80,17 +81,27 @@ export default function UnscramblerPhotosPro() {
         }
     }, []);
 
-    const handleCreditConfirm = useCallback(() => {
+
+    const handleCreditConfirm = useCallback((actualCostSpent) => {
         setShowCreditModal(false);
 
         setAllowScrambling(true);
 
+        // Now you have access to the actual cost that was calculated and spent
+        console.log('Credits spent:', actualCostSpent);
+
+        // You can use this value for logging, analytics, or displaying to user
+        // For example, update a state variable:
+        // setLastCreditCost(actualCostSpent);
+        setActionCost(actualCostSpent);
+
         // Use setTimeout to ensure state update completes before scrambling
         setTimeout(() => {
-            unscrambleImage(selectedFile);
+            unscrambleImage();
         }, 0);
 
     }, [selectedFile, allowScrambling]);
+
 
 
     // =============================
@@ -240,41 +251,64 @@ export default function UnscramblerPhotosPro() {
             formData.append('file', selectedFile);
             formData.append('params', JSON.stringify(params));
 
-            // Call unscramble endpoint
-            const response = await fetch(`${API_URL}/api/unscramble-photo`, {
-                method: 'POST',
-                body: formData
-            });
-
-            if (!response.ok) {
-                const errorData = await response.json().catch(() => ({}));
-                throw new Error(errorData.error || 'Unscrambling failed');
-            }
-
-            const data = await response.json();
-
-            // The backend should return the unscrambled image info
-            setUnscrambledFilename(data.output_file || data.unscrambledFileName);
-
-            // Load unscrambled image preview
-            if (data.output_file || data.unscrambledFileName) {
-                loadUnscrambledImage(data.output_file || data.unscrambledFileName);
-            } else if (data.unscrambledImageUrl) {
-                // If backend returns direct URL
-                if (unscrambledDisplayRef.current) {
-                    unscrambledDisplayRef.current.src = data.unscrambledImageUrl;
-                }
-            }
-
-            success("Image unscrambled successfully!");
-
-            // SHOW MESSAGE DIALOG SAYTHING THAT THE USER HAS SPENT CREDITS TO CHECK THE IMAGE
             try {
-                setTimeout(() => {
-                    info(`Image checked successfully. ${data.creditsUsed} credits spent.`);
-                }, timeout);
+                // Call unscramble endpoint
+                const response = await fetch(`${API_URL}/api/unscramble-photo`, {
+                    method: 'POST',
+                    body: formData
+                });
+                const data = await response.json();
+                console.log("Unscramble response:", response);
+
+
+                // The backend should return the unscrambled image info
+                setUnscrambledFilename(data.output_file || data.unscrambledFileName);
+
+                // Load unscrambled image preview
+                if (data.output_file || data.unscrambledFileName) {
+                    loadUnscrambledImage(data.output_file || data.unscrambledFileName);
+                } else if (data.unscrambledImageUrl) {
+                    // If backend returns direct URL
+                    if (unscrambledDisplayRef.current) {
+                        unscrambledDisplayRef.current.src = data.unscrambledImageUrl;
+                    }
+                }
+
+                success("Image unscrambled successfully!");
+
+                // SHOW MESSAGE DIALOG SAYTHING THAT THE USER HAS SPENT CREDITS TO CHECK THE IMAGE
+                // try {
+                //     setTimeout(() => {
+                //         info(`Image checked successfully. ${data.creditsUsed} credits spent.`);
+                //     }, timeout);
+                // } catch (error) {
+                //     console.error('Error showing credit spent info:', error);
+                // }
+
+
             } catch (error) {
-                console.error('Error showing credit spent info:', error);
+                // const errorData = await response.json().catch(() => ({}));
+                // TODO: Refund credits if applicable
+                const response = await fetch(`${API_URL}/api/refund-credits`, {
+                    method: 'POST',
+                    // headers: {
+                    //   'Content-Type': 'application/json'
+                    // },
+
+                    body: {
+                        userId: userData.id,
+                        username: userData.username,
+                        email: userData.email,
+                        password: localStorage.getItem('passwordtxt'),
+                        credits: actionCost,
+                        params: params,
+                    }
+
+                });
+
+                console.log("Refund response:", response);
+                throw new Error(errorData.error || 'Unscrambling failed');
+                // throw new Error(data.error || data.message || 'Scrambling failed');
             }
 
         } catch (err) {
@@ -341,6 +375,9 @@ export default function UnscramblerPhotosPro() {
             setUserCredits(response.data.credits);
         }
     }, []);
+
+
+
 
     // =============================
     // RENDER
@@ -555,7 +592,7 @@ export default function UnscramblerPhotosPro() {
                                     overflow: 'hidden'
                                 }}>
                                     {previewUrl ? (
-                                       <>
+                                        <>
                                             <img
                                                 // ref={previewImg}
                                                 // ref={imageRef}
@@ -648,7 +685,7 @@ export default function UnscramblerPhotosPro() {
                 onClose={() => setShowCreditModal(false)}
                 onConfirm={handleCreditConfirm}
                 mediaType="photo"
-                creditCost={SCRAMBLE_COST}
+                creditCost={actionCost}
                 currentCredits={userCredits}
                 fileName={selectedFile?.name || ''}
                 file={selectedFile}

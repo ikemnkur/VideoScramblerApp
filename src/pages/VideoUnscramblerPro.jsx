@@ -23,6 +23,7 @@ import {
 import {
   VideoFile,
   Key,
+  Upload,
   LockOpen,
   Download,
   Movie,
@@ -45,15 +46,18 @@ export default function VideoUnscramblerPro() {
 
   // Refs for video elements
   const displayVideoRef = useRef(null);
+  const videoRef = useRef(null);
   const scrambledVideoRef = useRef(null);
   const unscrambledVideoRef = useRef(null);
+  const keyFileInputRef = useRef(null);
+  const videoUrlRef = useRef(null); // Store URL for cleanup
 
   // State variables
   const [selectedFile, setSelectedFile] = useState(null);
   const [videoLoaded, setVideoLoaded] = useState(false);
   const [keyCode, setKeyCode] = useState('');
   const [decodedParams, setDecodedParams] = useState(null);
-  const [scrambledFilename, setScrambledFilename] = useState('');
+  // const [unscrambledFilename, setScrambledFilename] = useState('');
   const [unscrambledFilename, setUnscrambledFilename] = useState('');
   const [isProcessing, setIsProcessing] = useState(false);
   const [unscrambledReady, setUnscrambledReady] = useState(false);
@@ -62,13 +66,104 @@ export default function VideoUnscramblerPro() {
   const [allowUnscrambling, setAllowUnscrambling] = useState(false);
   const [showCreditModal, setShowCreditModal] = useState(false);
   const [userCredits, setUserCredits] = useState(0);
-  const SCRAMBLE_COST = 15; // Cost to unscramble a video (pro version)
+  // const actionCost = 15; // Cost to unscramble a video (pro version)
+  const [actionCost, setActionCost] = useState(15); // Cost to unscramble a video (pro version)
+  const [previewUrl, setPreviewUrl] = useState('');
 
 
   // ========== UTILITY FUNCTIONS ==========
 
   // Base64 encoding/decoding utilities
   const fromBase64 = (b64) => decodeURIComponent(escape(atob(b64.trim())));
+
+  // XOR decryption function
+  const xorEncrypt = (text, key) => {
+    let result = '';
+    for (let i = 0; i < text.length; i++) {
+      result += String.fromCharCode(text.charCodeAt(i) ^ key.charCodeAt(i % key.length));
+    }
+    return result;
+  };
+
+
+   const decryptKeyData = () => {
+        if (!keyCode || keyCode.trim() === '') {
+            error("Please paste your unscramble key first");
+            return;
+        }
+
+        try {
+            // Decode base64 key
+            const jsonString = atob(keyCode.trim());
+            const keyData = JSON.parse(jsonString);
+
+            // Validate key structure
+            if (!keyData.algorithm || !keyData.seed) {
+                throw new Error("Invalid key format");
+            }
+
+            setDecodedKey(keyData);
+            setKeyValid(true);
+            success("Key decoded successfully!");
+
+            console.log("Decoded key:", keyData);
+        } catch (err) {
+            console.error("Key decode error:", err);
+            error("Invalid key format. Please check your key and try again.");
+            setKeyValid(false);
+            setDecodedKey(null);
+        }
+    };
+
+  // const decryptKeyData = (encodedData) => {
+  //   try {
+  //     const encrypted = atob(encodedData);
+  //     const encryptionKey = "AudioProtectionKey2025";
+  //     const jsonStr = xorEncrypt(encrypted, encryptionKey);
+  //     return JSON.parse(jsonStr);
+  //   } catch (err) {
+  //     console.error('Decryption error:', err);
+  //     throw new Error('Invalid or corrupted key file');
+  //   }
+  // };
+
+  const handleKeyFileSelect = async (event) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    try {
+      const text = await file.text();
+      
+      // Try to decrypt the key file (if it's encrypted)
+      try {
+        const keyData = decryptKeyData(text);
+        // Set the decoded parameters directly
+        setDecodedParams(keyData);
+        setKeyCode(text); // Store the encrypted key in the text box
+        success('🔑 Key file loaded and decoded successfully!');
+      } catch (decryptErr) {
+        // If decryption fails, try to parse as plain JSON or base64
+        try {
+          // Check if it's base64 encoded
+          const decoded = fromBase64(text.trim());
+          const keyData = JSON.parse(decoded);
+          setDecodedParams(keyData);
+          setKeyCode(text.trim());
+          console.log("Decoded key data from base64:", keyData);
+          success('🔑 Key file loaded and decoded successfully!');
+        } catch (base64Err) {
+          // Try direct JSON parse
+          const keyData = JSON.parse(text);
+          setDecodedParams(keyData);
+          setKeyCode(btoa(text)); // Convert to base64 for consistency
+          success('🔑 Key file loaded and decoded successfully!');
+        }
+      }
+    } catch (err) {
+      console.error("Error loading key:", err);
+      error('Invalid or corrupted key file. Please check the file format.');
+    }
+  };
 
   // ========== EVENT HANDLERS ==========
 
@@ -81,30 +176,61 @@ export default function VideoUnscramblerPro() {
       return;
     }
 
+    // Clean up previous URL if it exists
+    if (videoUrlRef.current) {
+      URL.revokeObjectURL(videoUrlRef.current);
+    }
+
     setSelectedFile(file);
     setVideoLoaded(false);
     setUnscrambledReady(false);
-    setScrambledFilename('');
+    // setScrambledFilename('');
     setUnscrambledFilename('');
 
     const url = URL.createObjectURL(file);
-    const video = scrambledVideoRef.current;
+    setPreviewUrl(url);
 
-    if (video) {
-      video.onloadedmetadata = () => {
-        console.log("Video loaded successfully");
+    if (displayVideoRef.current) {
+      displayVideoRef.current.onloadedmetadata = () => {
         setVideoLoaded(true);
-        URL.revokeObjectURL(url);
       };
-
-      video.onerror = () => {
-        error("Failed to load the selected video");
-        setVideoLoaded(false);
-        URL.revokeObjectURL(url);
-      };
-
-      video.src = url;
+      displayVideoRef.current.src = url;
     }
+
+    setVideoLoaded(true);
+
+    success("Video file loaded successfully!");
+
+    console.log("Selected file:", file);
+
+
+    // const video = scrambledVideoRef.current;
+
+    // if (video) {
+    //   video.onloadedmetadata = () => {
+    //     console.log("Video loaded successfully");
+    //     console.log("Video dimensions:", video.videoWidth, "x", video.videoHeight);
+    //     console.log("Video duration:", video.duration);
+    //     setVideoLoaded(true);
+    //     // Don't revoke URL here - the video element still needs it
+    //   };
+
+    //   video.onerror = (e) => {
+    //     console.error("Video load error:", e);
+    //     error("Failed to load the selected video");
+    //     setVideoLoaded(false);
+    //     // Clean up on error
+    //     if (videoUrlRef.current) {
+    //       URL.revokeObjectURL(videoUrlRef.current);
+    //       videoUrlRef.current = null;
+    //     }
+    //   };
+
+    //   video.src = url;
+
+    console.log("Video source set to selected file");
+    console.log("Video Source URL:", url);
+    // }
   };
 
   const decodeKeyCode = () => {
@@ -113,6 +239,7 @@ export default function VideoUnscramblerPro() {
       const params = JSON.parse(json);
       setDecodedParams(params);
       success('Key code decoded successfully!');
+      console.log("Decoded key parameters:", params);
     } catch (e) {
       error('Invalid key code: ' + e.message);
     }
@@ -129,10 +256,10 @@ export default function VideoUnscramblerPro() {
       return;
     }
 
-    if (!allowUnscrambling) {
-      error("You need to confirm credit usage before unscrambling");
-      return;
-    }
+    // if (!allowUnscrambling) {
+    //   error("You need to confirm credit usage before unscrambling");
+    //   return;
+    // }
 
     setIsProcessing(true);
 
@@ -140,6 +267,7 @@ export default function VideoUnscramblerPro() {
       // Create FormData with file and parameters
       const formData = new FormData();
       formData.append('file', selectedFile);
+
       formData.append('params', JSON.stringify({
         ...decodedParams,
         mode: 'unscramble',
@@ -147,36 +275,58 @@ export default function VideoUnscramblerPro() {
         output: `unscrambled_${selectedFile.name}`
       }));
 
-      // Call unscramble endpoint
-      const response = await fetch(`${API_URL}/api/unscramble-video`, {
-        method: 'POST',
-        body: formData
-      });
+      const params = {
+        ...decodedParams,
+        mode: 'unscramble',
+        input: selectedFile.name,
+        output: `unscrambled_${selectedFile.name}`
+      };
 
-      const data = await response.json();
+      try {
 
-      if (!response.ok) {
-        // Refund credits if unscrambling failed
-        try {
-          await api.post(`${API_URL}/api/refund-credits`, {
-            username: userData?.username,
-            email: userData?.email,
+        // Call unscramble endpoint
+        const response = await fetch(`${API_URL}/api/unscramble-video`, {
+          method: 'POST',
+          body: formData
+        });
+
+        const data = await response.json();
+        console.log("Video Unscramble response:", response);
+
+        setUnscrambledFilename(data.output_file || data.unscrambledFileName);
+        // setUnscrambledReady(true);
+
+        // Load unscrambled video preview
+        // await 
+        loadUnscrambledVideo(data.output_file);
+
+        success("Video unscrambled successfully!");
+
+      } catch (e) {
+        error("Unscrambling failed: " + e.message);
+        setIsProcessing(false);
+        // try {
+        // TODO: Refund credits if applicable
+        const response = await fetch(`${API_URL}/api/refund-credits`, {
+          method: 'POST',
+          // headers: {
+          //   'Content-Type': 'application/json'
+          // },
+
+          body: {
+            userId: userData.id,
+            username: userData.username,
+            email: userData.email,
             password: localStorage.getItem('passwordtxt'),
-            cost: SCRAMBLE_COST
-          });
-        } catch (refundErr) {
-          console.error("Refund failed:", refundErr);
-        }
-        throw new Error(data.error || data.message || 'Unscrambling failed');
+            credits: actionCost,
+            params: params,
+          }
+        });
+
+        console.log("Refund response:", response);
+
       }
 
-      setUnscrambledFilename(data.output_file || data.unscrambledFileName);
-      setUnscrambledReady(true);
-
-      // Load unscrambled video preview
-      await loadUnscrambledVideo(data.output_file);
-
-      success("Video unscrambled successfully!");
     } catch (err) {
       error("Unscrambling failed: " + err.message);
     } finally {
@@ -194,7 +344,12 @@ export default function VideoUnscramblerPro() {
 
       if (unscrambledVideoRef.current) {
         unscrambledVideoRef.current.src = url;
+        setVideoUrl(url);
       }
+
+      // if (scrambledDisplayRef.current) {
+      //   scrambledDisplayRef.current.src = url;
+      // }
     } catch (err) {
       error("Failed to load unscrambled video: " + err.message);
     }
@@ -226,14 +381,27 @@ export default function VideoUnscramblerPro() {
     }
   };
 
-  const handleCreditConfirm = useCallback(() => {
+  const handleCreditConfirm = useCallback((actualCostSpent) => {
     setShowCreditModal(false);
+
     setAllowUnscrambling(true);
 
+    // Now you have access to the actual cost that was calculated and spent
+    console.log('Credits spent:', actualCostSpent);
+
+    // You can use this value for logging, analytics, or displaying to user
+    // For example, update a state variable:
+    // setLastCreditCost(actualCostSpent);
+    setActionCost(actualCostSpent);
+
+    // Use setTimeout to ensure state update completes before scrambling
     setTimeout(() => {
       unscrambleVideo();
-    }, 50);
+    }, 0);
+
   }, [selectedFile, decodedParams, allowUnscrambling]);
+
+  
 
   useEffect(() => {
     const fetchUserData = async () => {
@@ -258,6 +426,14 @@ export default function VideoUnscramblerPro() {
     };
 
     fetchUserData();
+
+    // Cleanup function - revoke object URL when component unmounts
+    return () => {
+      if (videoUrlRef.current) {
+        URL.revokeObjectURL(videoUrlRef.current);
+        videoUrlRef.current = null;
+      }
+    };
   }, []);
 
   // Remove old photo-related code from here
@@ -312,6 +488,9 @@ export default function VideoUnscramblerPro() {
             <Typography variant="h6" sx={{ mb: 1, color: '#e0e0e0' }}>
               Upload Scrambled Video
             </Typography>
+            <Typography variant="body2" sx={{ color: '#bdbdbd', mb: 1 }}>
+              Scramble Key File
+            </Typography>
             <input
               type="file"
               accept="video/*"
@@ -343,6 +522,27 @@ export default function VideoUnscramblerPro() {
 
           {/* Key Code Input */}
           <Box sx={{ mb: 3 }}>
+
+            <Grid item xs={12} md={6}>
+              <Typography variant="body2" sx={{ color: '#bdbdbd', mb: 1 }}>
+                Scramble Key File
+              </Typography>
+              <input
+                type="file"
+                accept=".key,.json,.txt"
+                onChange={handleKeyFileSelect}
+                style={{ display: 'none' }}
+                id="key-file-upload"
+                ref={keyFileInputRef}
+              />
+              <label htmlFor="key-file-upload">
+                <Button variant="contained" component="span" startIcon={<Upload />} sx={{ backgroundColor: '#2196f3', color: 'white', mb: 2 }}>
+                  Choose Key File
+                </Button>
+              </label>
+
+            </Grid>
+            <strong style={{ fontSize: 24, margin: '0 16px' }}> OR </strong>
             <Typography variant="h6" sx={{ mb: 1, color: '#e0e0e0' }}>
               Enter Key Code
             </Typography>
@@ -362,6 +562,7 @@ export default function VideoUnscramblerPro() {
                 }
               }}
             />
+
 
             {/* Step buttons */}
             <Box sx={{ display: 'flex', gap: 2, flexWrap: 'wrap' }}>
@@ -394,7 +595,7 @@ export default function VideoUnscramblerPro() {
                 onClick={downloadUnscrambledVideo}
                 startIcon={<Download />}
                 sx={{ borderColor: '#22d3ee', color: '#22d3ee' }}
-                disabled={!unscrambledReady}
+                disabled={!unscrambledFilename}
               >
                 Download Unscrambled Video
               </Button>
@@ -407,7 +608,7 @@ export default function VideoUnscramblerPro() {
               {/* Scrambled Video */}
               <Grid item xs={12} md={6}>
                 <Typography variant="h6" sx={{ mb: 1, color: '#e0e0e0' }}>
-                  Scrambled Video
+                  <strong> Input: </strong>Scrambled Video
                 </Typography>
                 <Box sx={{
                   minHeight: '200px',
@@ -420,45 +621,66 @@ export default function VideoUnscramblerPro() {
                   overflow: 'hidden'
                 }}>
                   {videoLoaded ? (
-                    <video
-                      ref={scrambledVideoRef}
-                      // src={scrambledVideoRef.current?.src || ''}
-                      controls
-                      style={{
-                        maxWidth: '100%',
-                        maxHeight: '400px',
-                        borderRadius: '8px'
-                      }}
-                    />
+                    // <video
+                    //   ref={scrambledVideoRef}
+                    //   // src={scrambledVideoRef.current?.src || ''}
+                    //   controls
+                    //   style={{
+                    //     maxWidth: '100%',
+                    //     maxHeight: '400px',
+                    //     borderRadius: '8px'
+                    //   }}
+                    // />
+                    <>
+                      <video
+                        ref={displayVideoRef}
+                        controls
+                        src={previewUrl}
+                        style={{
+                          width: '100%',
+                          maxHeight: '400px',
+                          backgroundColor: '#0b1020',
+                          borderRadius: '8px'
+                        }}
+                      />
+
+                      <video
+
+                        // ref={previewImg}
+                        ref={videoRef}
+                        // ref={displayVideoRef}
+                        src={previewUrl}
+                        alt="Original"
+                        style={{
+                          display: 'none',
+                          borderRadius: '8px'
+                        }}
+                      />
+                    </>
                   ) : selectedFile ? (
                     <Typography variant="body2" sx={{ color: '#ff9800' }}>
                       Loading video...
                     </Typography>
                   ) : (
                     <>
-                     <video
-                      ref={scrambledVideoRef}
-                      controls
-                      style={{
-                        // display: 'none',
-                        maxWidth: '100%',
-                        maxHeight: '400px',
-                        borderRadius: '8px'
-                      }}
-                    />
-                    <Typography variant="body2" sx={{ color: '#666' }}>
-                      Select a scrambled video to preview
-                    </Typography>
+                      <Typography variant="body2" sx={{ color: '#666' }}>
+                        Select a scrambled video to preview
+                      </Typography>
                     </>
-                    
+
                   )}
                 </Box>
+                {videoLoaded && (
+                  <Typography variant="caption" sx={{ color: '#4caf50', mt: 1, display: 'block' }}>
+                    Video loaded: {displayVideoRef.current?.videoWidth}×{displayVideoRef.current?.videoHeight}px
+                  </Typography>
+                )}
               </Grid>
 
               {/* Unscrambled Video */}
               <Grid item xs={12} md={6}>
                 <Typography variant="h6" sx={{ mb: 1, color: '#e0e0e0' }}>
-                  Unscrambled Video Preview
+                  <strong> Output: </strong> Unscrambled Video Preview
                 </Typography>
                 <Box sx={{
                   minHeight: '200px',
@@ -471,30 +693,34 @@ export default function VideoUnscramblerPro() {
                   overflow: 'hidden'
                 }}>
 
-                  {unscrambledReady ? (
+                  {unscrambledFilename ? (
                     <video
                       ref={unscrambledVideoRef}
+                      src={unscrambledFilename ? `${Flask_API_URL}/download/${unscrambledFilename}` : ''}
+                      alt="Scrambled"
                       controls
-                      style={{
-                        maxWidth: '100%',
-                        maxHeight: '400px',
-                        borderRadius: '8px'
-                      }}
+                       style={{
+                          width: '100%',
+                          maxHeight: '400px',
+                          backgroundColor: '#0b1020',
+                          borderRadius: '8px'
+                        }}
                     />
-                  ) : isProcessing ? (
-                    <Box sx={{ textAlign: 'center' }}>
-                      <CircularProgress sx={{ color: '#22d3ee', mb: 2 }} />
-                      <Typography variant="body2" sx={{ color: '#22d3ee' }}>
-                        Processing video on server...
-                      </Typography>
-                    </Box>
+                  // ) : isProcessing ? (
+                  //   <Box sx={{ textAlign: 'center' }}>
+                  //     <CircularProgress sx={{ color: '#22d3ee', mb: 2 }} />
+                  //     <Typography variant="body2" sx={{ color: '#22d3ee' }}>
+                  //       Processing video on server...
+                  //     </Typography>
+                  //   </Box>
                   ) : (
                     <>
                       <Typography variant="body2" sx={{ color: '#666' }}>
                         Unscrambled video will appear here
                       </Typography>
-                      <video
+                      {/* <video
                         ref={unscrambledVideoRef}
+                        // src={videoUrl}
                         controls
                         style={{
                           // display: 'none',
@@ -502,7 +728,7 @@ export default function VideoUnscramblerPro() {
                           maxHeight: '400px',
                           borderRadius: '8px'
                         }}
-                      />
+                      /> */}
                     </>
 
                   )}
@@ -518,32 +744,32 @@ export default function VideoUnscramblerPro() {
         <Typography variant="body2" color="black">
           💡 <strong>Pro Version:</strong> Upload a scrambled video and your key code. The server processes your video using
           advanced algorithms (position, color, rotation, mirror, intensity) to restore the original content.
-          This requires {SCRAMBLE_COST} credits per video.
+          This requires {actionCost} credits per video.
         </Typography>
       </Paper>
 
-      {/* Credit Confirmation Modal */}
+    {/* Credit Confirmation Modal */}
       <CreditConfirmationModal
         open={showCreditModal}
         onClose={() => setShowCreditModal(false)}
         onConfirm={handleCreditConfirm}
         mediaType="video"
-        creditCost={SCRAMBLE_COST}
+        creditCost={actionCost}
         currentCredits={userCredits}
-        file={selectedFile}
         fileName={selectedFile?.name || ''}
+        file={selectedFile}
         fileDetails={{
           type: 'video',
           size: selectedFile?.size || 0,
           name: selectedFile?.name || '',
-          horizontal: scrambledVideoRef.current?.videoWidth || 0,
-          vertical: scrambledVideoRef.current?.videoHeight || 0,
-          duration: scrambledVideoRef.current?.duration || 0
+          horizontal: displayVideoRef.current?.videoWidth || 0,
+          vertical: displayVideoRef.current?.videoHeight || 0,
+          duration: displayVideoRef.current?.duration || 0
         }}
         user={userData}
-        isProcessing={isProcessing}
+        isProcessing={false}
         actionType="unscramble-video-pro"
-        actionDescription="pro video unscrambling"
+        actionDescription="pro level video unscrambling"
       />
     </Container>
   );

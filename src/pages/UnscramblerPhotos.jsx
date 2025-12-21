@@ -76,7 +76,7 @@ export default function UnscramblerPhotos() {
   // const [allowLeakChecking, setAllowLeakChecking] = useState(false);
   const [allowScrambling, setAllowScrambling] = useState(false);
   const [userCredits, setUserCredits] = useState(0); // Mock credits, replace with actual user data
-  const SCRAMBLE_COST = 10; // Cost to scramble a photo (less than video)
+  const actionCost = 10; // Cost to scramble a photo (less than video)
 
 
   // ========== UTILITY FUNCTIONS ==========
@@ -790,7 +790,7 @@ export default function UnscramblerPhotos() {
         onClose={() => setShowCreditModal(false)}
         onConfirm={handleCreditConfirm}
         mediaType="photo"
-        creditCost={SCRAMBLE_COST}
+        creditCost={actionCost}
         currentCredits={userCredits}
         fileName={selectedFile?.name || ''}
         file={selectedFile}

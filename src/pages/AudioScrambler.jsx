@@ -40,10 +40,10 @@ export default function AudioScrambler() {
   const audioFileInput = useRef(null);
   const audioPlayerRef = useRef(null);
   const canvasRef = useRef(null);
-  
+
   const processedAudioPlayerRef = useRef(null);
   const processedCanvasRef = useRef(null);
-  
+
   const unscrambledAudioPlayerRef = useRef(null);
   const unscrambledCanvasRef = useRef(null);
 
@@ -73,7 +73,7 @@ export default function AudioScrambler() {
   const [isProcessing, setIsProcessing] = useState(false);
   const [showCreditModal, setShowCreditModal] = useState(false);
   const [userCredits, setUserCredits] = useState(0);
-  const SCRAMBLE_COST = 3;
+  const [actionCost, setActionCost] = useState(3);
 
   const [userData] = useState(JSON.parse(localStorage.getItem("userdata")));
 
@@ -83,7 +83,7 @@ export default function AudioScrambler() {
   useEffect(() => {
     const fetchCredits = async () => {
       if (!userData?.username) return;
-      
+
       try {
         const response = await api.post(`api/wallet/balance/${userData.username}`, {
           username: userData.username,
@@ -210,7 +210,7 @@ export default function AudioScrambler() {
   };
 
   const renderShuffledAudioWithPadding = async (originalAudioBuffer, segments, paddingDuration, mode) => {
-    const totalDuration = segments.reduce((total, segment) => 
+    const totalDuration = segments.reduce((total, segment) =>
       total + segment.duration + paddingDuration, 0);
 
     let offlineCtx;
@@ -482,17 +482,25 @@ export default function AudioScrambler() {
     }
   };
 
-  const handleScrambleAudio = () => {
-    if (!audioBuffer) {
-      error("Please load an audio file first!");
-      return;
-    }
-    setShowCreditModal(true);
-  };
+  // const handleScrambleAudio = () => {
+  //   if (!audioBuffer) {
+  //     error("Please load an audio file first!");
+  //     return;
+  //   }
+  //   setShowCreditModal(true);
+  // };
 
-  const handleCreditConfirm = async () => {
+  const handleCreditConfirm = async (actualCostSpent) => {
     setShowCreditModal(false);
     setIsProcessing(true);
+
+    // Now you have access to the actual cost that was calculated and spent
+    console.log('Credits spent:', actualCostSpent);
+
+    // You can use this value for logging, analytics, or displaying to user
+    // For example, update a state variable:
+    // setLastCreditCost(actualCostSpent);
+    setActionCost(actualCostSpent);
 
     try {
       const segSize = parseFloat(segmentSize) || 2;
@@ -546,12 +554,39 @@ export default function AudioScrambler() {
       }
 
       setIsProcessing(false);
-      setUserCredits(prev => prev - SCRAMBLE_COST);
-      success(`Audio scrambled! ${SCRAMBLE_COST} credits used.`);
+      setUserCredits(prev => prev - actionCost);
+      success(`Audio scrambled! ${actionCost} credits used.`);
     } catch (err) {
       console.error('Scramble error:', err);
       error('Error during scrambling: ' + err.message);
+
       setIsProcessing(false);
+
+
+      // TODO: Refund credits if applicable
+      const response = await fetch(`${API_URL}/api/refund-credits`, {
+        method: 'POST',
+        // headers: {
+        //   'Content-Type': 'application/json'
+        // },
+
+        body: {
+          userId: userData.id,
+          username: userData.username,
+          email: userData.email,
+          password: localStorage.getItem('passwordtxt'),
+          credits: actionCost,
+          params: { audioDuration, sampleRate, numberOfChannels },
+        }
+
+      });
+
+      console.log("Refund response:", response);
+
+      throw new Error(data.error || data.message || 'Scrambling failed');
+
+
+
     }
   };
 
@@ -593,110 +628,110 @@ export default function AudioScrambler() {
     }
   };
 
-  const handleScrambledFileSelect = async (event) => {
-    const file = event.target.files?.[0];
-    if (!file) return;
+  // const handleScrambledFileSelect = async (event) => {
+  //   const file = event.target.files?.[0];
+  //   if (!file) return;
 
-    try {
-      const arrayBuffer = await file.arrayBuffer();
-      const buffer = await audioContext.decodeAudioData(arrayBuffer);
-      setScrambledAudioBuffer(buffer);
-      success('Scrambled audio loaded');
-    } catch (err) {
-      console.error("Error loading scrambled audio:", err);
-      error('Error loading scrambled audio');
-    }
-  };
+  //   try {
+  //     const arrayBuffer = await file.arrayBuffer();
+  //     const buffer = await audioContext.decodeAudioData(arrayBuffer);
+  //     setScrambledAudioBuffer(buffer);
+  //     success('Scrambled audio loaded');
+  //   } catch (err) {
+  //     console.error("Error loading scrambled audio:", err);
+  //     error('Error loading scrambled audio');
+  //   }
+  // };
 
-  const handleKeyFileSelect = async (event) => {
-    const file = event.target.files?.[0];
-    if (!file) return;
+  // const handleKeyFileSelect = async (event) => {
+  //   const file = event.target.files?.[0];
+  //   if (!file) return;
 
-    try {
-      const text = await file.text();
-      const keyData = decryptKeyData(text);
-      setLoadedKeyData(keyData);
-      success('🔑 Key loaded!');
-    } catch (err) {
-      console.error("Error loading key:", err);
-      error('Invalid or corrupted key file');
-    }
-  };
+  //   try {
+  //     const text = await file.text();
+  //     const keyData = decryptKeyData(text);
+  //     setLoadedKeyData(keyData);
+  //     success('🔑 Key loaded!');
+  //   } catch (err) {
+  //     console.error("Error loading key:", err);
+  //     error('Invalid or corrupted key file');
+  //   }
+  // };
 
-  const handleUnscramble = async () => {
-    if (!scrambledAudioBuffer) {
-      error('Please load scrambled audio!');
-      return;
-    }
+  // const handleUnscramble = async () => {
+  //   if (!scrambledAudioBuffer) {
+  //     error('Please load scrambled audio!');
+  //     return;
+  //   }
 
-    if (!loadedKeyData) {
-      error('Please load key file!');
-      return;
-    }
+  //   if (!loadedKeyData) {
+  //     error('Please load key file!');
+  //     return;
+  //   }
 
-    setIsProcessing(true);
+  //   setIsProcessing(true);
 
-    try {
-      let recoveredBuffer = scrambledAudioBuffer;
+  //   try {
+  //     let recoveredBuffer = scrambledAudioBuffer;
 
-      // Remove noise
-      if (loadedKeyData.noise?.enabled) {
-        const noise = generateMultiFrequencyNoise(
-          scrambledAudioBuffer.length,
-          loadedKeyData.noise.level,
-          loadedKeyData.noise.seed
-        );
-        recoveredBuffer = reverseNoise(recoveredBuffer, noise);
-      }
+  //     // Remove noise
+  //     if (loadedKeyData.noise?.enabled) {
+  //       const noise = generateMultiFrequencyNoise(
+  //         scrambledAudioBuffer.length,
+  //         loadedKeyData.noise.level,
+  //         loadedKeyData.noise.seed
+  //       );
+  //       recoveredBuffer = reverseNoise(recoveredBuffer, noise);
+  //     }
 
-      // Un-shuffle
-      if (loadedKeyData.shuffle?.enabled) {
-        const shuffleOrderOrSeed = loadedKeyData.shuffle.shuffleOrder || loadedKeyData.shuffle.seed;
+  //     // Un-shuffle
+  //     if (loadedKeyData.shuffle?.enabled) {
+  //       const shuffleOrderOrSeed = loadedKeyData.shuffle.shuffleOrder || loadedKeyData.shuffle.seed;
 
-        recoveredBuffer = await unshuffleAudio(
-          recoveredBuffer,
-          loadedKeyData.shuffle.segmentSize,
-          loadedKeyData.shuffle.padding,
-          shuffleOrderOrSeed,
-          loadedKeyData.audio.duration
-        );
-      }
+  //       recoveredBuffer = await unshuffleAudio(
+  //         recoveredBuffer,
+  //         loadedKeyData.shuffle.segmentSize,
+  //         loadedKeyData.shuffle.padding,
+  //         shuffleOrderOrSeed,
+  //         loadedKeyData.audio.duration
+  //       );
+  //     }
 
-      setRecoveredAudioBuffer(recoveredBuffer);
+  //     setRecoveredAudioBuffer(recoveredBuffer);
 
-      const url = bufferToWavUrl(recoveredBuffer, loadedKeyData.audio.channels, loadedKeyData.audio.sampleRate);
-      if (unscrambledAudioPlayerRef.current) {
-        unscrambledAudioPlayerRef.current.src = url;
-      }
+  //     const url = bufferToWavUrl(recoveredBuffer, loadedKeyData.audio.channels, loadedKeyData.audio.sampleRate);
+  //     if (unscrambledAudioPlayerRef.current) {
+  //       unscrambledAudioPlayerRef.current.src = url;
+  //     }
 
-      setIsProcessing(false);
-      success('✅ Audio unscrambled!');
-    } catch (err) {
-      console.error('Unscramble error:', err);
-      error('Error: ' + err.message);
-      setIsProcessing(false);
-    }
-  };
+  //     setIsProcessing(false);
+  //     success('✅ Audio unscrambled!');
+  //   } catch (err) {
+  //     console.error('Unscramble error:', err);
+  //     error('Error: ' + err.message);
+  //     setIsProcessing(false);
+  //   }
+  // };
 
-  const handleDownloadRecovered = () => {
-    if (!recoveredAudioBuffer) {
-      error("Please unscramble audio first!");
-      return;
-    }
+  // const handleDownloadRecovered = () => {
+  //   if (!recoveredAudioBuffer) {
+  //     error("Please unscramble audio first!");
+  //     return;
+  //   }
 
-    const url = bufferToWavUrl(recoveredAudioBuffer, loadedKeyData.audio.channels, loadedKeyData.audio.sampleRate);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = 'recovered-audio.wav';
-    a.click();
-    success("Recovered audio downloaded!");
-  };
+  //   const url = bufferToWavUrl(recoveredAudioBuffer, loadedKeyData.audio.channels, loadedKeyData.audio.sampleRate);
+  //   const a = document.createElement('a');
+  //   a.href = url;
+  //   a.download = 'recovered-audio.wav';
+  //   a.click();
+  //   success("Recovered audio downloaded!");
+  // };
 
   // Update waveforms on time update
   useEffect(() => {
     const audioPlayer = audioPlayerRef.current;
     const canvas = canvasRef.current;
-    
+
     const updateWaveform = () => {
       if (audioBuffer && canvas && audioPlayer) {
         drawWaveform(audioBuffer, canvas, audioPlayer);
@@ -706,7 +741,7 @@ export default function AudioScrambler() {
     if (audioPlayer) {
       audioPlayer.addEventListener('timeupdate', updateWaveform);
       audioPlayer.addEventListener('loadedmetadata', updateWaveform);
-      
+
       return () => {
         audioPlayer.removeEventListener('timeupdate', updateWaveform);
         audioPlayer.removeEventListener('loadedmetadata', updateWaveform);
@@ -717,7 +752,7 @@ export default function AudioScrambler() {
   useEffect(() => {
     const player = processedAudioPlayerRef.current;
     const canvas = processedCanvasRef.current;
-    
+
     const updateWaveform = () => {
       if (finalAudioBuffer && canvas) {
         drawWaveform(finalAudioBuffer, canvas, player);
@@ -727,7 +762,7 @@ export default function AudioScrambler() {
     if (player) {
       player.addEventListener('timeupdate', updateWaveform);
       player.addEventListener('loadedmetadata', updateWaveform);
-      
+
       return () => {
         player.removeEventListener('timeupdate', updateWaveform);
         player.removeEventListener('loadedmetadata', updateWaveform);
@@ -738,7 +773,7 @@ export default function AudioScrambler() {
   useEffect(() => {
     const player = unscrambledAudioPlayerRef.current;
     const canvas = unscrambledCanvasRef.current;
-    
+
     const updateWaveform = () => {
       if (recoveredAudioBuffer && canvas) {
         drawWaveform(recoveredAudioBuffer, canvas, player);
@@ -748,7 +783,7 @@ export default function AudioScrambler() {
     if (player) {
       player.addEventListener('timeupdate', updateWaveform);
       player.addEventListener('loadedmetadata', updateWaveform);
-      
+
       return () => {
         player.removeEventListener('timeupdate', updateWaveform);
         player.removeEventListener('loadedmetadata', updateWaveform);
@@ -828,7 +863,7 @@ export default function AudioScrambler() {
               <Typography variant="h6" sx={{ mb: 2, color: '#e0e0e0' }}>
                 🔀 Shuffle Settings
               </Typography>
-              
+
               <Box sx={{ mb: 2 }}>
                 <Typography variant="body2" sx={{ color: '#bdbdbd', mb: 1 }}>
                   Shuffle Seed
@@ -993,7 +1028,7 @@ export default function AudioScrambler() {
         onConfirm={handleCreditConfirm}
         mediaType="audio"
         description="scramble audio"
-        creditCost={SCRAMBLE_COST}
+        creditCost={actionCost}
         currentCredits={userCredits}
         fileName={filename}
         isProcessing={isProcessing}

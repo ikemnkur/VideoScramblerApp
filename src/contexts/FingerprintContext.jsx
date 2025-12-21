@@ -75,16 +75,28 @@ export const FingerprintProvider = ({ children }) => {
    * Submit fingerprint to backend after login
    * Call this after successful authentication
    */
-  const submitFingerprint = async (userId) => {
-    if (!fingerprint || !compactFingerprint) {
-      console.error('Fingerprint not ready. Cannot submit.');
-      return { success: false, message: 'Fingerprint not ready' };
-    }
-
+  const submitFingerprint = async (userId, maxRetries = 10, retryDelay = 500) => {
+    console.log('🚀 Submitting fingerprint for user:', userId);
+    
     if (!userId) {
       console.error('User ID is required to submit fingerprint');
       return { success: false, message: 'User ID required' };
     }
+
+    // Wait for fingerprint to be ready with retries
+    let retries = 0;
+    while ((!fingerprint || !compactFingerprint) && retries < maxRetries) {
+      console.log(`⏳ Waiting for fingerprint to be ready... (${retries + 1}/${maxRetries})`);
+      await new Promise(resolve => setTimeout(resolve, retryDelay));
+      retries++;
+    }
+
+    if (!fingerprint || !compactFingerprint) {
+      console.error('❌ Fingerprint not ready after waiting. Cannot submit.');
+      return { success: false, message: 'Fingerprint generation timed out' };
+    }
+
+    console.log('✅ Fingerprint ready, proceeding with submission');
 
     try {
       

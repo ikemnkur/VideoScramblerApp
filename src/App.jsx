@@ -70,6 +70,8 @@ import { loadStripe } from '@stripe/stripe-js';
 
 import './styles.css';
 import { ToastProvider } from './contexts/ToastContext';
+import { FingerprintProvider } from './contexts/FingerprintContext';
+import ErrorBoundary from './components/ErrorBoundary';
 
 // import { BrowserRouter as Router, Routes, Route, useLocation } from 'react-router-dom';
 import { GA_TRACKING_ID, pageview } from './utils/gtag';
@@ -92,11 +94,13 @@ export default function App() {
   return (
     <ThemeProvider theme={theme}>
       <CssBaseline />
-      <ToastProvider>
-        <BrowserRouter>
-          <TrackPageViews />
-          <NavBar />
-          <Routes>
+      <ErrorBoundary>
+        <ToastProvider>
+          <FingerprintProvider>
+            <BrowserRouter>
+              <TrackPageViews />
+              <NavBar />
+            <Routes>
 
             {/* Public Routes */}
             {/* {!(localStorage.getItem('userdata') ? JSON.parse(localStorage.getItem('userdata')).loginStatus : false) && ( */}
@@ -215,7 +219,9 @@ export default function App() {
 
           </Routes>
         </BrowserRouter>
+        </FingerprintProvider>
       </ToastProvider>
+      </ErrorBoundary>
     </ThemeProvider>
   );
 }

@@ -1,6 +1,6 @@
 // AudioLeakChecker.jsx - Steganography-based leak detection for audios
 import React, { useState, useRef, useEffect, useCallback } from 'react';
-import { Container, Typography, Card, CardContent, Button, Box, Grid, Paper, Alert, CircularProgress, Chip, List, ListItem, ListItemText } from '@mui/material';
+import { Container, TextField, Typography, Card, CardContent, Button, Box, Grid, Paper, Alert, CircularProgress, Chip, List, ListItem, ListItemText } from '@mui/material';
 import { Speaker, Search, CheckCircle, Warning, Upload, Person, Movie } from '@mui/icons-material';
 import { useToast } from '../contexts/ToastContext';
 import CreditConfirmationModal from '../components/CreditConfirmationModal';
@@ -24,6 +24,7 @@ export default function AudioLeakChecker() {
   const audioRef = useRef(null);
   const audioPlayerRef = useRef(null);
   const canvasRef = useRef(null);
+  const keyFileInputRef = useRef(null);
 
   const [audioBuffer, setAudioBuffer] = useState(null);
   const [filename, setFilename] = useState('');
@@ -39,10 +40,47 @@ export default function AudioLeakChecker() {
   const [showCreditModal, setShowCreditModal] = useState(false);
   const [allowLeakChecking, setAllowLeakChecking] = useState(false);
   const [userCredits, setUserCredits] = useState(0); // Mock credits, replace with actual user data
-  const SCRAMBLE_COST = 10; // Cost to scramble a photo (less than audio)
+  const [actionCost, setActionCost] = useState(5); // Cost for leak checking
+  const [loadedKeyData, setLoadedKeyData] = useState(null);
+  const [keyCode, setKeyCode] = useState('');
 
+  const timeout = 1500; // 1.5 seconds
 
+  // XOR decryption function
+  const xorEncrypt = (text, key) => {
+    let result = '';
+    for (let i = 0; i < text.length; i++) {
+      result += String.fromCharCode(text.charCodeAt(i) ^ key.charCodeAt(i % key.length));
+    }
+    return result;
+  };
 
+  const decryptKeyData = (encodedData) => {
+    try {
+      const encrypted = atob(encodedData);
+      const encryptionKey = "AudioProtectionKey2025";
+      const jsonStr = xorEncrypt(encrypted, encryptionKey);
+      return JSON.parse(jsonStr);
+    } catch (err) {
+      console.error('Decryption error:', err);
+      throw new Error('Invalid or corrupted key file');
+    }
+  };
+
+  const handleKeyFileSelect = async (event) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    try {
+      const text = await file.text();
+      const keyData = decryptKeyData(text);
+      setLoadedKeyData(keyData);
+      success('🔑 Key loaded!');
+    } catch (err) {
+      console.error("Error loading key:", err);
+      error('Invalid or corrupted key file');
+    }
+  };
 
   const handleFileSelect = async (event) => {
     const file = event.target.files?.[0];
@@ -309,12 +347,62 @@ export default function AudioLeakChecker() {
           </Typography>
 
           <Box sx={{ mb: 3 }}>
+             <Typography variant="body2" sx={{ color: '#bdbdbd', mb: 1 }}>
+                  Scrambled Audio File
+                </Typography>
             <input type="file" accept="audio/*" onChange={handleFileSelect} style={{ display: 'none' }} id="audio-leak-upload" ref={fileInputRef} />
             <label htmlFor="audio-leak-upload">
               <Button variant="contained" component="span" startIcon={<Upload />} sx={{ backgroundColor: '#2196f3', color: 'white', mb: 2 }}>
                 Choose Audio File
               </Button>
             </label>
+
+            <Grid container spacing={2} sx={{ mb: 2 }}>
+              <Grid item xs={12} md={6}>
+                <Typography variant="body2" sx={{ color: '#bdbdbd', mb: 1 }}>
+                  Scramble Key File
+                </Typography>
+                <input
+                  type="file"
+                  accept=".key,.json,.txt"
+                  onChange={handleKeyFileSelect}
+                  style={{ display: 'none' }}
+                  id="key-file-upload"
+                  ref={keyFileInputRef}
+                />
+                <label htmlFor="key-file-upload">
+                  <Button variant="contained" component="span" startIcon={<Upload />} sx={{ backgroundColor: '#2196f3', color: 'white', mb: 2 }}>
+                    Choose Key File
+                  </Button>
+                </label>
+
+              </Grid>
+
+           <strong style={{fontSize: 24, margin: '0 16px'}}> OR </strong>
+
+              <Grid item xs={12} md={6}>
+                <Typography variant="h6" sx={{ mb: 1, color: '#e0e0e0' }}>
+                  Enter Key Code
+                </Typography>
+                <TextField
+                  fullWidth
+                  multiline
+                   rows={3}
+                  value={keyCode}
+                  onChange={(e) => setKeyCode(e.target.value)}
+                  placeholder="eyJzZWVkIjoxMjM0NSwibiI6MywibSI6MywicGVybTFiYXNlZCI6WzMsMiw1LDEsNyw2LDksNCw4XX0="
+                  sx={{
+                    mb: 2,
+                    '& .MuiInputBase-root': {
+                      backgroundColor: '#353535',
+                      color: 'white',
+                      fontFamily: 'monospace'
+                    }
+                  }}
+                />
+              </Grid>
+            </Grid>
+
             {selectedFile && (
               <Box>
                 <Typography variant="body2" sx={{ color: '#4caf50', mb: 1 }}>✓ Selected: {selectedFile.name}</Typography>
@@ -411,7 +499,7 @@ export default function AudioLeakChecker() {
         onClose={() => setShowCreditModal(false)}
         onConfirm={handleCreditConfirm}
         mediaType="audio"
-        creditCost={SCRAMBLE_COST}
+        creditCost={actionCost}
         currentCredits={userCredits}
         fileName={selectedFile?.name || ''}
         file={selectedFile}

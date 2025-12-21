@@ -51,7 +51,7 @@ A reusable Material-UI modal component that:
    ```javascript
    const [showCreditModal, setShowCreditModal] = useState(false);
    const [userCredits, setUserCredits] = useState(100); // Mock credits
-   const SCRAMBLE_COST = 10; // Cost to scramble a video
+   const actionCost = 10; // Cost to scramble a video
    ```
 
 3. **Modified onGenerate Function:**
@@ -77,9 +77,9 @@ A reusable Material-UI modal component that:
    const handleCreditConfirm = useCallback(() => {
      setShowCreditModal(false);
      // ... scrambling logic ...
-     setUserCredits(prev => prev - SCRAMBLE_COST);
-     success(`Video scrambled successfully! ${SCRAMBLE_COST} credits used.`);
-   }, [grid, drawScrambledFrame, success, SCRAMBLE_COST]);
+     setUserCredits(prev => prev - actionCost);
+     success(`Video scrambled successfully! ${actionCost} credits used.`);
+   }, [grid, drawScrambledFrame, success, actionCost]);
    ```
 
 5. **Added Modal Component to JSX:**
@@ -89,7 +89,7 @@ A reusable Material-UI modal component that:
      onClose={() => setShowCreditModal(false)}
      onConfirm={handleCreditConfirm}
      mediaType="video"
-     creditCost={SCRAMBLE_COST}
+     creditCost={actionCost}
      currentCredits={userCredits}
      fileName={selectedFile?.name || ''}
      user={userData}
@@ -110,7 +110,7 @@ A reusable Material-UI modal component that:
    ```javascript
    const [showCreditModal, setShowCreditModal] = useState(false);
    const [userCredits, setUserCredits] = useState(100); // Mock credits
-   const SCRAMBLE_COST = 5; // Cost to scramble a photo (less than video)
+   const actionCost = 5; // Cost to scramble a photo (less than video)
    ```
 
 3. **Modified onGenerate Function:**
@@ -141,10 +141,10 @@ A reusable Material-UI modal component that:
      setIsProcessing(true);
      setTimeout(() => {
        // ... scrambling logic ...
-       setUserCredits(prev => prev - SCRAMBLE_COST);
-       success(`Image scrambled successfully! ${SCRAMBLE_COST} credits used.`);
+       setUserCredits(prev => prev - actionCost);
+       success(`Image scrambled successfully! ${actionCost} credits used.`);
      }, 500);
-   }, [grid, drawScrambledImage, success, SCRAMBLE_COST]);
+   }, [grid, drawScrambledImage, success, actionCost]);
    ```
 
 5. **Added Modal Component to JSX:**
@@ -154,7 +154,7 @@ A reusable Material-UI modal component that:
      onClose={() => setShowCreditModal(false)}
      onConfirm={handleCreditConfirm}
      mediaType="photo"
-     creditCost={SCRAMBLE_COST}
+     creditCost={actionCost}
      currentCredits={userCredits}
      fileName={imageFile?.name || ''}
      isProcessing={isProcessing}
@@ -220,7 +220,7 @@ Currently using mock credit system with:
          headers: { 'Content-Type': 'application/json' },
          body: JSON.stringify({ 
            userId: user.id, 
-           amount: SCRAMBLE_COST,
+           amount: actionCost,
            operation: 'scramble_video' // or 'scramble_photo'
          })
        });
@@ -237,7 +237,7 @@ Currently using mock credit system with:
        // Perform scrambling...
        // ... rest of scrambling logic ...
        
-       success(`Video scrambled successfully! ${SCRAMBLE_COST} credits used.`);
+       success(`Video scrambled successfully! ${actionCost} credits used.`);
      } catch (err) {
        error('Failed to process credits: ' + err.message);
      }

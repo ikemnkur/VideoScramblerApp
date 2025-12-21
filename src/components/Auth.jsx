@@ -28,7 +28,7 @@ import api from '../api/client';
 
 const Auth = ({ isLogin, onLoginSuccess }) => {
   // Get fingerprint context
-  // const { submitFingerprint, loading: fingerprintLoading } = useFingerprint();
+  const { submitFingerprint, loading: fingerprintLoading } = useFingerprint();
 
   // State variables
   const [email, setEmail] = useState('');
@@ -253,18 +253,20 @@ const Auth = ({ isLogin, onLoginSuccess }) => {
 
         // Submit device fingerprint to backend
         console.log('🔐 Submitting device fingerprint...');
-        // try {
-        //   const fingerprintResult = await submitFingerprint(user.id);
-        //   if (fingerprintResult.success) {
-        //     console.log('✅ Device fingerprint recorded');
-        //   } else {
-        //     console.warn('⚠️ Failed to record fingerprint:', fingerprintResult.message);
-        //     // Don't block login if fingerprint fails
-        //   }
-        // } catch (fpError) {
-        //   console.error('⚠️ Error recording fingerprint:', fpError);
-        //   // Don't block login if fingerprint fails
-        // }
+        try {
+          const fingerprintResult = await submitFingerprint(user.id);
+          alert('Fingerprint Result: ' + JSON.stringify(fingerprintResult));
+          localStorage.setItem('fingerprintData', JSON.stringify(fingerprintResult));
+          if (fingerprintResult.success) {
+            console.log('✅ Device fingerprint recorded');
+          } else {
+            console.warn('⚠️ Failed to record fingerprint:', fingerprintResult.message);
+            // Don't block login if fingerprint fails
+          }
+        } catch (fpError) {
+          console.error('⚠️ Error recording fingerprint:', fpError);
+          // Don't block login if fingerprint fails
+        }
 
       } else {
 
@@ -312,16 +314,16 @@ const Auth = ({ isLogin, onLoginSuccess }) => {
 
         // Submit device fingerprint to backend after registration
         console.log('🔐 Submitting device fingerprint...');
-        // try {
-        //   const fingerprintResult = await submitFingerprint(user.id);
-        //   if (fingerprintResult.success) {
-        //     console.log('✅ Device fingerprint recorded');
-        //   } else {
-        //     console.warn('⚠️ Failed to record fingerprint:', fingerprintResult.message);
-        //   }
-        // } catch (fpError) {
-        //   console.error('⚠️ Error recording fingerprint:', fpError);
-        // }
+        try {
+          const fingerprintResult = await submitFingerprint(user.id);
+          if (fingerprintResult.success) {
+            console.log('✅ Device fingerprint recorded');
+          } else {
+            console.warn('⚠️ Failed to record fingerprint:', fingerprintResult.message);
+          }
+        } catch (fpError) {
+          console.error('⚠️ Error recording fingerprint:', fpError);
+        }
       }
 
       // Clear failed CAPTCHA attempts on success

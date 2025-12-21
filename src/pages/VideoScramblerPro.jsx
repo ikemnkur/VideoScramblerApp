@@ -65,7 +65,7 @@ export default function ScramblerPhotosPro() {
   const [userCredits, setUserCredits] = useState(0); // Mock credits, replace with actual user data
   const [allowScrambling, setAllowScrambling] = useState(false);
   const [showCreditModal, setShowCreditModal] = useState(false);
-  const SCRAMBLE_COST = 15; // Cost to unscramble a video (less than video)
+  const [actionCost, setActionCost] = useState(15); // Cost to unscramble a video (less than video)
 
   // Scrambling Parameters
   const [algorithm, setAlgorithm] = useState('position'); // position, color, rotation, mirror, intensity
@@ -133,6 +133,45 @@ export default function ScramblerPhotosPro() {
     success("Video file loaded successfully!");
 
     console.log("Selected file:", file);
+  };
+
+
+  // =============================
+  // KEY MANAGEMENT
+  // =============================
+  const copyKey = async () => {
+    if (!keyCode) {
+      error("Please scramble an video first");
+      return;
+    }
+    try {
+      await navigator.clipboard.writeText(keyCode);
+      success("Key copied to clipboard!");
+    } catch {
+      error("Failed to copy key");
+    }
+  };
+
+  const downloadKey = () => {
+    if (!keyCode) {
+      error("Please scramble an video first");
+      return;
+    }
+    const blob = new Blob([keyCode], { type: 'text/plain' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `unscramble_key_${Date.now()}.txt`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+    success("Key downloaded!");
+  };
+
+  const regenerateSeed = () => {
+    setSeed(Math.floor(Math.random() * 1000000000));
+    success("New seed generated!");
   };
 
 
@@ -250,27 +289,44 @@ export default function ScramblerPhotosPro() {
       formData.append('file', selectedFile);
       formData.append('params', JSON.stringify(params));
 
-      // Call scramble endpoint
-      const response = await fetch(`${API_URL}/api/scramble-video`, {
-        method: 'POST',
-        // headers: {
-        //   'Content-Type': 'application/json'
-        // },
-        body: formData
-      });
+      try {
+        // Call scramble endpoint
+        const response = await fetch(`${API_URL}/api/scramble-video`, {
+          method: 'POST',
+          // headers: {
+          //   'Content-Type': 'application/json'
+          // },
+          body: formData
+        });
+        const data = await response.json();
+        console.log("Scramble response:", response);
 
-      // if (!response.ok) {
-      //   throw new Error('Scrambling failed');
-      // }
+        // The backend should return the scrambled image info
+        setScrambledFilename(data.output_file || data.scrambledFileName);
 
-      // const data = await response.json();
-      // setScrambledFilename(data.output_file);
 
-      const data = await response.json();
+        // Generate and display key
+        const key = {
+          algorithm,
+          seed,
+          rows,
+          cols,
+          percentage: scramblingPercentage,
+          maxHueShift,
+          maxIntensityShift,
+          timestamp: Date.now()
+        };
 
-      console.log("Scramble response:", response);
+        const encodedKey = btoa(JSON.stringify(key));
+        setKeyCode(encodedKey);
 
-      if (!response.ok) {
+        // Load scrambled video preview
+        loadScrambledVideo(data.output_file);
+
+        success("Video scrambled successfully!");
+      } catch (err) {
+        error("Scrambling failed: " + err.message);
+        setIsProcessing(false);
 
         // TODO: Refund credits if applicable
         const response = await fetch(`${API_URL}/api/refund-credits`, {
@@ -280,40 +336,19 @@ export default function ScramblerPhotosPro() {
           // },
 
           body: {
+            userId: userData.id,
             username: userData.username,
             email: userData.email,
             password: localStorage.getItem('passwordtxt'),
-            cost: SCRAMBLE_COST,
+            credits: actionCost,
             params: params,
           }
-          
         });
-        throw new Error(data.error || data.message || 'Scrambling failed');
+
+        console.log("Refund response:", response);
+
       }
 
-      // The backend should return the scrambled image info
-      setScrambledFilename(data.output_file || data.scrambledFileName);
-
-
-      // Generate and display key
-      const key = {
-        algorithm,
-        seed,
-        rows,
-        cols,
-        percentage: scramblingPercentage,
-        maxHueShift,
-        maxIntensityShift,
-        timestamp: Date.now()
-      };
-
-      const encodedKey = btoa(JSON.stringify(key));
-      setKeyCode(encodedKey);
-
-      // Load scrambled video preview
-      loadScrambledVideo(data.output_file);
-
-      success("Video scrambled successfully!");
     } catch (err) {
       error("Scrambling failed: " + err.message);
     } finally {
@@ -363,54 +398,26 @@ export default function ScramblerPhotosPro() {
     }
   };
 
-  // =============================
-  // KEY MANAGEMENT
-  // =============================
-  const copyKey = async () => {
-    if (!keyCode) {
-      error("Please scramble an video first");
-      return;
-    }
-    try {
-      await navigator.clipboard.writeText(keyCode);
-      success("Key copied to clipboard!");
-    } catch {
-      error("Failed to copy key");
-    }
-  };
-
-  const downloadKey = () => {
-    if (!keyCode) {
-      error("Please scramble an video first");
-      return;
-    }
-    const blob = new Blob([keyCode], { type: 'text/plain' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `unscramble_key_${Date.now()}.txt`;
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-    URL.revokeObjectURL(url);
-    success("Key downloaded!");
-  };
-
-  const regenerateSeed = () => {
-    setSeed(Math.floor(Math.random() * 1000000000));
-    success("New seed generated!");
-  };
-
-  const handleCreditConfirm = useCallback(() => {
+  const handleCreditConfirm = useCallback((actualCostSpent) => {
     setShowCreditModal(false);
 
     setAllowScrambling(true);
 
+    // Now you have access to the actual cost that was calculated and spent
+    console.log('Credits spent:', actualCostSpent);
+
+    // You can use this value for logging, analytics, or displaying to user
+    // For example, update a state variable:
+    // setLastCreditCost(actualCostSpent);
+    setActionCost(actualCostSpent);
+
+    // Use setTimeout to ensure state update completes before scrambling
     setTimeout(() => {
       scrambleVideo();
-    }, 50);
+    }, 0);
 
   }, [selectedFile, allowScrambling]);
+
 
   // =============================
   // RENDER
@@ -513,26 +520,7 @@ export default function ScramblerPhotosPro() {
                 />
               </Grid>
 
-              <Grid item xs={12} md={6}>
-                <Typography variant="body2" sx={{ color: '#e0e0e0', mb: 1 }}>
-                  Scrambling Percentage: {scramblingPercentage}%
-                </Typography>
-                <Slider
-                  value={scramblingPercentage}
-                  onChange={(e, val) => setScramblingPercentage(val)}
-                  min={25}
-                  max={100}
-                  step={5}
-                  marks={[
-                    { value: 25, label: '25%' },
-                    { value: 50, label: '50%' },
-                    { value: 75, label: '75%' },
-                    { value: 100, label: '100%' }
-                  ]}
-                  sx={{ color: '#22d3ee' }}
-                />
-              </Grid>
-
+              
               {/* Position, Rotation, Mirror - need rows/cols */}
               {(algorithm === 'position' || algorithm === 'rotation' || algorithm === 'mirror') && (
                 <>
@@ -626,6 +614,27 @@ export default function ScramblerPhotosPro() {
                         'Scrambles by shifting pixel intensity values'
               }
             </Alert>
+
+            {/* <Grid item xs={12} md={6}>
+                <Typography variant="body2" sx={{ color: '#e0e0e0', mb: 1 }}>
+                  Scrambling Percentage: {scramblingPercentage}%
+                </Typography>
+                <Slider
+                  value={scramblingPercentage}
+                  onChange={(e, val) => setScramblingPercentage(val)}
+                  min={25}
+                  max={100}
+                  step={5}
+                  marks={[
+                    { value: 25, label: '25%' },
+                    { value: 50, label: '50%' },
+                    { value: 75, label: '75%' },
+                    { value: 100, label: '100%' }
+                  ]}
+                  sx={{ color: '#22d3ee' }}
+                />
+              </Grid> */}
+
           </Box>
 
           {/* Action Buttons */}
@@ -803,7 +812,7 @@ export default function ScramblerPhotosPro() {
         onClose={() => setShowCreditModal(false)}
         onConfirm={handleCreditConfirm}
         mediaType="video"
-        creditCost={SCRAMBLE_COST}
+        creditCost={actionCost}
         currentCredits={userCredits}
         fileName={selectedFile?.name || ''}
         file={selectedFile}

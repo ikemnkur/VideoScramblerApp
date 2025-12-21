@@ -27,7 +27,7 @@ export default function VideoLeakChecker() {
   const [showCreditModal, setShowCreditModal] = useState(false);
   const [allowLeakChecking, setAllowLeakChecking] = useState(false);
   const [userCredits, setUserCredits] = useState(0); // Mock credits, replace with actual user data
-  const SCRAMBLE_COST = 10; // Cost to scramble a photo (less than video)
+  const actionCost = 10; // Cost to scramble a photo (less than video)
 
 
 
@@ -256,7 +256,7 @@ export default function VideoLeakChecker() {
         onClose={() => setShowCreditModal(false)}
         onConfirm={handleCreditConfirm}
         mediaType="video"
-        creditCost={SCRAMBLE_COST}
+        creditCost={actionCost}
         currentCredits={userCredits}
         fileName={selectedFile?.name || ''}
         file={selectedFile}

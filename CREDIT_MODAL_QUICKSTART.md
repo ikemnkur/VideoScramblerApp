@@ -109,10 +109,10 @@ src/
 ```javascript
 // Currently using:
 const [userCredits, setUserCredits] = useState(100); // Resets on reload
-const SCRAMBLE_COST = 10; // or 5 for photos
+const actionCost = 10; // or 5 for photos
 
 // After scrambling:
-setUserCredits(prev => prev - SCRAMBLE_COST);
+setUserCredits(prev => prev - actionCost);
 ```
 
 **What's Missing:**
@@ -164,7 +164,7 @@ The modal matches your app's design:
 A: Currently in local component state. Resets on page reload. Add backend API for persistence.
 
 **Q: Can I change credit costs?**
-A: Yes! Modify `SCRAMBLE_COST` constant in VideoScrambler.jsx (10) or ScramblerPhotos.jsx (5).
+A: Yes! Modify `actionCost` constant in VideoScrambler.jsx (10) or ScramblerPhotos.jsx (5).
 
 **Q: How do I add more credits?**
 A: Temporarily: Change `useState(100)` to higher number. Permanently: Build credit purchase system.

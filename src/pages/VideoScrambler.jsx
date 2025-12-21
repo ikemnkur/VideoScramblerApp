@@ -84,7 +84,7 @@ export default function VideoScrambler() {
   const [showCreditModal, setShowCreditModal] = useState(false);
   const [allowScrambling, setAllowScrambling] = useState(false);
   const [userCredits, setUserCredits] = useState(100); // Mock credits, replace with actual user data
-  const SCRAMBLE_COST = 10; // Cost to scramble a video
+  const actionCost = 10; // Cost to scramble a video
 
 
 
@@ -332,10 +332,10 @@ export default function VideoScrambler() {
     setTimeout(() => drawScrambledFrame(), 100);
 
     // Deduct credits
-    setUserCredits(prev => prev - SCRAMBLE_COST);
+    setUserCredits(prev => prev - actionCost);
 
     // Show success message
-    success(`Video scrambled successfully! ${SCRAMBLE_COST} credits used.`);
+    success(`Video scrambled successfully! ${actionCost} credits used.`);
 
     // Play video muted to allow autoplay
     setTimeout(() => {
@@ -345,7 +345,7 @@ export default function VideoScrambler() {
       }
     }, 100);
 
-  }, [grid, drawScrambledFrame, success, SCRAMBLE_COST]);
+  }, [grid, drawScrambledFrame, success, actionCost]);
 
   // =============================
   // AD MODAL FUNCTIONS
@@ -890,7 +890,7 @@ export default function VideoScrambler() {
         onClose={() => setShowCreditModal(false)}
         onConfirm={handleCreditConfirm}
         mediaType="video"
-        creditCost={SCRAMBLE_COST}
+        creditCost={actionCost}
         currentCredits={userCredits}
         fileName={selectedFile?.name || ''}
         file={selectedFile}

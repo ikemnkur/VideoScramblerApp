@@ -67,7 +67,7 @@ export default function ScramblerPhotosPro() {
     const [showCreditModal, setShowCreditModal] = useState(false);
     const [allowScrambling, setAllowScrambling] = useState(false);
     const [userCredits, setUserCredits] = useState(0); // Mock credits, replace with actual user data
-    const SCRAMBLE_COST = 15; // Cost to unscramble a video (less than video)
+    const [actionCost, setActionCost] = useState(15); // Cost to unscramble a video (pro version)
 
     // Scrambling Parameters
     const [algorithm, setAlgorithm] = useState('position'); // position, color, rotation, mirror, intensity
@@ -94,19 +94,37 @@ export default function ScramblerPhotosPro() {
         }
     }, []);
 
-    const handleCreditConfirm = useCallback(() => {
+    // const handleCreditConfirm = useCallback(() => {
+    //     setShowCreditModal(false);
+
+    //     setAllowScrambling(true);
+
+    //     // Use setTimeout to ensure state update completes before scrambling
+    //     setTimeout(() => {
+    //         scrambleImage(selectedFile);
+    //     }, 0);
+
+    // }, [selectedFile, allowScrambling]);
+
+    const handleCreditConfirm = useCallback((actualCostSpent) => {
         setShowCreditModal(false);
 
         setAllowScrambling(true);
 
+        // Now you have access to the actual cost that was calculated and spent
+        console.log('Credits spent:', actualCostSpent);
+
+        // You can use this value for logging, analytics, or displaying to user
+        // For example, update a state variable:
+        // setLastCreditCost(actualCostSpent);
+        setActionCost(actualCostSpent);
+
         // Use setTimeout to ensure state update completes before scrambling
         setTimeout(() => {
-            scrambleImage(selectedFile);
+            scrambleImage();
         }, 0);
 
     }, [selectedFile, allowScrambling]);
-
-
 
 
     // =============================
@@ -231,57 +249,80 @@ export default function ScramblerPhotosPro() {
             formData.append('file', selectedFile);
             formData.append('params', JSON.stringify(params));
 
-            // Call scramble endpoint
-            const response = await fetch(`${API_URL}/api/scramble-photo`, {
-                method: 'POST',
-                body: formData
-                // Don't set Content-Type header - browser will set it automatically with boundary
-            });
 
-            const data = await response.json();
-
-            console.log("Scramble response:", response);
-
-            if (!response.ok) {
-                throw new Error(data.error || data.message || 'Scrambling failed');
-            }
-
-            // The backend should return the scrambled image info
-            setScrambledFilename(data.output_file || data.scrambledFileName);
-
-            // Generate and display key
-            const key = {
-                algorithm,
-                seed,
-                rows,
-                cols,
-                percentage: scramblingPercentage,
-                maxHueShift,
-                maxIntensityShift,
-                timestamp: Date.now()
-            };
-            const encodedKey = btoa(JSON.stringify(key));
-            setKeyCode(encodedKey);
-
-            // Load scrambled image preview
-            if (data.output_file || data.scrambledFileName) {
-                loadScrambledImage(data.output_file || data.scrambledFileName);
-            } else if (data.scrambledImageUrl) {
-                // If backend returns direct URL
-                if (scrambledDisplayRef.current) {
-                    scrambledDisplayRef.current.src = data.scrambledImageUrl;
-                }
-            }
-
-            success("Image scrambled successfully!");
-
-            // SHOW MESSAGE DIALOG SAYTHING THAT THE USER HAS SPENT CREDITS TO CHECK THE IMAGE
             try {
-                setTimeout(() => {
-                    info(`Image checked successfully. ${data.creditsUsed} credits spent.`);
-                }, timeout);
+                // Call scramble endpoint
+                const response = await fetch(`${API_URL}/api/scramble-photo`, {
+                    method: 'POST',
+                    body: formData
+                    // Don't set Content-Type header - browser will set it automatically with boundary
+                });
+
+                const data = await response.json();
+
+                console.log("Scramble response:", response);
+
+
+                // The backend should return the scrambled image info
+                setScrambledFilename(data.output_file || data.scrambledFileName);
+
+                // Generate and display key
+                const key = {
+                    algorithm,
+                    seed,
+                    rows,
+                    cols,
+                    percentage: scramblingPercentage,
+                    maxHueShift,
+                    maxIntensityShift,
+                    timestamp: Date.now()
+                };
+                const encodedKey = btoa(JSON.stringify(key));
+                setKeyCode(encodedKey);
+
+                // Load scrambled image preview
+                if (data.output_file || data.scrambledFileName) {
+                    loadScrambledImage(data.output_file || data.scrambledFileName);
+                } else if (data.scrambledImageUrl) {
+                    // If backend returns direct URL
+                    if (scrambledDisplayRef.current) {
+                        scrambledDisplayRef.current.src = data.scrambledImageUrl;
+                    }
+                }
+
+                success("Image scrambled successfully!");
+
+                // SHOW MESSAGE DIALOG SAYTHING THAT THE USER HAS SPENT CREDITS TO CHECK THE IMAGE
+                try {
+                    setTimeout(() => {
+                        info(`Image checked successfully. ${data.creditsUsed} credits spent.`);
+                    }, timeout);
+                } catch (error) {
+                    console.error('Error showing credit spent info:', error);
+                }
+
             } catch (error) {
-                console.error('Error showing credit spent info:', error);
+                // TODO: Refund credits if applicable
+                const response = await fetch(`${API_URL}/api/refund-credits`, {
+                    method: 'POST',
+                    // headers: {
+                    //   'Content-Type': 'application/json'
+                    // },
+
+                    body: {
+                        userId: userData.id,
+                        username: userData.username,
+                        email: userData.email,
+                        password: localStorage.getItem('passwordtxt'),
+                        credits: actionCost,
+                        params: params,
+                    }
+
+                });
+
+                console.log("Refund response:", response);
+
+                throw new Error(data.error || data.message || 'Scrambling failed');
             }
 
         } catch (err) {
@@ -290,7 +331,7 @@ export default function ScramblerPhotosPro() {
         } finally {
             setIsProcessing(false);
         }
-        // }
+
     };
 
     const loadScrambledImage = async (filename) => {
@@ -757,7 +798,7 @@ export default function ScramblerPhotosPro() {
                 onClose={() => setShowCreditModal(false)}
                 onConfirm={handleCreditConfirm}
                 mediaType="photo"
-                creditCost={SCRAMBLE_COST}
+                creditCost={actionCost}
                 currentCredits={userCredits}
                 fileName={selectedFile?.name || ''}
                 fileDetails={{

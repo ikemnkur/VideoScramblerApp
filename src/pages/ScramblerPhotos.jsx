@@ -87,7 +87,7 @@ export default function ScramblerPhotos() {
   // Credit modal state
   const [showCreditModal, setShowCreditModal] = useState(false);
   const [userCredits, setUserCredits] = useState(0); // Mock credits, replace with actual user data
-  const SCRAMBLE_COST = 5; // Cost to scramble a photo (less than video)
+  const actionCost = 5; // Cost to scramble a photo (less than video)
 
   const [selectedFile, setSelectedFile] = useState(null);
   const [scrambledFilename, setScrambledFilename] = useState('');
@@ -404,12 +404,12 @@ export default function ScramblerPhotos() {
       setIsProcessing(false);
 
       // Deduct credits
-      setUserCredits(prev => prev - SCRAMBLE_COST);
+      setUserCredits(prev => prev - actionCost);
 
       // Show success message
-      success(`Image scrambled successfully! ${SCRAMBLE_COST} credits used.`);
+      success(`Image scrambled successfully! ${actionCost} credits used.`);
     }, 500);
-  }, [grid, drawScrambledImage, success, SCRAMBLE_COST]);
+  }, [grid, drawScrambledImage, success, actionCost]);
 
   // Redraw when image loads or parameters change
   useEffect(() => {
@@ -924,7 +924,7 @@ export default function ScramblerPhotos() {
         onConfirm={handleCreditConfirm}
         mediaType="photo"
         description="scramble photo (lite)"
-        creditCost={SCRAMBLE_COST}
+        creditCost={actionCost}
         currentCredits={userCredits}
         fileName={imageFile?.name || ''}
         isProcessing={isProcessing}

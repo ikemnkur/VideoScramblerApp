@@ -27,7 +27,7 @@ import { useToast } from '../contexts/ToastContext';
 //   onClose={() => setShowCreditModal(false)}
 //   onConfirm={handleCreditConfirm}
 //   mediaType="photo"
-//   creditCost={SCRAMBLE_COST}
+//   creditCost={actionCost}
 //   currentCredits={userCredits}
 //   fileName={imageFile?.name || ''}
 //   isProcessing={isProcessing}
@@ -48,7 +48,7 @@ export default function CreditConfirmationModal({
   onConfirm,
   mediaType = 'video', // 'video' or 'photo'
   description = '',
-  creditCost = 10,
+  creditCost = -1,
   currentCredits = 0,
   fileName = '',
   isProcessing = false,
@@ -85,7 +85,7 @@ export default function CreditConfirmationModal({
 
 
     async function fetchData(params) {
-      console.log('Fetching user credits for',  userData.username);
+      console.log('Fetching user credits for', userData.username);
       const response = await api.post(`api/wallet/balance/${userData.username}`, {
         username: userData.username,
         email: userData.email,
@@ -154,6 +154,14 @@ export default function CreditConfirmationModal({
     }
   };
 
+  const handleConfirm = async () => {
+    const result = await spendCredits();
+    if (result) {
+      // Pass totalCost back to parent component through onConfirm callback
+      onConfirm(totalCost);
+    }
+  };
+
   useEffect(() => {
     // Calculate cost based on fileDetails
     let calculatedCost = creditCost;
@@ -163,7 +171,18 @@ export default function CreditConfirmationModal({
       setTotalCost(creditCost);
       setHasEnoughCredits(userCredits >= creditCost);
       setRemainingCredits(userCredits - creditCost);
-      return () => { console.log('No file details available for cost calculation'); };
+      // check if audio file
+      if (mediaType === 'audio' && fileDetails) {
+        // simple cost calculation for audio based on size
+        const sizeInMB = fileDetails.size / (1000 * 1000);
+        calculatedCost += Math.ceil(sizeInMB); // 1 credit per MB
+        setTotalCost(calculatedCost);
+        setHasEnoughCredits(userCredits >= calculatedCost);
+        setRemainingCredits(userCredits - calculatedCost);
+      } else {
+        return () => { console.log('No file details available for cost calculation'); };
+      }
+
     } else {
       // Handle the case where fileDetails is available but lacks horizontal and vertical properties
     }
@@ -227,9 +246,9 @@ export default function CreditConfirmationModal({
       const height = fileDetails.vertical;
       const duration = Math.ceil((fileDetails.duration || 0) / 60); // duration in minutes
 
-      console.log('Video Duration:', fileDetails.duration, 'seconds (', duration, 'minutes)');
-      console.log('Video Resolution:', width, 'x', height);
-      console.log('Video Size:', fileDetails.size, 'bytes');
+      // console.log('Video Duration:', fileDetails.duration, 'seconds (', duration, 'minutes)');
+      // console.log('Video Resolution:', width, 'x', height);
+      // console.log('Video Size:', fileDetails.size, 'bytes');
 
       let resolutionCost = LQ;
       if (width >= 1920 && height >= 1080) {
@@ -242,7 +261,7 @@ export default function CreditConfirmationModal({
 
       calculatedCost = Math.ceil(creditCost + (duration * resolutionCost * 2) * (1 + fileDetails.size / (1000 * 1000 * 1))); // scale by size in MB over 1MB
 
-      console.log('Calculated Video Cost:', calculatedCost);
+      // console.log('Calculated Video Cost:', calculatedCost);
     }
 
     setTotalCost(calculatedCost);
@@ -360,7 +379,7 @@ export default function CreditConfirmationModal({
           Cancel
         </Button>
         <Button
-          onClick={async () => { await spendCredits(); onConfirm(); alert('Credits spent and scrambling started!'); }}
+          onClick={handleConfirm}
           variant="contained"
           disabled={!hasEnoughCredits || isProcessing}
           sx={{
