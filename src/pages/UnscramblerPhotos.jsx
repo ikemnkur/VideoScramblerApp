@@ -21,6 +21,7 @@ import {
 } from '@mui/material';
 import {
   PhotoCamera,
+  Upload,
   Close,
   LockOpen,
   Visibility,
@@ -38,20 +39,21 @@ export default function UnscramblerPhotos() {
 
   // 
   // Refs for image and canvas elements
-  // const [selectedFile, setSelectedFile] = useState(null);
+
   const [scrambledFilename, setScrambledFilename] = useState('');
   // const [keyCode, setKeyCode] = useState('');
 
   const [previewUrl, setPreviewUrl] = useState(null);
   const [imageError, setImageError] = useState(null);
-
-  const [userdata, setUserData] = useState([]);
+  const [imageFile, setImageFile] = useState(null);
+  const [userData, setUserData] = useState(JSON.parse(localStorage.getItem("userdata")));
 
 
   const scrambledImageRef = useRef(null);
   const displayScrambledRef = useRef(null);
   const unscrambleCanvasRef = useRef(null);
   const modalCanvasRef = useRef(null);
+  const keyFileInputRef = useRef(null);
 
   // State variables
   const [selectedFile, setSelectedFile] = useState(null);
@@ -174,69 +176,69 @@ export default function UnscramblerPhotos() {
     }
   };
 
+  
+  const handleKeyFileSelect = async (event) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
 
-  // const handleFileSelect = (event) => {
-  //   const file = event.target.files?.[0];
-  //   if (!file) return;
+    try {
+      const text = await file.text();
+      
+      // Try to decrypt the key file (if it's encrypted)
+      try {
+        const keyData = decryptKeyData(text);
+        // Set the decoded parameters directly
+        setDecodedParams(keyData);
+        setKeyCode(text); // Store the encrypted key in the text box
+        success('🔑 Key file loaded and decoded successfully!');
+      } catch (decryptErr) {
+        // If decryption fails, try to parse as plain JSON or base64
+        try {
+          // Check if it's base64 encoded
+          const decoded = fromBase64(text.trim());
+          const keyData = JSON.parse(decoded);
+          setDecodedParams(keyData);
+          setKeyCode(text.trim());
+          console.log("Decoded key data from base64:", keyData);
+          success('🔑 Key file loaded and decoded successfully!');
+        } catch (base64Err) {
+          // Try direct JSON parse
+          const keyData = JSON.parse(text);
+          setDecodedParams(keyData);
+          setKeyCode(btoa(text)); // Convert to base64 for consistency
+          success('🔑 Key file loaded and decoded successfully!');
+        }
+      }
+    } catch (err) {
+      console.error("Error loading key:", err);
+      error('Invalid or corrupted key file. Please check the file format.');
+    }
+  };
 
-  //   if (!file.type.startsWith('image/')) {
-  //     error("Please select a valid image file");
-  //     return;
-  //   }
-
-  //   setSelectedFile(file);
-  //   setImageLoaded(false);
-  //   setUnscrambledReady(false);
-
-  //   const url = URL.createObjectURL(file);
-  //   const img = scrambledImageRef.current;
-
-  //   if (img) {
-  //     img.onload = () => {
-  //       console.log("Image loaded successfully");
-  //       setImageLoaded(true);
-
-  //       // Also set display image
-  //       if (displayScrambledRef.current) {
-  //         displayScrambledRef.current.src = url;
-  //       }
-
-  //       // Setup canvas
-  //       const canvas = unscrambleCanvasRef.current;
-  //       if (canvas) {
-  //         canvas.width = img.naturalWidth;
-  //         canvas.height = img.naturalHeight;
-  //       }
-
-  //       URL.revokeObjectURL(url);
-  //     };
-
-  //     img.onerror = () => {
-  //       error("Failed to load the selected image");
-  //       setImageLoaded(false);
-  //       URL.revokeObjectURL(url);
-  //     };
-
-  //     img.src = url;
-  //   }
-  // };
 
   // Spending Credits to Process Image (media)
 
-  useEffect(async () => {
-    // setUserData([]);
-    const userData = JSON.parse(localStorage.getItem("userdata"));
-    setUserData(userData);
-    const response = await api.post(`api/wallet/balance/${userData.username}`, {
-      username: userData.username,
-      email: userData.email,
-      password: localStorage.getItem('passwordtxt')
-    });
+  useEffect(() => {
+    const fetchUserCredits = async () => {
+      try {
+        const response = await api.post(`api/wallet/balance/${userData.username}`, {
+          username: userData.username,
+          email: userData.email,
+          password: localStorage.getItem('passwordtxt')
+        });
 
-    if (response.status === 200 && response.data) {
-      setUserCredits(response.data.credits);
+        if (response.status === 200 && response.data) {
+          setUserCredits(response.data.credits);
+        }
+      } catch (err) {
+        console.error('Failed to fetch user credits:', err);
+      }
+    };
+
+    if (userData?.username) {
+      fetchUserCredits();
     }
-  }, []);
+  }, [userData]);
 
   const handleCreditConfirm = useCallback(() => {
     setShowCreditModal(false);
@@ -321,23 +323,37 @@ export default function UnscramblerPhotos() {
     if (!img || !targetCanvas || !img.naturalWidth || !inversePerm.length) return;
 
     const ctx = targetCanvas.getContext('2d');
-    ctx.clearRect(0, 0, targetCanvas.width, targetCanvas.height);
+
+    // Set canvas to match scrambled image size
+    targetCanvas.width = img.naturalWidth;
+    targetCanvas.height = img.naturalHeight;
+
+    // First, draw the entire scrambled image as-is (this includes borders and watermarks)
+    ctx.drawImage(img, 0, 0);
+
     const N = n * m;
 
-    // Note: The scrambled image has a 64px header, so we need to account for that
-    const headerHeight = 64;
+    // Calculate the center area to unscramble (excluding 64px border on all sides)
+    const border = 64;
+    const centerWidth = img.naturalWidth - (border * 2);
+    const centerHeight = img.naturalHeight - (border * 2);
 
+    // Recalculate rectangles for the center area only
+    const centerSrcRects = cellRects(centerWidth, centerHeight, n, m);
+    const centerDestRects = cellRects(centerWidth, centerHeight, n, m);
+
+    // Unscramble only the center area
     for (let origIdx = 0; origIdx < N; origIdx++) {
       const shuffledDestIdx = inversePerm[origIdx];
-      const sR = srcRects[shuffledDestIdx];
-      const dR = destRects[origIdx];
+      const sR = centerSrcRects[shuffledDestIdx];
+      const dR = centerDestRects[origIdx];
       if (!sR || !dR) continue;
 
-      // Source coordinates (from scrambled image, offset by header)
+      // Draw unscrambled pieces in the center area (offset by border)
       ctx.drawImage(
         img,
-        sR.x, sR.y + headerHeight, sR.w, sR.h,  // Source: offset by header
-        dR.x, dR.y, dR.w, dR.h                    // Destination: no offset
+        sR.x + border, sR.y + border, sR.w, sR.h,  // Source: from center area of scrambled image
+        dR.x + border, dR.y + border, dR.w, dR.h   // Destination: to center area, preserving borders
       );
     }
   }, [srcToDest, rectsSrcFromShuffled, rectsDest, unscrambleParams]);
@@ -485,6 +501,26 @@ export default function UnscramblerPhotos() {
 
           {/* Key Code Input */}
           <Box sx={{ mb: 3 }}>
+            <Grid item xs={12} md={6}>
+              <Typography variant="body2" sx={{ color: '#bdbdbd', mb: 1 }}>
+                Scramble Key File
+              </Typography>
+              <input
+                type="file"
+                accept=".key,.json,.txt"
+                onChange={handleKeyFileSelect}
+                style={{ display: 'none' }}
+                id="key-file-upload"
+                ref={keyFileInputRef}
+              />
+              <label htmlFor="key-file-upload">
+                <Button variant="contained" component="span" startIcon={<Upload />} sx={{ backgroundColor: '#2196f3', color: 'white', mb: 2 }}>
+                  Choose Key File
+                </Button>
+              </label>
+
+            </Grid>
+            <strong style={{ fontSize: 24, margin: '0 16px' }}> OR </strong>
             <Typography variant="h6" sx={{ mb: 1, color: '#e0e0e0' }}>
               Enter Key Code
             </Typography>
@@ -504,6 +540,7 @@ export default function UnscramblerPhotos() {
                 }
               }}
             />
+            {/* /> */}
 
             {/* Step buttons */}
             <Box sx={{ display: 'flex', gap: 2, flexWrap: 'wrap' }}>
@@ -784,28 +821,32 @@ export default function UnscramblerPhotos() {
         </Box>
       </Modal>
 
-      {/* Credit Confirmation Modal */}
-      <CreditConfirmationModal
-        open={showCreditModal}
-        onClose={() => setShowCreditModal(false)}
-        onConfirm={handleCreditConfirm}
-        mediaType="photo"
-        creditCost={actionCost}
-        currentCredits={userCredits}
-        fileName={selectedFile?.name || ''}
-        file={selectedFile}
-        user={userData}
-        isProcessing={false}
-        fileDetails={{
-          type: 'image',
-          size: imageFile?.size || 0,
-          name: imageFile?.name || '',
-          horizontal: imageRef.current?.naturalWidth || 0,
-          vertical: imageRef.current?.naturalHeight || 0
-        }}
-        actionType="unscramble-photo"
-        actionDescription="basic photo unscrambling"
-      />
+      {showCreditModal && (
+        /* Credit Confirmation Modal */
+        < CreditConfirmationModal
+          open={showCreditModal}
+          onClose={() => setShowCreditModal(false)}
+          onConfirm={handleCreditConfirm}
+          mediaType="photo"
+          description="unscramble photo (lite)"
+          creditCost={actionCost}
+          currentCredits={userCredits}
+          fileName={selectedFile?.name || ''}
+          file={selectedFile}
+          user={userData}
+          isProcessing={false}
+          fileDetails={{
+            type: 'image',
+            size: selectedFile?.size || 0,
+            name: selectedFile?.name || '',
+            horizontal: scrambledImageRef.current?.naturalWidth || 0,
+            vertical: scrambledImageRef.current?.naturalHeight || 0
+          }}
+          actionType="unscramble-photo"
+          actionDescription="basic photo unscrambling"
+        />
+
+      )}
     </Container>
   );
 }

@@ -66,6 +66,7 @@ export default function AudioScrambler() {
   const [noiseLevel, setNoiseLevel] = useState('0.3');
 
   const [filename, setFilename] = useState('');
+  const [selectedFile, setSelectedFile] = useState(null);
   const [audioDuration, setAudioDuration] = useState(0);
   const [sampleRate, setSampleRate] = useState(48000);
   const [numberOfChannels, setNumberOfChannels] = useState(2);
@@ -470,6 +471,8 @@ export default function AudioScrambler() {
       setSampleRate(buffer.sampleRate);
       setNumberOfChannels(buffer.numberOfChannels);
 
+      setSelectedFile(file);
+
       const objectUrl = URL.createObjectURL(file);
       if (audioPlayerRef.current) {
         audioPlayerRef.current.src = objectUrl;
@@ -482,13 +485,13 @@ export default function AudioScrambler() {
     }
   };
 
-  // const handleScrambleAudio = () => {
-  //   if (!audioBuffer) {
-  //     error("Please load an audio file first!");
-  //     return;
-  //   }
-  //   setShowCreditModal(true);
-  // };
+  const handleScrambleAudio = () => {
+    if (!audioBuffer) {
+      error("Please load an audio file first!");
+      return;
+    }
+    setShowCreditModal(true);
+  };
 
   const handleCreditConfirm = async (actualCostSpent) => {
     setShowCreditModal(false);
@@ -753,11 +756,23 @@ export default function AudioScrambler() {
     const player = processedAudioPlayerRef.current;
     const canvas = processedCanvasRef.current;
 
+    // Load audio into player when finalAudioBuffer changes
+    if (finalAudioBuffer && player) {
+      const url = bufferToWavUrl(finalAudioBuffer, finalAudioBuffer.numberOfChannels, finalAudioBuffer.sampleRate);
+      player.src = url;
+      player.load(); // Explicitly load the audio
+    }
+
     const updateWaveform = () => {
       if (finalAudioBuffer && canvas) {
         drawWaveform(finalAudioBuffer, canvas, player);
       }
     };
+
+    // Draw immediately when finalAudioBuffer changes
+    if (finalAudioBuffer && canvas) {
+      drawWaveform(finalAudioBuffer, canvas, player);
+    }
 
     if (player) {
       player.addEventListener('timeupdate', updateWaveform);

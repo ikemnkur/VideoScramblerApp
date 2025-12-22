@@ -52,6 +52,8 @@ export default function VideoUnscrambler() {
   const shufVideoRef = useRef(null);
   const unscrambleCanvasRef = useRef(null);
   const modalCanvasRef = useRef(null);
+  const keyFileInputRef = useRef(null);
+  const videoRef = useRef(null);
 
   // State variables
   const [selectedFile, setSelectedFile] = useState(null);
@@ -87,20 +89,27 @@ export default function VideoUnscrambler() {
 
 
 
-  useEffect(async () => {
+  useEffect(() => {
+    const fetchUserCredits = async () => {
+      try {
+        const response = await api.post(`api/wallet/balance/${userData.username}`, {
+          username: userData.username,
+          email: userData.email,
+          password: localStorage.getItem('passwordtxt')
+        });
 
-    // const userData = JSON.parse(localStorage.getItem("userdata")  );
-    setUserData(userData);
-    let response = await  api.post(`api/wallet/balance/${userData.username}`, {
-      username: userData.username,
-      email: userData.email,
-      password: localStorage.getItem('passwordtxt')
-    });
+        if (response.status === 200 && response.data) {
+          setUserCredits(response.data.credits);
+        }
+      } catch (err) {
+        console.error('Failed to fetch user credits:', err);
+      }
+    };
 
-    if (response.status === 200 && response.data) {
-      setUserCredits(response.data.credits);
+    if (userData?.username) {
+      fetchUserCredits();
     }
-  }, []);
+  }, [userData]);
 
   // ========== UTILITY FUNCTIONS ==========
 
@@ -173,6 +182,44 @@ export default function VideoUnscrambler() {
 
     if (unscrambleParams.n && unscrambleParams.m) {
       buildUnscrambleRects();
+    }
+  };
+
+  const handleKeyFileSelect = async (event) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    try {
+      const text = await file.text();
+
+      // Try to decrypt the key file (if it's encrypted)
+      try {
+        const keyData = decryptKeyData(text);
+        // Set the decoded parameters directly
+        setDecodedParams(keyData);
+        setKeyCode(text); // Store the encrypted key in the text box
+        success('🔑 Key file loaded and decoded successfully!');
+      } catch (decryptErr) {
+        // If decryption fails, try to parse as plain JSON or base64
+        try {
+          // Check if it's base64 encoded
+          const decoded = fromBase64(text.trim());
+          const keyData = JSON.parse(decoded);
+          setDecodedParams(keyData);
+          setKeyCode(text.trim());
+          console.log("Decoded key data from base64:", keyData);
+          success('🔑 Key file loaded and decoded successfully!');
+        } catch (base64Err) {
+          // Try direct JSON parse
+          const keyData = JSON.parse(text);
+          setDecodedParams(keyData);
+          setKeyCode(btoa(text)); // Convert to base64 for consistency
+          success('🔑 Key file loaded and decoded successfully!');
+        }
+      }
+    } catch (err) {
+      console.error("Error loading key:", err);
+      error('Invalid or corrupted key file. Please check the file format.');
     }
   };
 
@@ -416,21 +463,44 @@ export default function VideoUnscrambler() {
               </Typography>
             </Box>
 
+            <Grid item xs={12} md={6}>
+              <Typography variant="body2" sx={{ color: '#bdbdbd', mb: 1 }}>
+                Scramble Key File
+              </Typography>
+              <input
+                type="file"
+                accept=".key,.json,.txt"
+                onChange={handleKeyFileSelect}
+                style={{ display: 'none' }}
+                id="key-file-upload"
+                ref={keyFileInputRef}
+              />
+              <label htmlFor="key-file-upload">
+                <Button variant="contained" component="span" sx={{ backgroundColor: '#2196f3', color: 'white', mb: 2 }}>
+                  Choose Key File
+                </Button>
+              </label>
+
+            </Grid>
+            <strong style={{ fontSize: 24, margin: '0 16px' }}> OR </strong>
+            <Typography variant="h6" sx={{ mb: 1, color: '#e0e0e0' }}>
+              Enter Key Code
+            </Typography>
             <TextField
               fullWidth
               multiline
-              rows={4}
+              rows={3}
               value={keyCode}
               onChange={(e) => setKeyCode(e.target.value)}
-              placeholder="Paste your unscramble key here..."
-              InputProps={{
-                sx: {
-                  fontFamily: 'monospace',
+              placeholder="eyJzZWVkIjoxMjM0NSwibiI6MywibSI6MywicGVybTFiYXNlZCI6WzMsMiw1LDEsNyw2LDksNCw4XX0="
+              sx={{
+                mb: 2,
+                '& .MuiInputBase-root': {
                   backgroundColor: '#353535',
-                  color: 'white'
+                  color: 'white',
+                  fontFamily: 'monospace'
                 }
               }}
-              sx={{ mb: 2 }}
             />
 
             <Box sx={{ display: 'flex', gap: 2, alignItems: 'center', flexWrap: 'wrap', mb: 2 }}>
@@ -592,7 +662,7 @@ export default function VideoUnscrambler() {
 
       {/* Info Section */}
       <Paper elevation={1} sx={{ p: 2, backgroundColor: '#f5f5f5', mb: 2 }}>
-        <Typography variant="body2" color="text.secondary">
+        <Typography variant="body2" color="black">
           💡 <strong>How it works:</strong> Upload your scrambled video and paste the unscramble key
           you received when the video was scrambled. The system will use the key's parameters to
           reverse the scrambling process and restore your original video.
@@ -601,7 +671,7 @@ export default function VideoUnscrambler() {
 
       {/* Help Section */}
       <Paper elevation={1} sx={{ p: 2, backgroundColor: '#e3f2fd' }}>
-        <Typography variant="body2" color="text.secondary">
+        <Typography variant="body2" color="black">
           🔑 <strong>Lost your key?</strong> Unfortunately, without the unscramble key, the video cannot be restored.
           The key contains the grid parameters and permutation required to reverse the scrambling process.
           Always save your keys securely!

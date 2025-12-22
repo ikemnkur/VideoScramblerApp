@@ -115,17 +115,6 @@ export default function VideoUnscramblerPro() {
         }
     };
 
-  // const decryptKeyData = (encodedData) => {
-  //   try {
-  //     const encrypted = atob(encodedData);
-  //     const encryptionKey = "AudioProtectionKey2025";
-  //     const jsonStr = xorEncrypt(encrypted, encryptionKey);
-  //     return JSON.parse(jsonStr);
-  //   } catch (err) {
-  //     console.error('Decryption error:', err);
-  //     throw new Error('Invalid or corrupted key file');
-  //   }
-  // };
 
   const handleKeyFileSelect = async (event) => {
     const file = event.target.files?.[0];

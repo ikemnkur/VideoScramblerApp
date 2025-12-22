@@ -20,6 +20,7 @@ import {
 } from '@mui/material';
 import {
   AudioFile,
+  Upload,
   Shuffle,
   Download,
   Key,
@@ -46,6 +47,7 @@ export default function AudioUnscrambler() {
 
   const unscrambledAudioPlayerRef = useRef(null);
   const unscrambledCanvasRef = useRef(null);
+  const keyFileInputRef = useRef(null);
 
   const [audioContext] = useState(() => new (window.AudioContext || window.webkitAudioContext)());
   const VIEW_SPAN = 10; // 10 seconds viewable area
@@ -58,6 +60,7 @@ export default function AudioUnscrambler() {
   const [generatedNoise, setGeneratedNoise] = useState(null);
   const [scramblingParameters, setScramblingParameters] = useState(null);
   const [loadedKeyData, setLoadedKeyData] = useState(null);
+  const [keyCode, setKeyCode] = useState('');
 
   const [shuffleSeed, setShuffleSeed] = useState('12345');
   const [noiseSeed, setNoiseSeed] = useState('54321');
@@ -504,56 +507,7 @@ export default function AudioUnscrambler() {
     setActionCost(actualCostSpent);
 
     try {
-      // const segSize = parseFloat(segmentSize) || 2;
-      // const pad = parseFloat(padding) || 0.5;
-      // const shuffleSd = parseInt(shuffleSeed) || 12345;
-      // const noiseLevel_ = parseFloat(noiseLevel) || 0.3;
-      // const noiseSd = parseInt(noiseSeed) || 54321;
-
-      // // Apply shuffle
-      // const shuffleResult = await applyAudioShuffling(audioBuffer, segSize, pad, shuffled);
-      // const shuffled = shuffleResult.buffer;
-      // const shuffleOrder = shuffleResult.shuffleOrder;
-
-      // // Apply noise
-      // const noise = generateMultiFrequencyNoise(shuffled.length, noiseLevel_, noiseSd);
-      // const final = applyNoise(shuffled, noise);
-
-      // setFinalAudioBuffer(final);
-      // setGeneratedNoise(noise);
-
-      // // Store parameters
-      // const params = {
-      //   version: "1.0",
-      //   timestamp: new Date().toISOString(),
-      //   audio: {
-      //     duration: audioBuffer.duration,
-      //     sampleRate: audioBuffer.sampleRate,
-      //     channels: audioBuffer.numberOfChannels
-      //   },
-      //   shuffle: {
-      //     enabled: true,
-      //     seed: shuffleSd,
-      //     segmentSize: segSize,
-      //     padding: pad,
-      //     shuffleOrder: shuffleOrder
-      //   },
-      //   noise: {
-      //     enabled: true,
-      //     seed: noiseSd,
-      //     level: noiseLevel_,
-      //     multiFrequency: true
-      //   }
-      // };
-
-      // setScramblingParameters(params);
-
-      // // Create playable URL
-      // const url = bufferToWavUrl(final, final.numberOfChannels, final.sampleRate);
-      // if (processedAudioPlayerRef.current) {
-      //   processedAudioPlayerRef.current.src = url;
-      // }
-
+      // Apply segment shuffling
       handleUnscrambleAudio();
 
       setIsProcessing(false);
@@ -782,7 +736,7 @@ export default function AudioUnscrambler() {
     <Container sx={{ py: 4 }}>
       <Box sx={{ mb: 4, textAlign: 'center' }}>
         <Typography variant="h3" color="primary.main" sx={{ mb: 2, fontWeight: 'bold', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 1 }}>
-          <AudioFile />
+          {/* <AudioFile /> */}
           🎵 Audio Unscrambler
         </Typography>
         <Typography variant="h6" color="text.secondary" sx={{ mb: 2 }}>
@@ -801,7 +755,7 @@ export default function AudioUnscrambler() {
       <Card elevation={3} sx={{ backgroundColor: '#424242', color: 'white', mb: 4 }}>
         <CardContent sx={{ p: 4 }}>
           <Typography variant="h4" sx={{ mb: 3, display: 'flex', alignItems: 'center', gap: 1 }}>
-            <LockOpen />
+            {/* <LockOpen /> */}
             🔓 Unscramble Audio
           </Typography>
 
@@ -814,9 +768,23 @@ export default function AudioUnscrambler() {
                 type="file"
                 accept="audio/*"
                 onChange={handleScrambledFileSelect}
-                style={{ color: 'white' }}
+                style={{ display: 'none' }}
               />
+              <label htmlFor="video-upload">
+                <Button
+                  variant="contained"
+                  component="span"
+                  startIcon={<AudioFile />}
+                  sx={{ backgroundColor: '#2196f3', color: 'white' }}
+                >
+                  Choose Audio File
+                </Button>
+              </label>
             </Grid>
+          </Grid>
+
+          {/* Key Code Input */}
+          <Box sx={{ mb: 3 }}>
 
             <Grid item xs={12} md={6}>
               <Typography variant="body2" sx={{ color: '#bdbdbd', mb: 1 }}>
@@ -826,10 +794,38 @@ export default function AudioUnscrambler() {
                 type="file"
                 accept=".key,.json,.txt"
                 onChange={handleKeyFileSelect}
-                style={{ color: 'white' }}
+                style={{ display: 'none' }}
+                id="key-file-upload"
+                ref={keyFileInputRef}
               />
+              <label htmlFor="key-file-upload">
+                <Button variant="contained" component="span" startIcon={<Upload />} sx={{ backgroundColor: '#2196f3', color: 'white', mb: 2 }}>
+                  Choose Key File
+                </Button>
+              </label>
+
             </Grid>
-          </Grid>
+            <strong style={{ fontSize: 24, margin: '0 16px' }}> OR </strong>
+            <Typography variant="h6" sx={{ mb: 1, color: '#e0e0e0' }}>
+              Enter Key Code
+            </Typography>
+            <TextField
+              fullWidth
+              multiline
+              rows={3}
+              value={keyCode}
+              onChange={(e) => setKeyCode(e.target.value)}
+              placeholder="eyJzZWVkIjoxMjM0NSwibiI6MywibSI6MywicGVybTFiYXNlZCI6WzMsMiw1LDEsNyw2LDksNCw4XX0="
+              sx={{
+                mb: 2,
+                '& .MuiInputBase-root': {
+                  backgroundColor: '#353535',
+                  color: 'white',
+                  fontFamily: 'monospace'
+                }
+              }}
+            />
+          </Box>
 
           <Button
             variant="contained"

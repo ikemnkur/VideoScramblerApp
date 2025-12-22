@@ -67,19 +67,27 @@ export default function UnscramblerPhotosPro() {
 
 
 
-    useEffect(async () => {
-        // const userData = JSON.parse(localStorage.getItem("userdata")  );
-        setUserData(userData);
-        let response = await api.post(`api/wallet/balance/${userData.username}`, {
-            username: userData.username,
-            email: userData.email,
-            password: localStorage.getItem('passwordtxt')
+      useEffect(() => {
+    const fetchUserCredits = async () => {
+      try {
+        const response = await api.post(`api/wallet/balance/${userData.username}`, {
+          username: userData.username,
+          email: userData.email,
+          password: localStorage.getItem('passwordtxt')
         });
 
         if (response.status === 200 && response.data) {
-            setUserCredits(response.data.credits);
+          setUserCredits(response.data.credits);
         }
-    }, []);
+      } catch (err) {
+        console.error('Failed to fetch user credits:', err);
+      }
+    };
+
+    if (userData?.username) {
+      fetchUserCredits();
+    }
+  }, [userData]);
 
 
     const handleCreditConfirm = useCallback((actualCostSpent) => {
@@ -361,21 +369,27 @@ export default function UnscramblerPhotosPro() {
         }
     };
 
-    useEffect(async () => {
+    useEffect(() => {
+        const fetchUserCredits = async () => {
+            try {
+                const response = await api.post(`api/wallet/balance/${userData.username}`, {
+                    username: userData.username,
+                    email: userData.email,
+                    password: localStorage.getItem('passwordtxt')
+                });
 
-        // const userData = JSON.parse(localStorage.getItem("userdata")  );
-        // setUserdata(userData);
-        let response = await api.post(`api/wallet/balance/${userData.username}`, {
-            username: userData.username,
-            email: userData.email,
-            password: localStorage.getItem('passwordtxt')
-        });
+                if (response.status === 200 && response.data) {
+                    setUserCredits(response.data.credits);
+                }
+            } catch (err) {
+                console.error('Failed to fetch user credits:', err);
+            }
+        };
 
-        if (response.status === 200 && response.data) {
-            setUserCredits(response.data.credits);
+        if (userData?.username) {
+            fetchUserCredits();
         }
-    }, []);
-
+    }, [userData]);
 
 
 

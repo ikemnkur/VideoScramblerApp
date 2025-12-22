@@ -355,16 +355,18 @@ const Notifications = () => {
                       </Box>
                     }
                     secondary={
-                      <Box>
+                      <Box component="span" sx={{ display: 'block' }}>
                         <Typography
+                          component="span"
                           variant="body2"
-                          sx={{ color: '#e0e0e0', mb: 0.5 }}
+                          sx={{ color: '#e0e0e0', mb: 0.5, display: 'block' }}
                         >
                           {notif.message}
                         </Typography>
                         <Typography
+                          component="span"
                           variant="caption"
-                          sx={{ color: '#b0b0b0' }}
+                          sx={{ color: '#b0b0b0', display: 'block' }}
                         >
                           {getRelativeTime(notif.createdAt)}
                         </Typography>

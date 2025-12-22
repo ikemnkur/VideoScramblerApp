@@ -299,11 +299,13 @@ export default function CreditConfirmationModal({
           </Typography>
           <Typography variant="h6" sx={{ fontWeight: 'bold', color: '#424242' }}>
             {fileName || `Untitled ${mediaType}`}
-            {/* list attributes of video or photo */}
+            {/* /* list attributes of video or photo */}
             <Typography variant="body2" color="text.secondary">
               {mediaType === 'video'
                 ? `Duration: ${fileDetails.duration ?? 'Unknown'}s | Resolution: ${fileDetails.horizontal}x${fileDetails.vertical} | Size: ${Math.floor(fileDetails.size / (1000 * 100)) / 10 ?? 'Unknown'} MB`
-                : `Dimensions: ${fileDetails.horizontal}x${fileDetails.vertical} | Size: ${Math.floor(fileDetails.size / 1000) ?? 'Unknown'} KB`}
+                : mediaType === 'audio'
+                  ? `Duration: ${fileDetails.duration ?? 'Unknown'}s | Sample Rate: ${fileDetails.sampleRate ?? 'Unknown'} Hz | Channels: ${fileDetails.numberOfChannels ?? 'Unknown'} | Size: ${Math.floor(fileDetails.size / (1000 * 1000) * 10) / 10 ?? 'Unknown'} MB`
+                  : `Dimensions: ${fileDetails.horizontal}x${fileDetails.vertical} | Size: ${Math.floor(fileDetails.size / 1000) ?? 'Unknown'} KB`}
             </Typography>
           </Typography>
         </Box>

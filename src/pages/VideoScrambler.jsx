@@ -205,15 +205,25 @@ export default function VideoScrambler() {
   }, [grid, permDestToSrc0]);
 
 
-  useEffect(async () => {
-    const response = await api.post(`api/wallet/balance/${userData.username}`, {
-      username: userData.username,
-      email: userData.email,
-      password: localStorage.getItem('passwordtxt')
-    });
+  useEffect(() => {
+    const fetchUserCredits = async () => {
+      try {
+        const response = await api.post(`api/wallet/balance/${userData.username}`, {
+          username: userData.username,
+          email: userData.email,
+          password: localStorage.getItem('passwordtxt')
+        });
 
-    if (response.status === 200 && response.data) {
-      setUserCredits(response.data.credits);
+        if (response.status === 200 && response.data) {
+          setUserCredits(response.data.credits);
+        }
+      } catch (err) {
+        console.error('Failed to fetch user credits:', err);
+      }
+    };
+
+    if (userData?.username) {
+      fetchUserCredits();
     }
   }, []);
 

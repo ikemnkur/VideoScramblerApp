@@ -16,23 +16,35 @@ export const FingerprintProvider = ({ children }) => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
-  const API_URL = import.meta.env.VITE_API_SERVER_URL || 'http://localhost:3001'; 
+  const API_URL = import.meta.env.VITE_API_SERVER_URL || 'http://localhost:3001';
 
   useEffect(() => {
     generateFingerprint();
+    saveFingerprintToLocalStorage();
   }, []);
+
+  const saveFingerprintToLocalStorage = () => {
+    try {
+      const storedFingerprint = localStorage.getItem('device_fingerprint');
+      if (!storedFingerprint) {
+        localStorage.setItem('device_fingerprint', JSON.stringify(fingerprint));
+      }
+    } catch (e) {
+      console.error('Error saving fingerprint to localStorage:', e);
+    }
+  }
 
   const generateFingerprint = async () => {
     try {
       setLoading(true);
       const fp = await DeviceFingerprint.generate();
       setFingerprint(fp);
-      
+
       // Get user info from localStorage if available
       const userInfo = getUserInfo();
       const compact = await DeviceFingerprint.getCompactFingerprint(userInfo);
       setCompactFingerprint(compact);
-      
+
       setLoading(false);
     } catch (err) {
       console.error('Error generating fingerprint:', err);
@@ -77,7 +89,7 @@ export const FingerprintProvider = ({ children }) => {
    */
   const submitFingerprint = async (userId, maxRetries = 10, retryDelay = 500) => {
     console.log('🚀 Submitting fingerprint for user:', userId);
-    
+
     if (!userId) {
       console.error('User ID is required to submit fingerprint');
       return { success: false, message: 'User ID required' };
@@ -93,13 +105,22 @@ export const FingerprintProvider = ({ children }) => {
 
     if (!fingerprint || !compactFingerprint) {
       console.error('❌ Fingerprint not ready after waiting. Cannot submit.');
-      return { success: false, message: 'Fingerprint generation timed out' };
+      console.log("Using fingerprint in localStorage:", localStorage.getItem('device_fingerprint'));
+      if (localStorage.getItem('device_fingerprint')) {
+        const storedFingerprint = JSON.parse(localStorage.getItem('device_fingerprint'));
+        setFingerprint(storedFingerprint);
+        const userInfo = getUserInfo();
+        const compact = await DeviceFingerprint.getCompactFingerprint(userInfo);
+        setCompactFingerprint(compact);
+      } else {
+        return { success: false, message: 'Fingerprint generation timed out' };
+      }
     }
 
     console.log('✅ Fingerprint ready, proceeding with submission');
 
     try {
-      
+
       const payload = {
         userId: userId,
         fingerprintHash: fingerprint.hash,
@@ -107,7 +128,7 @@ export const FingerprintProvider = ({ children }) => {
         deviceType: fingerprint.device?.type || 'Unknown',
         browser: `${fingerprint.browser?.name || 'Unknown'} ${fingerprint.browser?.version || ''}`.trim(),
         os: fingerprint.device?.platform || 'Unknown',
-        screenResolution: fingerprint.screen ? 
+        screenResolution: fingerprint.screen ?
           `${fingerprint.screen.width}x${fingerprint.screen.height}` : 'Unknown',
         timezone: fingerprint.timezone?.timezone || 'UTC',
         language: fingerprint.language?.language || 'en-US',
@@ -143,9 +164,9 @@ export const FingerprintProvider = ({ children }) => {
       }
     } catch (error) {
       console.error('❌ Error submitting fingerprint:', error);
-      return { 
-        success: false, 
-        message: error.message || 'Network error' 
+      return {
+        success: false,
+        message: error.message || 'Network error'
       };
     }
   };
@@ -159,7 +180,7 @@ export const FingerprintProvider = ({ children }) => {
     }
 
     try {
-         
+
       const response = await fetch(`${API_URL}/api/fingerprint/user/${userId}`);
       const data = await response.json();
 
@@ -170,9 +191,9 @@ export const FingerprintProvider = ({ children }) => {
       }
     } catch (error) {
       console.error('Error fetching user devices:', error);
-      return { 
-        success: false, 
-        message: error.message || 'Network error' 
+      return {
+        success: false,
+        message: error.message || 'Network error'
       };
     }
   };
@@ -187,12 +208,12 @@ export const FingerprintProvider = ({ children }) => {
     }
 
     try {
-           
+
       const response = await fetch(
         `${API_URL}/api/fingerprint/unscramble/${fingerprint.hash}`,
         { method: 'POST' }
       );
-      
+
       const data = await response.json();
       return data;
     } catch (error) {

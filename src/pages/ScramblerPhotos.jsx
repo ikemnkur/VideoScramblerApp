@@ -227,70 +227,55 @@ export default function ScramblerPhotos() {
     canvas.height = image.naturalHeight + 64;
   }, [imageLoaded]);
 
-  const addWatermarkAndMetadata = useCallback(() => {
-    const image = imageRef.current;
-    const watermarkCanvas = watermarkCanvasRef.current;
-    if (!image || !watermarkCanvas || !imageLoaded) return null;
-
-    const ctx = watermarkCanvas.getContext('2d');
-
-    // Set canvas size with 64px top margin
-    watermarkCanvas.width = image.naturalWidth;
-    watermarkCanvas.height = image.naturalHeight + 64;
-
-    // Fill top 64px with black background
-    ctx.fillStyle = '#000000';
-    ctx.fillRect(0, 0, watermarkCanvas.width, 64);
-
-    // Draw the original image below the black header
-    ctx.drawImage(image, 0, 64);
-
-    // Add metadata text to the black header
-    ctx.fillStyle = '#ffffff';
-    ctx.font = '14px Arial, sans-serif';
-    ctx.fillText(`Scrambled by: ${user.username || 'Anonymous'}`, 10, 20);
-    ctx.fillText(`Scramble Level: ${selectedLevel.toUpperCase()} (${grid.n}×${grid.m})`, 10, 40);
-    ctx.fillText('Visit our app to unscramble this image with the key', 10, 60);
-
-    // Add subtle watermark on the image itself
-    ctx.globalAlpha = 0.1;
-    ctx.fillStyle = '#ffffff';
-    ctx.font = 'bold 48px Arial, sans-serif';
-    ctx.textAlign = 'center';
-    const centerX = watermarkCanvas.width / 2;
-    const centerY = (watermarkCanvas.height + 64) / 2; // Center of image area
-    ctx.fillText('SCRAMBLED', centerX, centerY);
-    ctx.globalAlpha = 1.0;
-    ctx.textAlign = 'left';
-
-    return watermarkCanvas;
-  }, [imageLoaded, user.username, selectedLevel, grid]);
-
+ 
   // =============================
   // DRAW SCRAMBLED IMAGE
   // =============================
   const drawScrambledImage = useCallback(() => {
-    const watermarkedCanvas = addWatermarkAndMetadata();
+    const image = imageRef.current;
     const canvas = canvasRef.current;
-    if (!watermarkedCanvas || !canvas) return;
+    if (!image || !canvas || !imageLoaded) return;
 
-    const ctx = canvas.getContext("2d");
     const N = grid.n * grid.m;
     if (!permDestToSrc0 || permDestToSrc0.length !== N) return;
 
-    // Set canvas size
-    canvas.width = watermarkedCanvas.width;
-    canvas.height = watermarkedCanvas.height;
+    const ctx = canvas.getContext("2d");
 
-    // Copy the black header as-is
-    ctx.drawImage(watermarkedCanvas, 0, 0, canvas.width, 64, 0, 0, canvas.width, 64);
+    // Step 1: Calculate padded dimensions to be evenly divisible by grid size
+    const originalWidth = image.naturalWidth;
+    const originalHeight = image.naturalHeight;
+    
+    // Round up to nearest multiple of grid size
+    const paddedWidth = Math.ceil(originalWidth / grid.m) * grid.m;
+    const paddedHeight = Math.ceil(originalHeight / grid.n) * grid.n;
 
-    // Scramble only the image portion (below the 64px header)
-    const imageWidth = watermarkedCanvas.width;
-    const imageHeight = watermarkedCanvas.height - 64;
+    // Step 2: Set canvas size with padded dimensions + 128px border
+    canvas.width = paddedWidth + 128;
+    canvas.height = paddedHeight + 128;
 
-    const srcRects = cellRects(imageWidth, imageHeight, grid.n, grid.m);
-    const destRects = cellRects(imageWidth, imageHeight, grid.n, grid.m);
+    // Step 3: Fill entire canvas with black background
+    ctx.fillStyle = '#000000';
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+    const offsetX = 64; // Center offset
+    const offsetY = 64; // Center offset
+
+    // Step 4: Draw original image onto a temporary canvas with padding
+    const tempCanvas = document.createElement('canvas');
+    tempCanvas.width = paddedWidth;
+    tempCanvas.height = paddedHeight;
+    const tempCtx = tempCanvas.getContext('2d');
+    
+    // Fill temp canvas with black (for padding areas)
+    tempCtx.fillStyle = '#000000';
+    tempCtx.fillRect(0, 0, paddedWidth, paddedHeight);
+    
+    // Draw original image (centered if there's padding)
+    tempCtx.drawImage(image, 0, 0);
+
+    // Step 5: Scramble the padded image into the center area
+    const srcRects = cellRects(paddedWidth, paddedHeight, grid.n, grid.m);
+    const destRects = cellRects(paddedWidth, paddedHeight, grid.n, grid.m);
 
     for (let destIdx = 0; destIdx < N; destIdx++) {
       const srcIdx = permDestToSrc0[destIdx];
@@ -298,62 +283,38 @@ export default function ScramblerPhotos() {
       const dR = destRects[destIdx];
       if (!sR || !dR) continue;
 
-      // Offset source and destination by 64px for the header
+      // Draw scrambled pieces with offset to center them
       ctx.drawImage(
-        watermarkedCanvas,
-        sR.x, sR.y + 64, sR.w, sR.h,
-        dR.x, dR.y + 64, dR.w, dR.h
+        tempCanvas,
+        sR.x, sR.y, sR.w, sR.h,
+        dR.x + offsetX, dR.y + offsetY, dR.w, dR.h
       );
     }
-  }, [grid, permDestToSrc0, addWatermarkAndMetadata]);
+
+    // Step 6: Add metadata text on top of scrambled image (readable)
+    ctx.fillStyle = '#ffffff';
+    ctx.font = '14px Arial, sans-serif';
+    ctx.fillText(`Scrambled by: ${user.username || 'Anonymous'}`, 10, 20);
+    ctx.fillText(`Scramble Level: ${selectedLevel.toUpperCase()} (${grid.n}×${grid.m})`, 10, 40);
+    ctx.fillText('Visit our app to unscramble this image with the key', 10, 60);
+
+    // Step 7: Add subtle watermark on the scrambled image (centered, readable)
+    ctx.globalAlpha = 0.3;
+    ctx.fillStyle = '#ffffff';
+    ctx.font = 'bold 48px Arial, sans-serif';
+    ctx.textAlign = 'center';
+    const centerX = canvas.width / 2;
+    const centerY = canvas.height - offsetY/2 + (offsetY-48);
+    ctx.fillText('SCRAMBLED', centerX, centerY);
+    ctx.globalAlpha = 1.0;
+    ctx.textAlign = 'left';
+
+  }, [grid, permDestToSrc0, imageLoaded, user.username, selectedLevel]);
 
   // =============================
   // EVENTS
   // =============================
-  const onPickFile = useCallback((e) => {
-    const f = e.target.files?.[0];
-    if (!f) return;
-
-    // Validate file type
-    if (!f.type.startsWith('image/')) {
-      error("Please select a valid image file");
-      return;
-    }
-
-    setImageFile(f);
-    setImageLoaded(false);
-
-    // Reset previous state
-    setPermDestToSrc0([]);
-    setBase64Key("");
-    setJsonKey("");
-
-    const url = URL.createObjectURL(f);
-
-    if (imageRef.current && displayImageRef.current) {
-      imageRef.current.onload = () => {
-        console.log("Image loaded successfully");
-        setImageLoaded(true);
-        updateCanvas();
-
-        // Also set the display image
-        if (displayImageRef.current) {
-          displayImageRef.current.src = url;
-        }
-
-        URL.revokeObjectURL(url); // Clean up
-      };
-
-      imageRef.current.onerror = () => {
-        console.error("Failed to load image");
-        error("Failed to load the selected image");
-        setImageLoaded(false);
-        URL.revokeObjectURL(url);
-      };
-
-      imageRef.current.src = url;
-    }
-  }, [updateCanvas, error]);
+ 
 
   const onGenerate = useCallback(() => {
     if (!imageFile) {
@@ -369,17 +330,27 @@ export default function ScramblerPhotos() {
     setShowCreditModal(true);
   }, [imageFile, imageLoaded, error]);
 
-  useEffect(async () => {
-    const response = await api.post(`api/wallet/balance/${userData.username}`, {
-      username: userData.username,
-      email: userData.email,
-      password: localStorage.getItem('passwordtxt')
-    });
+  useEffect(() => {
+    const fetchUserCredits = async () => {
+      try {
+        const response = await api.post(`api/wallet/balance/${userData.username}`, {
+          username: userData.username,
+          email: userData.email,
+          password: localStorage.getItem('passwordtxt')
+        });
 
-    if (response.status === 200 && response.data) {
-      setUserCredits(response.data.credits);
+        if (response.status === 200 && response.data) {
+          setUserCredits(response.data.credits);
+        }
+      } catch (err) {
+        console.error('Failed to fetch user credits:', err);
+      }
+    };
+
+    if (userData?.username) {
+      fetchUserCredits();
     }
-  }, []);
+  }, [userData]);
 
   const handleCreditConfirm = useCallback(() => {
     setShowCreditModal(false);
@@ -446,7 +417,7 @@ export default function ScramblerPhotos() {
     // Convert canvas to blob and download
     canvas.toBlob((blob) => {
       if (blob) {
-        download("scrambled-image.png", blob);
+        download(selectedFile.name + "-scrambled-image.png", blob);
         success("Scrambled image downloaded successfully!");
       }
     }, "image/png", 1.0);
@@ -683,37 +654,6 @@ export default function ScramblerPhotos() {
                 <Typography variant="h6" sx={{ mb: 1, color: '#e0e0e0' }}>
                   Original Image
                 </Typography>
-                {/* <Box sx={{
-                  minHeight: '200px',
-                  backgroundColor: '#0b1020',
-                  border: '1px dashed #666',
-                  borderRadius: '8px',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  overflow: 'hidden'
-                }}>
-                  {imageLoaded && displayImageRef.current ? (
-                    <img
-                      ref={displayImageRef}
-                      alt="Original"
-                      style={{
-                        maxWidth: '100%',
-                        maxHeight: '400px',
-                        borderRadius: '8px',
-                        display: 'block'
-                      }}
-                    />
-                  ) : imageFile ? (
-                    <Typography variant="body2" sx={{ color: '#ff9800' }}>
-                      Loading image...
-                    </Typography>
-                  ) : (
-                    <Typography variant="body2" sx={{ color: '#666' }}>
-                      Select an image to preview
-                    </Typography>
-                  )}
-                </Box> */}
 
                 <Box sx={{
                   minHeight: '200px',
@@ -917,28 +857,31 @@ export default function ScramblerPhotos() {
         </Box>
       )}
 
-      {/* Credit Confirmation Modal */}
-      <CreditConfirmationModal
-        open={showCreditModal}
-        onClose={() => setShowCreditModal(false)}
-        onConfirm={handleCreditConfirm}
-        mediaType="photo"
-        description="scramble photo (lite)"
-        creditCost={actionCost}
-        currentCredits={userCredits}
-        fileName={imageFile?.name || ''}
-        isProcessing={isProcessing}
-        file={selectedFile}
-        fileDetails={{
-          type: 'image',
-          size: imageFile?.size || 0,
-          name: imageFile?.name || '',
-          horizontal: imageRef.current?.naturalWidth || 0,
-          vertical: imageRef.current?.naturalHeight || 0
-        }}
-        user={userData}
-        actionType="scramble-photo"
-      />
+      {showCreditModal && (
+        /* Credit Confirmation Modal */
+        <CreditConfirmationModal
+          open={showCreditModal}
+          onClose={() => setShowCreditModal(false)}
+          onConfirm={handleCreditConfirm}
+          mediaType="photo"
+          description="scramble photo (lite)"
+          creditCost={actionCost}
+          currentCredits={userCredits}
+          fileName={selectedFile?.name || ''}
+          isProcessing={isProcessing}
+          file={selectedFile}
+          fileDetails={{
+            type: 'image',
+            size: selectedFile?.size || 0,
+            name: selectedFile?.name || '',
+            horizontal: imageRef.current?.naturalWidth || 0,
+            vertical: imageRef.current?.naturalHeight || 0
+          }}
+          user={userData}
+          actionType="scramble-photo"
+          actionDescription="basic photo scrambling"
+        />
+      )}
     </Container>
   );
 };

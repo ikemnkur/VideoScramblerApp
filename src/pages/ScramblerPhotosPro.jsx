@@ -80,19 +80,27 @@ export default function ScramblerPhotosPro() {
     const [maxHueShift, setMaxHueShift] = useState(64);
     const [maxIntensityShift, setMaxIntensityShift] = useState(128);
 
-    useEffect(async () => {
-        // const userData = JSON.parse(localStorage.getItem("userdata")  );
-        setUserData(userData);
-        let response = await api.post(`api/wallet/balance/${userData.username}`, {
-            username: userData.username,
-            email: userData.email,
-            password: localStorage.getItem('passwordtxt')
-        });
+    useEffect(() => {
+        const fetchUserCredits = async () => {
+            try {
+                const response = await api.post(`api/wallet/balance/${userData.username}`, {
+                    username: userData.username,
+                    email: userData.email,
+                    password: localStorage.getItem('passwordtxt')
+                });
 
-        if (response.status === 200 && response.data) {
-            setUserCredits(response.data.credits);
+                if (response.status === 200 && response.data) {
+                    setUserCredits(response.data.credits);
+                }
+            } catch (err) {
+                console.error('Failed to fetch user credits:', err);
+            }
+        };
+
+        if (userData?.username) {
+            fetchUserCredits();
         }
-    }, []);
+    }, [userData]);
 
     // const handleCreditConfirm = useCallback(() => {
     //     setShowCreditModal(false);
