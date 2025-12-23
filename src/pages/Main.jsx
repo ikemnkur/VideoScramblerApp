@@ -132,7 +132,7 @@ export default function Wallet() {
                                 Purchase History
                             </Button>
                         </div>
-                       
+
 
                     </CardContent>
                 </Card>
@@ -203,14 +203,17 @@ export default function Wallet() {
                                 Premium
                             </Button>
                         </div>
+
                         <Divider sx={{ my: 2, borderColor: '#444' }} />
+
                         {/* Services Grid */}
                         <div style={{
                             display: 'grid',
                             gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))',
                             gap: '16px'
                         }}>
-                            {/* Scramble Video Service */}
+
+                            {/* Free Scramble Video Service */}
                             {(serviceMode === 'free' || serviceMode === 'basic') && (
                                 <Card sx={{
                                     backgroundColor: '#2a2a2a',
@@ -227,7 +230,7 @@ export default function Wallet() {
                                     onClick={() => navigate("/video-scrambler")}>
                                     <CardContent sx={{ p: 2 }}>
                                         <Typography variant="h6" sx={{ color: '#2e7d32', mb: 1, fontWeight: 'bold' }}>
-                                           🔐🎬 Scramble Video {serviceMode === 'free' ? '' : '    (No Ads)'}
+                                            🔐🎬 Scramble Video {serviceMode === 'free' ? '' : '    (No Ads)'}
                                         </Typography>
                                         <Typography variant="body2" sx={{ color: '#ccc', lineHeight: 1.4 }}>
                                             Upload and scramble videos into unrecognizable tiles. Generate keys to monetize access to your content.
@@ -236,7 +239,7 @@ export default function Wallet() {
                                 </Card>
                             )}
 
-                            {/* Scramble Photo Service */}
+                            {/* Free Scramble Photo Service */}
                             {(serviceMode === 'free' || serviceMode === 'basic') && (
                                 <Card sx={{
                                     backgroundColor: '#2a2a2a',
@@ -262,7 +265,9 @@ export default function Wallet() {
                                 </Card>
                             )}
 
-                            {/* Scramble Photo Service */}
+
+
+                            {/* Basic Only Service: Scramble Audio Service */}
                             {(serviceMode === 'basic') && (
                                 <Card sx={{
                                     backgroundColor: '#2a2a2a',
@@ -288,37 +293,16 @@ export default function Wallet() {
                                 </Card>
                             )}
 
-
-                            {/* Scramble Photo Service */}
-                            {(serviceMode === 'premium' || serviceMode === 'standard') && (
-                                <Card sx={{
-                                    backgroundColor: '#2a2a2a',
-                                    border: '1px solid #2e7d32',
-                                    borderRadius: 2,
-                                    cursor: 'pointer',
-                                    transition: 'all 0.3s ease',
-                                    '&:hover': {
-                                        backgroundColor: '#2e7d323a',
-                                        transform: 'translateY(-2px)',
-                                        boxShadow: '0 4px 12px rgba(46, 125, 50, 0.3)'
-                                    }
-                                }}
-                                    onClick={() => navigate("/photo-scrambler-pro")}>
-                                    <CardContent sx={{ p: 2 }}>
-                                        <Typography variant="h6" sx={{ color: '#2e7d32ff', mb: 1, fontWeight: 'bold' }}>
-                                            🔐📸 Scramble Photo {serviceMode === 'premium' ? '(FHD)' : '(HD)'}
-                                        </Typography>
-                                        <Typography variant="body2" sx={{ color: '#ccc', lineHeight: 1.4 }}>
-                                            Protect your images by scrambling them with watermarks and metadata headers for secure sharing.
-                                        </Typography>
-                                    </CardContent>
-                                </Card>
+                            {(serviceMode === 'basic' || serviceMode === 'free') && (
+                                <Divider sx={{ my: 0, borderColor: '#444', gridColumn: '1 / -1' }} />
                             )}
 
-                           
+
+
+
                             {/* Free Services */}
 
-                            {/* Unscramble Video Service */}
+                            {/* Free Unscramble Video Service */}
                             {(serviceMode === 'free' || serviceMode === 'basic') && (
                                 <Card sx={{
                                     backgroundColor: '#2a2a2a',
@@ -344,7 +328,7 @@ export default function Wallet() {
                                 </Card>
                             )}
 
-                            {/* Unscramble Photo Service */}
+                            {/* Free Unscramble Photo Service */}
                             {(serviceMode === 'free' || serviceMode === 'basic') && (
                                 <Card sx={{
                                     backgroundColor: '#2a2a2a',
@@ -370,7 +354,7 @@ export default function Wallet() {
                                 </Card>
                             )}
 
-
+                            {/* Basic Services */}
 
                             {/* Unscramble Audio Service */}
                             {(serviceMode === 'basic') && (
@@ -389,7 +373,7 @@ export default function Wallet() {
                                     onClick={() => navigate("/audio-unscrambler")}>
                                     <CardContent sx={{ p: 2 }}>
                                         <Typography variant="h6" sx={{ color: '#ff9800', mb: 1, fontWeight: 'bold' }}>
-                                           🎵 Unscramble Audio {serviceMode === 'free' ? '' : '    (No Ads)'}
+                                            🎵 Unscramble Audio {serviceMode === 'free' ? '' : '    (No Ads)'}
                                         </Typography>
                                         <Typography variant="body2" sx={{ color: '#ccc', lineHeight: 1.4 }}>
                                             Unlock newly released audio/music by unscrambling them with special algorithms.
@@ -400,6 +384,31 @@ export default function Wallet() {
 
                             {/* Pro Services */}
 
+                            {/*  Scramble Photo Service */}
+                            {(serviceMode === 'premium' || serviceMode === 'standard') && (
+                                <Card sx={{
+                                    backgroundColor: '#2a2a2a',
+                                    border: '1px solid #2e7d32',
+                                    borderRadius: 2,
+                                    cursor: 'pointer',
+                                    transition: 'all 0.3s ease',
+                                    '&:hover': {
+                                        backgroundColor: '#2e7d323a',
+                                        transform: 'translateY(-2px)',
+                                        boxShadow: '0 4px 12px rgba(46, 125, 50, 0.3)'
+                                    }
+                                }}
+                                    onClick={() => navigate("/photo-scrambler-pro")}>
+                                    <CardContent sx={{ p: 2 }}>
+                                        <Typography variant="h6" sx={{ color: '#2e7d32ff', mb: 1, fontWeight: 'bold' }}>
+                                            🔐📸 Scramble Photo {serviceMode === 'premium' ? '(FHD)' : '(HD)'}
+                                        </Typography>
+                                        <Typography variant="body2" sx={{ color: '#ccc', lineHeight: 1.4 }}>
+                                            Protect your images by scrambling them with watermarks and metadata headers for secure sharing.
+                                        </Typography>
+                                    </CardContent>
+                                </Card>
+                            )}
 
 
                             {/* Pro Unscramble Photo Service */}
@@ -428,6 +437,8 @@ export default function Wallet() {
                                     </CardContent>
                                 </Card>
                             )}
+
+                            <Divider sx={{ my: 0, borderColor: '#444', gridColumn: '1 / -1' }} />
 
                             {/* Pro Scramble Video Service */}
                             {(serviceMode === 'premium' || serviceMode === 'standard') && (
@@ -481,6 +492,8 @@ export default function Wallet() {
                                     </CardContent>
                                 </Card>
                             )}
+
+                            <Divider sx={{ my: 0, borderColor: '#444', gridColumn: '1 / -1' }} />
 
 
                             {/* Photo Leak Checker Service */}

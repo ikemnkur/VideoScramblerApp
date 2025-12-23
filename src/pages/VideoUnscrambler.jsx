@@ -53,11 +53,12 @@ export default function VideoUnscrambler() {
   const unscrambleCanvasRef = useRef(null);
   const modalCanvasRef = useRef(null);
   const keyFileInputRef = useRef(null);
-  const videoRef = useRef(null);
+
 
   // State variables
   const [selectedFile, setSelectedFile] = useState(null);
   const [keyCode, setKeyCode] = useState('');
+  const [isProcessing, setIsProcessing] = useState(false);
   const [decodedParams, setDecodedParams] = useState(null);
   const [unscrambleParams, setUnscrambleParams] = useState({
     n: 3, m: 3, permDestToSrc0: [0, 1, 2, 3, 4, 5, 6, 7, 8]
@@ -79,7 +80,7 @@ export default function VideoUnscrambler() {
   const [allowScrambling, setAllowScrambling] = useState(false);
   const [showCreditModal, setShowCreditModal] = useState(false);
   const [userCredits, setUserCredits] = useState(0); // Mock credits, replace with actual user data
-  const actionCost = 3; // Cost to scramble a photo (less than video)
+  const [actionCost, setActionCost] = useState(15);
 
   // Rectangles for unscrambling
   const [rectsDest, setRectsDest] = useState([]);
@@ -169,7 +170,6 @@ export default function VideoUnscrambler() {
     }
 
     console.log("Selected file:", file);
-
   };
 
   const handleVideoLoaded = () => {
@@ -197,6 +197,7 @@ export default function VideoUnscrambler() {
         const keyData = decryptKeyData(text);
         // Set the decoded parameters directly
         setDecodedParams(keyData);
+        console.log("Decoded Parameters from key file:", keyData);
         setKeyCode(text); // Store the encrypted key in the text box
         success('🔑 Key file loaded and decoded successfully!');
       } catch (decryptErr) {
@@ -214,6 +215,7 @@ export default function VideoUnscrambler() {
           const keyData = JSON.parse(text);
           setDecodedParams(keyData);
           setKeyCode(btoa(text)); // Convert to base64 for consistency
+          console.log("Decoded key data from base64:", keyData);
           success('🔑 Key file loaded and decoded successfully!');
         }
       }
@@ -225,23 +227,52 @@ export default function VideoUnscrambler() {
 
   const decodeKeyCode = () => {
     try {
-      const json = fromBase64(keyCode);
-      setDecodedParams(json);
+      // const json = fromBase64(keyCode);
+      // setDecodedParams(json);
+      const decoded = fromBase64(keyCode);
+      const keyData = JSON.parse(decoded);
+      setDecodedParams(keyData);
+      localStorage.setItem('decodedParams', keyCode);
       success('Key code decoded successfully!');
+      console.log("Decoded Parameters from key code entry:", keyData);
     } catch (e) {
       error('Invalid key code: ' + e.message);
     }
   };
 
-  const applyParameters = () => {
-    if (!allowScrambling) {
-      error('You need to confirm credit usage before applying parameters.');
+
+
+  const handleProcessScrambledVideo = () => {
+    if (!selectedFile) {
+      error("Please load an video file first!");
       return;
     }
+    setShowCreditModal(true);
+  };
 
+  const applyParameters = () => {
     try {
-      const obj = JSON.parse(decodedParams);
+      // Validate decodedParams exists
+      if (!decodedParams) {
+        console.log("Applying Decoded Params:", decodedParams);
+        throw new Error("No key parameters available. Please decode a key first.");
+      }
+
+      console.log("Applying Decoded Params:", decodedParams);
+
+      // Check if decodedParams is already an object or needs parsing
+      const obj = typeof decodedParams === 'string'
+        ? JSON.parse(decodedParams)
+        : decodedParams;
+
+      console.log("Decoded Params Object:", obj);
+
+      if (!obj || typeof obj !== 'object') {
+        throw new Error("Invalid key format");
+      }
+
       const { n, m, permDestToSrc0 } = jsonToParams(obj);
+      console.log("Applying unscramble parameters:", n, m, permDestToSrc0);
 
       setUnscrambleParams({ n, m, permDestToSrc0 });
       success(`Parameters applied: ${n}×${m} grid`);
@@ -250,12 +281,29 @@ export default function VideoUnscrambler() {
       const video = shufVideoRef.current;
       if (video && video.paused) {
         video.play();
-        setTimeout(() => video.pause(), 100);
+        setTimeout(() => video.pause(), 50);
       }
+
+      // if (!permDestToSrc0 || permDestToSrc0.length !== n * m) {
+      // fecth from localStorage as fallback
+      const storedSrcToDest = JSON.parse(localStorage.getItem('srcToDest'));
+      if (storedSrcToDest && storedSrcToDest.length === n * m) {
+        setSrcToDest(storedSrcToDest);
+        console.log("Using stored srcToDest from localStorage:", storedSrcToDest);
+      } else {
+        throw new Error("Permutation length doesn't match n*m");
+      }
+      // }
+
+      console.log("SrcToDest: ", srcToDest);
+
     } catch (e) {
       error('Invalid parameters: ' + e.message);
+      console.error("Error applying parameters:", e);
+      handleRefundCredit();
     }
   };
+
 
   const buildUnscrambleRects = () => {
     const video = shufVideoRef.current;
@@ -268,6 +316,7 @@ export default function VideoUnscrambler() {
 
     setRectsDest(destRects);
     setRectsSrcFromShuffled(srcRects);
+    localStorage.setItem('srcToDest', JSON.stringify(inversePerm));
     setSrcToDest(inversePerm);
   };
 
@@ -289,14 +338,24 @@ export default function VideoUnscrambler() {
     }
   }, [srcToDest, rectsSrcFromShuffled, rectsDest, unscrambleParams]);
 
+
+
   const animateUnscramble = useCallback(() => {
     if (!isAnimating) return;
     const video = shufVideoRef.current;
     if (!video?.paused && !video?.ended) {
       drawUnscrambledFrame();
+      // Also update modal canvas if modal is open
+      if (showModal) {
+        drawUnscrambledFrame(modalCanvasRef.current);
+      }
     }
     requestAnimationFrame(animateUnscramble);
-  }, [isAnimating, drawUnscrambledFrame]);
+  }, [isAnimating, drawUnscrambledFrame, showModal]);
+
+
+
+  // ------------monetization and modal handling------------
 
   const showWatchModal = () => {
     const video = shufVideoRef.current;
@@ -342,12 +401,65 @@ export default function VideoUnscrambler() {
     }
   };
 
-  const handleCreditConfirm = useCallback(() => {
+  const handleCreditConfirm = useCallback((actualCostSpent) => {
     setShowCreditModal(false);
-
     setAllowScrambling(true);
 
-  }, []);
+    // Now you have access to the actual cost that was calculated and spent
+    console.log('Credits spent:', actualCostSpent);
+
+    setActionCost(actualCostSpent);
+    // alert("Applying Decoded Params:", decodedParams);
+
+
+    let storedParams;
+    if (decodedParams == null || decodedParams === '') {
+      // check localStorage for decodedParams
+      storedParams = JSON.parse(localStorage.getItem('decodedParams'));
+      // if (storedParams) {
+      const decoded = fromBase64(storedParams);
+      storedParams = JSON.parse(decoded);
+      setDecodedParams(storedParams);
+      console.log("Using stored decoded parameters from localStorage:", storedParams);
+      // }
+    } else if (storedParams == null) {
+      error("No key parameters available. Please decode a key first.");
+    }
+
+
+    // Apply parameters first
+    applyParameters();
+
+    // Use setTimeout to ensure state update completes before scrambling
+    setTimeout(() => {
+      unscrambleVideo();
+    }, 0);
+
+  }, [decodedParams]);
+
+  const handleRefundCredit = async () => {
+    // error("Unscrambling failed: " + e.message);
+    // setIsProcessing(false);
+    // try {
+    // TODO: Refund credits if applicable
+    const response = await fetch(`${API_URL}/api/refund-credits`, {
+      method: 'POST',
+      // headers: {
+      //   'Content-Type': 'application/json'
+      // },
+
+      body: {
+        userId: userData.id,
+        username: userData.username,
+        email: userData.email,
+        password: localStorage.getItem('passwordtxt'),
+        credits: actionCost,
+        params: params,
+      }
+    });
+
+    console.log("Refund response:", response);
+  }
 
   // ========== EFFECTS ==========
 
@@ -356,6 +468,27 @@ export default function VideoUnscrambler() {
       buildUnscrambleRects();
     }
   }, [unscrambleParams]);
+
+  useEffect(() => {
+    if (srcToDest.length > 0) {
+      const canvas = unscrambleCanvasRef.current;
+      const video = shufVideoRef.current;
+      if (canvas && video && video.videoWidth) {
+        canvas.width = video.videoWidth;
+        canvas.height = video.videoHeight;
+        drawUnscrambledFrame();
+      }
+    }
+    if (srcToDest.length > 0) {
+      const canvas = modalCanvasRef.current;
+      const video = shufVideoRef.current;
+      if (canvas && video && video.videoWidth) {
+        canvas.width = video.videoWidth;
+        canvas.height = video.videoHeight;
+        drawUnscrambledFrame(modalCanvasRef.current);
+      }
+    }
+  }, [srcToDest, drawUnscrambledFrame]);
 
   useEffect(() => {
     if (isAnimating) {
@@ -368,8 +501,32 @@ export default function VideoUnscrambler() {
     const video = shufVideoRef.current;
     if (!video) return;
 
-    const handlePlay = () => setIsAnimating(true);
-    const handlePause = () => setIsAnimating(false);
+    const handlePlay = () => {
+      setIsAnimating(true);
+      setModalControls(prev => ({ ...prev, isPlaying: true }));
+    };
+
+    const handlePause = () => {
+      setIsAnimating(false);
+      setModalControls(prev => ({ ...prev, isPlaying: false }));
+    };
+
+    const handleTimeUpdate = () => {
+      setModalControls(prev => ({
+        ...prev,
+        currentTime: video.currentTime,
+        duration: video.duration || prev.duration
+      }));
+    };
+
+    const handleLoadedMetadata = () => {
+      setModalControls(prev => ({
+        ...prev,
+        duration: video.duration,
+        volume: video.volume * 100
+      }));
+    };
+
     const handleSeeked = () => {
       if (!video.paused) drawUnscrambledFrame();
       if (showModal) drawUnscrambledFrame(modalCanvasRef.current);
@@ -378,15 +535,43 @@ export default function VideoUnscrambler() {
     video.addEventListener('play', handlePlay);
     video.addEventListener('pause', handlePause);
     video.addEventListener('ended', handlePause);
+    video.addEventListener('timeupdate', handleTimeUpdate);
+    video.addEventListener('loadedmetadata', handleLoadedMetadata);
     video.addEventListener('seeked', handleSeeked);
 
     return () => {
       video.removeEventListener('play', handlePlay);
       video.removeEventListener('pause', handlePause);
       video.removeEventListener('ended', handlePause);
+      video.removeEventListener('timeupdate', handleTimeUpdate);
+      video.removeEventListener('loadedmetadata', handleLoadedMetadata);
       video.removeEventListener('seeked', handleSeeked);
     };
   }, [drawUnscrambledFrame, showModal]);
+
+
+  // ------------ FUNCTIONS TO UNSCRAMBLE VIDEO ------------
+
+  const unscrambleVideo = () => {
+    const video = shufVideoRef.current;
+    if (!video)
+      return;
+
+    // set video play back to start
+    video.currentTime = 0;
+    // video.play();
+
+
+    // Give time for state updates, then draw the unscrambled frame
+    setTimeout(() => {
+      const video = shufVideoRef.current;
+      if (video && video.readyState >= 2) {
+        // Draw initial frame to show preview immediately
+        drawUnscrambledFrame();
+      }
+    }, 100);
+
+  };
 
   return (
     <Container sx={{ py: 4 }}>
@@ -525,22 +710,31 @@ export default function VideoUnscrambler() {
             </Box>
 
             {/* Display Decoded Key Info */}
-            {decodedParams && (
-              <Alert severity="success" sx={{ mt: 2, backgroundColor: '#2e7d32', color: 'white' }}>
-                <Typography variant="body2" sx={{ fontWeight: 'bold', mb: 1 }}>
-                  Key Information:
-                </Typography>
-                <Typography variant="body2">
-                  • Grid Size: <strong>{unscrambleParams.n} × {unscrambleParams.m}</strong>
-                </Typography>
-                <Typography variant="body2">
-                  • Total Cells: <strong>{unscrambleParams.n * unscrambleParams.m}</strong>
-                </Typography>
-                <Typography variant="body2" sx={{ mt: 1 }}>
-                  ✓ Key validated and ready to apply
-                </Typography>
-              </Alert>
-            )}
+            {decodedParams && (() => {
+              try {
+                const obj = JSON.parse(decodedParams);
+                const n = Number(obj.n);
+                const m = Number(obj.m);
+                return (
+                  <Alert severity="success" sx={{ mt: 2, backgroundColor: '#2e7d32', color: 'white' }}>
+                    <Typography variant="body2" sx={{ fontWeight: 'bold', mb: 1 }}>
+                      Key Information:
+                    </Typography>
+                    <Typography variant="body2">
+                      • Grid Size: <strong>{n} × {m}</strong>
+                    </Typography>
+                    <Typography variant="body2">
+                      • Total Cells: <strong>{n * m}</strong>
+                    </Typography>
+                    <Typography variant="body2" sx={{ mt: 1 }}>
+                      ✓ Key validated and ready to apply
+                    </Typography>
+                  </Alert>
+                );
+              } catch (e) {
+                return null;
+              }
+            })()}
           </Box>
 
           <Divider sx={{ my: 3, backgroundColor: '#666' }} />
@@ -559,7 +753,7 @@ export default function VideoUnscrambler() {
             <Box sx={{ display: 'flex', gap: 2, flexWrap: 'wrap' }}>
               <Button
                 variant="contained"
-                onClick={applyParameters}
+                onClick={handleProcessScrambledVideo}
                 startIcon={<PlayArrow />}
                 disabled={!decodedParams}
                 sx={{
@@ -640,7 +834,7 @@ export default function VideoUnscrambler() {
                   justifyContent: 'center',
                   overflow: 'hidden'
                 }}>
-                  {srcToDest.length > 0 ? (
+                  {decodedParams ? (
                     <canvas
                       ref={unscrambleCanvasRef}
                       style={{
@@ -766,7 +960,7 @@ export default function VideoUnscrambler() {
               ref={modalCanvasRef}
               style={{
                 width: '100%',
-                height: '70%',
+                // height: '100%',
                 backgroundColor: '#0b1020',
                 borderRadius: '12px'
               }}
@@ -774,7 +968,7 @@ export default function VideoUnscrambler() {
           </Box>
 
           {/* Video Controls */}
-          <Box sx={{ display: 'flex', gap: 2, alignItems: 'center', flexWrap: 'wrap' }}>
+          <Box sx={{ display: 'flex', gap: 2, alignItems: 'center' }}>
             <Button
               variant="contained"
               startIcon={modalControls.isPlaying ? <Pause /> : <PlayArrow />}
@@ -789,6 +983,7 @@ export default function VideoUnscrambler() {
               {modalControls.isPlaying ? 'Pause' : 'Play'}
             </Button>
 
+
             <Typography variant="body2" sx={{ color: 'white' }}>Seek:</Typography>
             <Slider
               value={modalControls.currentTime}
@@ -797,7 +992,7 @@ export default function VideoUnscrambler() {
                 const video = shufVideoRef.current;
                 if (video) video.currentTime = value;
               }}
-              sx={{ width: 200, color: '#22d3ee' }}
+              sx={{ maxWidth: '65%', color: '#22d3ee' }}
             />
 
             <VolumeUp sx={{ color: 'white' }} />
@@ -808,34 +1003,38 @@ export default function VideoUnscrambler() {
                 if (video) video.volume = value / 100;
                 setModalControls(prev => ({ ...prev, volume: value }));
               }}
-              sx={{ width: 100, color: '#22d3ee' }}
+              sx={{ maxWidth: 150, color: '#22d3ee' }}
             />
+
           </Box>
         </Box>
       </Modal>
 
       {/* Credit Confirmation Modal */}
-      <CreditConfirmationModal
-        open={showCreditModal}
-        onClose={() => setShowCreditModal(false)}
-        onConfirm={handleCreditConfirm}
-        mediaType="video"
-        creditCost={actionCost}
-        currentCredits={userCredits}
-        fileName={selectedFile?.name || ''}
-        user={userData}
-        isProcessing={false}
-        file={selectedFile}
-        fileDetails={{
-          type: 'video',
-          size: selectedFile?.size || 0,
-          name: selectedFile?.name || '',
-          horizontal: videoRef.current?.videoWidth || 0,
-          vertical: videoRef.current?.videoHeight || 0
-        }}
-        actionType="unscramble-video-free"
-        actionDescription="free video unscrambling"
-      />
+      {showCreditModal && (
+        <CreditConfirmationModal
+          open={showCreditModal}
+          onClose={() => setShowCreditModal(false)}
+          onConfirm={handleCreditConfirm}
+          mediaType="video"
+          creditCost={actionCost}
+          currentCredits={userCredits}
+          fileName={selectedFile?.name || ''}
+          file={selectedFile}
+          fileDetails={{
+            type: 'video',
+            size: selectedFile?.size || 0,
+            name: selectedFile?.name || '',
+            horizontal: shufVideoRef.current?.videoWidth || 0,
+            vertical: shufVideoRef.current?.videoHeight || 0,
+            duration: shufVideoRef.current?.duration || 0
+          }}
+          user={userData}
+          isProcessing={false}
+          actionType="unscramble-video-free"
+          actionDescription="free video unscrambling"
+        />
+      )}
     </Container>
   );
 }

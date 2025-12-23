@@ -437,10 +437,16 @@ export default function VideoScrambler() {
       error("Please select a video file first");
       return;
     }
+
     if (!permDestToSrc0 || permDestToSrc0.length === 0) {
       error("Please scramble the video first");
       return;
     }
+
+    
+
+    // set video play back to start
+    video.currentTime = 0;
 
     showAdModal();
 

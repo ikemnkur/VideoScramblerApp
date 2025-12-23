@@ -18,20 +18,34 @@ export const FingerprintProvider = ({ children }) => {
 
   const API_URL = import.meta.env.VITE_API_SERVER_URL || 'http://localhost:3001';
 
+  // Generate fingerprint on mount
   useEffect(() => {
     generateFingerprint();
-    saveFingerprintToLocalStorage();
   }, []);
 
-  const saveFingerprintToLocalStorage = () => {
-    try {
-      const storedFingerprint = localStorage.getItem('device_fingerprint');
-      if (!storedFingerprint) {
-        localStorage.setItem('device_fingerprint', JSON.stringify(fingerprint));
-      }
-    } catch (e) {
-      console.error('Error saving fingerprint to localStorage:', e);
-    }
+  // // Save fingerprint to localStorage when it's generated
+  // useEffect(() => {
+  //   if (fingerprint) {
+  //     saveFingerprintToLocalStorage();
+  //   }
+  // }, [fingerprint]);
+
+  const saveFingerprintToLocalStorage = (fp) => {
+    if (fp){
+      localStorage.setItem('device_fingerprint', JSON.stringify(fp));
+      console.log('✅ Fingerprint saved to localStorage');
+      console.log('Saving Generated Fingerprint:', fp);
+      // return
+    };
+    // try {
+    //   const storedFingerprint = localStorage.getItem('device_fingerprint');
+    //   if (!storedFingerprint && fingerprint) {
+    //     localStorage.setItem('device_fingerprint', JSON.stringify(fingerprint));
+    //     console.log('✅ Fingerprint saved to localStorage');
+    //   }
+    // } catch (e) {
+    //   console.error('Error saving fingerprint to localStorage:', e);
+    // }
   }
 
   const generateFingerprint = async () => {
@@ -39,6 +53,8 @@ export const FingerprintProvider = ({ children }) => {
       setLoading(true);
       const fp = await DeviceFingerprint.generate();
       setFingerprint(fp);
+      // console.log('Generated Fingerprint:', fp);
+      saveFingerprintToLocalStorage(fp);
 
       // Get user info from localStorage if available
       const userInfo = getUserInfo();
@@ -80,6 +96,7 @@ export const FingerprintProvider = ({ children }) => {
   };
 
   const refreshFingerprint = () => {
+    alert('Refreshing fingerprint...');
     generateFingerprint();
   };
 
