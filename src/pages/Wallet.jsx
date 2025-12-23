@@ -177,6 +177,22 @@ export default function Wallet() {
               </Grid>
             </Box>
 
+            {/* todo: implement free bonus credits for watching ads, max 1x per day, get 100 credits */}
+
+            <Box sx={{ mt: 4 }}>
+              <Typography variant="h5" sx={{ mb: 2, display: 'flex', alignItems: 'center', gap: 1 }}>
+                <Star color="secondary" />
+                Bonus Credits
+              </Typography>
+              <Button
+                variant="outlined"
+                onClick={() => navigate('/bonus-credits')}
+                sx={{ width: '100%' }}
+              >
+                Watch Ads for Free Credits
+              </Button>
+            </Box>
+
           </CardContent>
         </Card>
       </Stack>

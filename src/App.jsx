@@ -63,6 +63,7 @@ import SubscribeConfirmation from './pages/SubscribeConfirmation';
 
 import SubscriptionPlans from './pages/SubscriptionPlans';
 import SubscriptionSuccess from './pages/SubscriptionSuccess';
+import BonusCredits from './pages/BonusCredits';
 // import Intro from './pages/Intro';
 //
 
@@ -212,6 +213,8 @@ export default function App() {
             <Route path="/subscription/plans" element={<SubscriptionPlans />} />
 
             <Route path="/subscription/success" element={<SubscriptionSuccess />} />
+
+            <Route path="/bonus-credits" element={<BonusCredits />} />
 
             {/* need a redirect or fallback route if not logged in and the user tries to visit a protected route */}
             <Route path="*" element={<LoadingPage />} />

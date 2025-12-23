@@ -336,6 +336,13 @@ export default function VideoUnscrambler() {
       if (!sR || !dR) continue;
       ctx.drawImage(video, sR.x, sR.y, sR.w, sR.h, dR.x, dR.y, dR.w, dR.h);
     }
+
+    // Add transparent watermark overlay to indicate unscrambled
+    ctx.fillStyle = 'rgba(255, 255, 255, 0.1)';
+    ctx.font = '20px Arial';
+    ctx.fillText('🔓 Unscrambled Video: ', 10, canvas.height - 20);
+    ctx.fillText(`${userData.username}`, 10, canvas.height - 20);
+
   }, [srcToDest, rectsSrcFromShuffled, rectsDest, unscrambleParams]);
 
 
