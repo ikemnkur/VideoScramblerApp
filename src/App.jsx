@@ -31,16 +31,19 @@ import Info from './pages/Info';
 import LoadingPage from './pages/Loading';
 
 import VideoScrambler from './pages/VideoScrambler';
+import VideoScramblerBasic from './pages/VideoScramblerBasic';
 import VideoUnscrambler from './pages/VideoUnscrambler';
+import VideoUnscramblerBasic from './pages/VideoUnscramblerBasic';
 
-import ScramblerPhotos from './pages/ScramblerPhotos';
-import UnscramblerPhotos from './pages/UnscramblerPhotos';
+import ScramblerPhotos from './pages/PhotoScrambler';
+import UnscramblerPhotos from './pages/PhotoUnscrambler';
 
 import AudioScrambler from './pages/AudioScrambler';
 import AudioUnscrambler from './pages/AudioUnscrambler';
 
-import ScramblerPhotosPro from './pages/ScramblerPhotosPro';
-import UnscramblerPhotosPro from './pages/UnscramblerPhotosPro';
+
+import ScramblerPhotosPro from './pages/PhotoScramblerPro';
+import UnscramblerPhotosPro from './pages/PhotoUnscramblerPro';
 
 import VideoScramblerPro from './pages/VideoScramblerPro';
 import VideoUnscramblerPro from './pages/VideoUnscramblerPro';
@@ -104,45 +107,27 @@ export default function App() {
             <Routes>
 
             {/* Public Routes */}
-            {/* {!(localStorage.getItem('userdata') ? JSON.parse(localStorage.getItem('userdata')).loginStatus : false) && ( */}
+         
             <>
               <Route path="/login" element={<Auth isLogin={true} />} />
               <Route path="/register" element={<Auth isLogin={false} />} />
             </>
-            {/* )} */}
-
-            {/* {!(localStorage.getItem('userdata') ? JSON.parse(localStorage.getItem('userdata')).loginStatus : false) && (
-              <Route path="/unlock/:id" element={<SignUp2Unlock />} />
-            )} */}
+        
             <Route path="/help" element={<HelpPage />} />
             <Route path="/info" element={<Info />} />
-            {/* <Route path="/login" element={<Auth isLogin={true} />} /> */}
+          
 
-            {/* Seller/ Buyer Routes */}
-            {/* {(localStorage.getItem('userdata') ? JSON.parse(localStorage.getItem('userdata')).accountType : null) === 'buyer' && ( */}
+            {/* Purchase Credits Routes */}
+          
             <>
-              {/* <Route path="/unlock/:id" element={<Unlock />} /> */}
-              {/* <Route path="/wallet" element={<Wallet />} /> */}
               <Route path="/purchase-crypto" element={<PurchaseCrypto />} />
               <Route path="/purchase-stripe" element={<PurchaseStripe />} />
               <Route path="/purchase-paypal" element={<PurchasePaypal />} />
               <Route path="/purchase-cashapp" element={<PurchaseCashApp />} />
-              {/* <Route path="/your-keys" element={<YourKeys />} /> */}
               <Route path="/purchase-history" element={<PurchaseHistory />} />
               <Route path="/account" element={<Account />} />
             </>
-            {/* )} */}
-            {/* {(localStorage.getItem('userdata') ? JSON.parse(localStorage.getItem('userdata')).accountType : null) === 'seller' && ( */}
-            {/* <>
-                 <Route path="/unlock-preview/:id" element={<UnlockPreview />} />
-                <Route path="/earnings" element={<Earnings />} />
-                <Route path="/create-key" element={<CreateKey />} />
-                <Route path="/redeem" element={<Redeem />} />
-                <Route path="/listings" element={<Listings />} />
-                <Route path="/account" element={<Account />} />
-              </> */}
-            {/* )} */}
-
+       
             {/* Main Route */}
             {/* not logged in */}
             {!(localStorage.getItem('userdata') ? JSON.parse(localStorage.getItem('userdata')).loginStatus : false) && (
@@ -150,10 +135,13 @@ export default function App() {
                 <Route path="/" element={<Info />} />
               </>
             )}
+
             {/* logged in */}
             {(localStorage.getItem('userdata') ? JSON.parse(localStorage.getItem('userdata')).loginStatus : false) && (
               <Route path="/" element={<Main />} />
             )}
+
+
             <Route path="/main" element={<Main />} />
 
             <Route path="/wallet" element={<Wallet />} />
@@ -177,7 +165,11 @@ export default function App() {
 
             <Route path="/video-scrambler" element={<VideoScrambler />} />
 
+            <Route path="/video-scrambler-basic" element={<VideoScramblerBasic />} />
+
             <Route path="/video-unscrambler" element={<VideoUnscrambler />} />
+
+            <Route path="/video-unscrambler-basic" element={<VideoUnscramblerBasic />} />
 
             {/* Photo Editor */}
 

@@ -266,7 +266,7 @@ export default function VideoLeakChecker() {
         onClose={() => setShowCreditModal(false)}
         onConfirm={handleCreditConfirm}
         mediaType="video"
-        creditCost={actionCost}
+        
         currentCredits={userCredits}
         fileName={selectedFile?.name || ''}
         file={selectedFile}

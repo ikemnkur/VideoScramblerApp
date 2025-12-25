@@ -33,7 +33,7 @@ import { useToast } from '../contexts/ToastContext';
 import CreditConfirmationModal from '../components/CreditConfirmationModal';
 import api from '../api/client';
 
-export default function UnscramblerPhotos() {
+export default function PhotoUnscrambler() {
   const API_URL = import.meta.env.VITE_API_SERVER_URL || 'http://localhost:3001'; // = 'http://localhost:3001/api';
   const { success, error } = useToast();
 
@@ -63,6 +63,7 @@ export default function UnscramblerPhotos() {
   const [unscrambleParams, setUnscrambleParams] = useState({
     n: 6, m: 6, permDestToSrc0: []
   });
+
   const [showModal, setShowModal] = useState(false);
   const [showAdModal, setShowAdModal] = useState(false);
   const [adProgress, setAdProgress] = useState(0);
@@ -78,7 +79,8 @@ export default function UnscramblerPhotos() {
   // const [allowLeakChecking, setAllowLeakChecking] = useState(false);
   const [allowScrambling, setAllowScrambling] = useState(false);
   const [userCredits, setUserCredits] = useState(0); // Mock credits, replace with actual user data
-  const actionCost = 10; // Cost to scramble a photo (less than video)
+  const [actionCost, setActionCost] = useState(5); // Cost per unscramble action
+  const [scrambleLevel, setScrambleLevel] = useState(6); // Grid size for credit calculation
 
 
   // ========== UTILITY FUNCTIONS ==========
@@ -114,6 +116,9 @@ export default function UnscramblerPhotos() {
   const jsonToParams = (obj) => {
     const n = Number(obj.n), m = Number(obj.m);
     let perm = null;
+
+    setScrambleLevel(n >= m ? n : m);
+
     if (Array.isArray(obj.perm1based)) perm = zeroBased(obj.perm1based);
     else if (Array.isArray(obj.perm0based)) perm = obj.perm0based.slice();
 
@@ -176,14 +181,25 @@ export default function UnscramblerPhotos() {
     }
   };
 
-  
+  const decodeKeyCode = () => {
+    try {
+      const json = fromBase64(keyCode);
+      setDecodedParams(json);
+      success('Key code decoded successfully!');
+    } catch (e) {
+      error('Invalid key code: ' + e.message);
+    }
+
+    setShowCreditModal(true);
+  };
+
   const handleKeyFileSelect = async (event) => {
     const file = event.target.files?.[0];
     if (!file) return;
 
     try {
       const text = await file.text();
-      
+
       // Try to decrypt the key file (if it's encrypted)
       try {
         const keyData = decryptKeyData(text);
@@ -215,7 +231,6 @@ export default function UnscramblerPhotos() {
     }
   };
 
-
   // Spending Credits to Process Image (media)
 
   useEffect(() => {
@@ -240,25 +255,42 @@ export default function UnscramblerPhotos() {
     }
   }, [userData]);
 
-  const handleCreditConfirm = useCallback(() => {
+  const handleCreditConfirm = useCallback((actualCostSpent) => {
     setShowCreditModal(false);
-
     setAllowScrambling(true);
+
+    // Now you have access to the actual cost that was calculated and spent
+    console.log('Credits spent:', actualCostSpent);
+
+    setActionCost(actualCostSpent);
+    // alert("Applying Decoded Params:", decodedParams)
 
   }, []);
 
+  const handleRefundCredits = async () => {
+    // error("Unscrambling failed: " + e.message);
+    // setIsProcessing(false);
+    // try {
+    // TODO: Refund credits if applicable
+    const response = await fetch(`${API_URL}/api/refund-credits`, {
+      method: 'POST',
+      // headers: {
+      //   'Content-Type': 'application/json'
+      // },
 
-  const decodeKeyCode = () => {
-    try {
-      const json = fromBase64(keyCode);
-      setDecodedParams(json);
-      success('Key code decoded successfully!');
-    } catch (e) {
-      error('Invalid key code: ' + e.message);
-    }
+      body: {
+        userId: userData.id,
+        username: userData.username,
+        email: userData.email,
+        password: localStorage.getItem('passwordtxt'),
+        credits: actionCost,
+        params: params,
+      }
+    });
 
-    setShowCreditModal(true);
-  };
+    console.log("Refund response:", response);
+  }
+
 
   const confirmSpendingCredits = () => {
     setShowCreditModal(false);
@@ -281,6 +313,8 @@ export default function UnscramblerPhotos() {
       const obj = JSON.parse(decodedParams);
       const { n, m, permDestToSrc0 } = jsonToParams(obj);
 
+      setActionCost(n * m >= 100 ? 15 : n * m >= 64 ? 10 : 5); // Adjust cost based on grid size
+
       setUnscrambleParams({ n, m, permDestToSrc0 });
       success(`Parameters applied: ${n}×${m} grid`);
 
@@ -289,6 +323,7 @@ export default function UnscramblerPhotos() {
         buildUnscrambleRects(n, m, permDestToSrc0);
       }
     } catch (e) {
+      handleRefundCredits();
       error('Invalid parameters: ' + e.message);
     }
   };
@@ -356,6 +391,14 @@ export default function UnscramblerPhotos() {
         dR.x + border, dR.y + border, dR.w, dR.h   // Destination: to center area, preserving borders
       );
     }
+
+    // Add transparent watermark overlay to indicate unscrambled
+    ctx.fillStyle = 'rgba(255, 255, 255, 0.25)';
+    ctx.font = '20px Arial';
+    // ctx.fillText('🔓 Unscrambled Video ', 10, canvas.height - 40);
+    ctx.fillText(`Unscrambled by: ${userData.username}`, 64, targetCanvas.height / 2 + 15);
+
+
   }, [srcToDest, rectsSrcFromShuffled, rectsDest, unscrambleParams]);
 
   const showFullImage = () => {
@@ -564,7 +607,7 @@ export default function UnscramblerPhotos() {
                 Step 2: Apply & Unscramble
               </Button>
 
-              <Button
+              {/* <Button
                 variant="contained"
                 onClick={showFullImage}
                 startIcon={<Visibility />}
@@ -572,7 +615,7 @@ export default function UnscramblerPhotos() {
                 disabled={!unscrambledReady}
               >
                 Step 3: View Full Image
-              </Button>
+              </Button> */}
 
               <Button
                 variant="outlined"
@@ -581,9 +624,23 @@ export default function UnscramblerPhotos() {
                 sx={{ borderColor: '#22d3ee', color: '#22d3ee' }}
                 disabled={!unscrambledReady}
               >
-                Download Unscrambled Image
+                Step 3: Download Unscrambled Image
+              </Button>
+
+              <Button
+                variant="outlined"
+                // onClick={() => setIsPro(true)}
+                onClick={() => {
+                  navigate('/plans')
+                }}
+                sx={{ borderColor: 'gold', color: 'gold', ml: 'auto' }}
+              >
+                Upgrade to Pro (No Ads)
               </Button>
             </Box>
+            {/* {!isPro && ( */}
+
+            {/* )} */}
           </Box>
 
           {/* Image Comparison */}
@@ -621,37 +678,7 @@ export default function UnscramblerPhotos() {
                   )}
 
                 </Box>
-                {/* <Box sx={{
-                  minHeight: '200px',
-                  backgroundColor: '#0b1020',
-                  border: '1px dashed #666',
-                  borderRadius: '8px',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  overflow: 'hidden'
-                }}>
-                  {imageLoaded && displayScrambledRef.current ? (
-                    <img
-                      ref={displayScrambledRef}
-                      alt="Scrambled"
-                      style={{
-                        maxWidth: '100%',
-                        maxHeight: '400px',
-                        borderRadius: '8px',
-                        display: 'block'
-                      }}
-                    />
-                  ) : selectedFile ? (
-                    <Typography variant="body2" sx={{ color: '#ff9800' }}>
-                      Loading image...
-                    </Typography>
-                  ) : (
-                    <Typography variant="body2" sx={{ color: '#666' }}>
-                      Select a scrambled image to preview
-                    </Typography>
-                  )}
-                </Box> */}
+
               </Grid>
 
               {/* Unscrambled Preview */}
@@ -688,7 +715,7 @@ export default function UnscramblerPhotos() {
 
       {/* Info section */}
       <Paper elevation={1} sx={{ p: 2, backgroundColor: '#f5f5f5', mb: 4 }}>
-        <Typography variant="body2" color="text.secondary">
+        <Typography variant="body2" color="black">
           💡 Upload a scrambled image (with watermark and metadata header), decode your unscramble key,
           and restore the original image. The process reverses the tile-shifting algorithm used during scrambling.
         </Typography>
@@ -829,7 +856,8 @@ export default function UnscramblerPhotos() {
           onConfirm={handleCreditConfirm}
           mediaType="photo"
           description="unscramble photo (lite)"
-          creditCost={actionCost}
+          
+          scrambleLevel={scrambleLevel}
           currentCredits={userCredits}
           fileName={selectedFile?.name || ''}
           file={selectedFile}

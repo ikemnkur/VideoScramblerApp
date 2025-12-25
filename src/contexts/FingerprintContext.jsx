@@ -98,31 +98,35 @@ export const FingerprintProvider = ({ children }) => {
   const refreshFingerprint = () => {
     alert('Refreshing fingerprint...');
     generateFingerprint();
+    return fingerprint, compactFingerprint;
   };
 
   /**
    * Submit fingerprint to backend after login
    * Call this after successful authentication
    */
-  const submitFingerprint = async (userId, maxRetries = 10, retryDelay = 500) => {
+  const submitFingerprint = async (userId, maxRetries = 5, retryDelay = 500) => {
     console.log('🚀 Submitting fingerprint for user:', userId);
+
+    const {fp, cfp} = refreshFingerprint();
 
     if (!userId) {
       console.error('User ID is required to submit fingerprint');
       return { success: false, message: 'User ID required' };
     }
 
-    // Wait for fingerprint to be ready with retries
-    let retries = 0;
-    while ((!fingerprint || !compactFingerprint) && retries < maxRetries) {
-      console.log(`⏳ Waiting for fingerprint to be ready... (${retries + 1}/${maxRetries})`);
-      await new Promise(resolve => setTimeout(resolve, retryDelay));
-      retries++;
-    }
+    // // Wait for fingerprint to be ready with retries
+    // let retries = 0;
+    // while ((!fp || !cfp) && retries < maxRetries) {
+    //   console.log(`⏳ Waiting for fingerprint to be ready... (${retries + 1}/${maxRetries})`);
+    //   await new Promise(resolve => setTimeout(resolve, retryDelay));
+    //   retries++;
+    // }
 
     if (!fingerprint || !compactFingerprint) {
       console.error('❌ Fingerprint not ready after waiting. Cannot submit.');
-      console.log("Using fingerprint in localStorage:", localStorage.getItem('device_fingerprint'));
+      // console.log("Using fingerprint in localStorage:", localStorage.getItem('device_fingerprint'));
+      console.log("Using fingerprint in localStorage:", JSON.parse(localStorage.getItem('device_fingerprint')).timestamp);
       if (localStorage.getItem('device_fingerprint')) {
         const storedFingerprint = JSON.parse(localStorage.getItem('device_fingerprint'));
         setFingerprint(storedFingerprint);
@@ -159,7 +163,8 @@ export const FingerprintProvider = ({ children }) => {
         userId,
         hash: payload.shortHash,
         device: payload.deviceType,
-        browser: payload.browser
+        browser: payload.browser,
+        ip: payload.ipAddress
       });
 
       const response = await fetch(`${API_URL}/api/fingerprint/save`, {

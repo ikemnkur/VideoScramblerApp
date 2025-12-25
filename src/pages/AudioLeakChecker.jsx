@@ -509,7 +509,7 @@ export default function AudioLeakChecker() {
         onClose={() => setShowCreditModal(false)}
         onConfirm={handleCreditConfirm}
         mediaType="audio"
-        creditCost={actionCost}
+        
         currentCredits={userCredits}
         fileName={selectedFile?.name || ''}
         file={selectedFile}

@@ -27,7 +27,7 @@ import { useToast } from '../contexts/ToastContext';
 //   onClose={() => setShowCreditModal(false)}
 //   onConfirm={handleCreditConfirm}
 //   mediaType="photo"
-//   creditCost={actionCost}
+//   
 //   currentCredits={userCredits}
 //   fileName={imageFile?.name || ''}
 //   isProcessing={isProcessing}
@@ -48,8 +48,9 @@ export default function CreditConfirmationModal({
   onConfirm,
   mediaType = 'video', // 'video' or 'photo'
   description = '',
-  creditCost = -1,
+  // creditCost = 0,
   currentCredits = 0,
+  scrambleLevel = 1,
   fileName = '',
   isProcessing = false,
   fileDetails = {
@@ -67,7 +68,7 @@ export default function CreditConfirmationModal({
 }) {
   const { success, error } = useToast();
 
-  const [totalCost, setTotalCost] = useState(creditCost);
+  const [totalCost, setTotalCost] = useState(0);
   const [userCredits, setUserCredits] = useState(currentCredits);
   const [hasEnoughCredits, setHasEnoughCredits] = useState(false);
   const [remainingCredits, setRemainingCredits] = useState(0);
@@ -164,27 +165,27 @@ export default function CreditConfirmationModal({
 
   useEffect(() => {
     // Calculate cost based on fileDetails
-    let calculatedCost = creditCost;
+    let calculatedCost = 0;
 
     if (!fileDetails || (!fileDetails.horizontal && !fileDetails.vertical)) {
-      // No file details available, use base cost
-      setTotalCost(creditCost);
-      setHasEnoughCredits(userCredits >= creditCost);
-      setRemainingCredits(userCredits - creditCost);
-      // check if audio file
-      if (mediaType === 'audio' && fileDetails) {
-        // simple cost calculation for audio based on size
-        const sizeInMB = fileDetails.size / (1000 * 1000);
-        calculatedCost += Math.ceil(sizeInMB); // 1 credit per MB
-        setTotalCost(calculatedCost);
-        setHasEnoughCredits(userCredits >= calculatedCost);
-        setRemainingCredits(userCredits - calculatedCost);
-      } else {
-        return () => { console.log('No file details available for cost calculation'); };
-      }
+    //   // No file details available, use base cost
+    //   setTotalCost(0);
+    //   setHasEnoughCredits(userCredits >= 0);
+    //   setRemainingCredits(userCredits - creditCost);
+    //   // check if audio file
+    //   // // if (mediaType === 'audio' && fileDetails) {
+    //   // //   // simple cost calculation for audio based on size
+    //   // //   const sizeInMB = fileDetails.size / (1000 * 1000);
+    //   // //   calculatedCost += Math.ceil(sizeInMB); // 1 credit per MB
+    //   // //   setTotalCost(calculatedCost);
+    //   // //   setHasEnoughCredits(userCredits >= calculatedCost);
+    //   // //   setRemainingCredits(userCredits - calculatedCost);
+    //   // // } else {
+       return () => { console.log('No file details available for cost calculation'); };
+    //   // }
 
-    } else {
-      // Handle the case where fileDetails is available but lacks horizontal and vertical properties
+    // } else {
+    //   // Handle the case where fileDetails is available but lacks horizontal and vertical properties
     }
 
     const LQ = 2;
@@ -201,13 +202,13 @@ export default function CreditConfirmationModal({
       console.log('Photo Size:', fileDetails.size, 'bytes');
 
       if (width >= 1920 && height >= 1080) {
-        calculatedCost = creditCost + FHDCharge;
+        calculatedCost =  FHDCharge;
       } else if (width >= 1280 && height >= 720) {
-        calculatedCost = creditCost + HDcharge;
+        calculatedCost =  HDcharge;
       } else if (width >= 854 && height >= 480) {
-        calculatedCost = creditCost + SDcharge;
+        calculatedCost =  SDcharge;
       } else {
-        calculatedCost = creditCost + LQ;
+        calculatedCost =  LQ;
       }
 
       calculatedCost = Math.ceil(calculatedCost * (1 + fileDetails.size / (1000 * 1000 * 0.5))); // scale by size in MB over 0.5MB
@@ -227,16 +228,9 @@ export default function CreditConfirmationModal({
       // console.log('Audio Resolution:', width, 'x', height);
       console.log('Audio Size:', fileDetails.size, 'bytes');
 
-      // let resolutionCost = LQ;
-      // if (width >= 1920 && height >= 1080) {
-      //   resolutionCost = FHDCharge;
-      // } else if (width >= 1280 && height >= 720) {
-      //   resolutionCost = HDcharge;
-      // } else if (width >= 854 && height >= 480) {
-      //   resolutionCost = SDcharge;
-      // }
+      console.log ("cost due to size: ", (1 + fileDetails.size / (1000 * 1000 * 1)))
 
-      calculatedCost = Math.ceil((sampleRate / 24000) + duration * (numberOfChannels + fileDetails.size / (1000 * 1000 * 1))); // scale by size in MB over 1MB
+     calculatedCost = Math.ceil((sampleRate / 24000) * duration + (numberOfChannels * fileDetails.size / (1000 * 1000 * 1))); // scale by size in MB over 1MB
 
       console.log('Calculated Audio Cost:', calculatedCost);
 
@@ -259,16 +253,19 @@ export default function CreditConfirmationModal({
         resolutionCost = SDcharge;
       }
 
-      calculatedCost = Math.ceil(creditCost + (duration * resolutionCost * 2) * (1 + fileDetails.size / (1000 * 1000 * 1))); // scale by size in MB over 1MB
+      console.log ("cost due to size: ", (1 + fileDetails.size / (1000 * 1000 * 1)))
+
+
+      calculatedCost = Math.ceil( (duration * resolutionCost) + (1 + fileDetails.size / (1000 * 1000 * 1))); // scale by size in MB over 1MB
 
       // console.log('Calculated Video Cost:', calculatedCost);
     }
 
-    setTotalCost(calculatedCost);
-    setHasEnoughCredits(userCredits >= calculatedCost);
-    setRemainingCredits(userCredits - calculatedCost);
+    setTotalCost(Math.ceil(calculatedCost * Math.sqrt(scrambleLevel)));
+    setHasEnoughCredits(userCredits >= totalCost);
+    setRemainingCredits(userCredits - totalCost);
 
-  }, [fileDetails, mediaType, creditCost, userCredits]);
+  }, [fileDetails, mediaType, userCredits, scrambleLevel]);
 
 
 
@@ -302,9 +299,9 @@ export default function CreditConfirmationModal({
             {/* /* list attributes of video or photo */}
             <Typography variant="body2" color="text.secondary">
               {mediaType === 'video'
-                ? `Duration: ${fileDetails.duration ?? 'Unknown'}s | Resolution: ${fileDetails.horizontal}x${fileDetails.vertical} | Size: ${Math.floor(fileDetails.size / (1000 * 100)) / 10 ?? 'Unknown'} MB`
+                ? `Duration: ${fileDetails.duration ?? 'Unknown '} s | Resolution: ${fileDetails.horizontal}x${fileDetails.vertical} | Size: ${Math.floor(fileDetails.size / (1000 * 100)) / 10 ?? 'Unknown'} MB`
                 : mediaType === 'audio'
-                  ? `Duration: ${fileDetails.duration ?? 'Unknown'}s | Sample Rate: ${fileDetails.sampleRate ?? 'Unknown'} Hz | Channels: ${fileDetails.numberOfChannels ?? 'Unknown'} | Size: ${Math.floor(fileDetails.size / (1000 * 1000) * 10) / 10 ?? 'Unknown'} MB`
+                  ? `Duration: ${fileDetails.duration ?? 'Unknown '} s | Sample Rate: ${fileDetails.sampleRate ?? 'Unknown'} Hz | Channels: ${fileDetails.numberOfChannels ?? 'Unknown'} | Size: ${Math.floor(fileDetails.size / (1000 * 1000) * 10) / 10 ?? 'Unknown'} MB`
                   : `Dimensions: ${fileDetails.horizontal}x${fileDetails.vertical} | Size: ${Math.floor(fileDetails.size / 1000) ?? 'Unknown'} KB`}
             </Typography>
           </Typography>

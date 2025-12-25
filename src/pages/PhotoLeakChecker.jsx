@@ -256,7 +256,7 @@ export default function PhotoLeakChecker() {
         onClose={() => setShowCreditModal(false)}
         onConfirm={handleCreditConfirm}
         mediaType="photo"
-        creditCost={actionCost}
+        
         currentCredits={userCredits}
         fileName={selectedFile?.name || ''}
         user={userData}

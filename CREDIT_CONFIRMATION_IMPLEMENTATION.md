@@ -89,7 +89,7 @@ A reusable Material-UI modal component that:
      onClose={() => setShowCreditModal(false)}
      onConfirm={handleCreditConfirm}
      mediaType="video"
-     creditCost={actionCost}
+     
      currentCredits={userCredits}
      fileName={selectedFile?.name || ''}
      user={userData}
@@ -154,7 +154,7 @@ A reusable Material-UI modal component that:
      onClose={() => setShowCreditModal(false)}
      onConfirm={handleCreditConfirm}
      mediaType="photo"
-     creditCost={actionCost}
+     
      currentCredits={userCredits}
      fileName={imageFile?.name || ''}
      isProcessing={isProcessing}

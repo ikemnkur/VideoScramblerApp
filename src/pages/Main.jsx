@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
-import { Container, Stack, Typography, Card, CardContent, Divider, Skeleton, Button } from '@mui/material';
+import { Container, Stack, Typography, Card, CardContent, Divider, Skeleton, Button, Modal, Box, IconButton } from '@mui/material';
+import { Close, Lock, Star } from '@mui/icons-material';
 import PaymentButton from '../components/PaymentButton';
 import Notifications from '../components/Notifications.jsx';
 import api from '../api/client';
@@ -8,14 +9,33 @@ import { useNavigate } from 'react-router-dom';
 import { Password } from '@mui/icons-material';
 
 const API_URL = import.meta.env.VITE_API_SERVER_URL || 'http://localhost:3001';
-export default function Wallet() {
+
+
+export default function MainPage() {
     const [balance, setBalance] = useState(null);
-    const { success, error } = useToast();
-    const accountType = localStorage.getItem('accountType'); // 'buyer', 'seller', or null
+    const [dayPassExpiry, setDayPassExpiry] = useState(null);
+    const [dayPassMode, setDayPassMode] = useState('free');
+    const [accountType, setAccountType] = useState("free"); //  'free', bassic, standard, premium
+    const { success, info, error } = useToast();
+
     const userData = JSON.parse(localStorage.getItem("userdata"));
     const [serviceMode, setServiceMode] = useState('free');
+    const [showModeModal, setShowModeModal] = useState(false);
+    const [selectedMode, setSelectedMode] = useState(null);
 
     const navigate = useNavigate();
+
+    const modeCredits = {
+        basic: 100,
+        standard: 200,
+        premium: 400
+    };
+
+    // Helper function to check if user has access to a given tier
+    const hasAccessToTier = (requiredTier) => {
+        const hierarchy = { 'free': 0, 'basic': 1, 'standard': 2, 'premium': 3 };
+        return hierarchy[serviceMode] >= hierarchy[requiredTier];
+    };
 
     const load = async () => {
 
@@ -24,31 +44,47 @@ export default function Wallet() {
             let response;
 
             // fetch data if no data fetched before or last fetch was over 1.5 minutes ago
-            let lastDataFetchTooOld = !localStorage.getItem('lastDataFetch') ||
-                (Date.now() - parseInt(localStorage.getItem('lastDataFetch') || "0", 10) > 1.5 * 60 * 1000);
+            // let lastDataFetchTooOld = !localStorage.getItem('lastDataFetch') ||
+            //     (Date.now() - parseInt(localStorage.getItem('lastDataFetch') || "0", 10) > 1.5 * 60 * 1000);
 
-            if (lastDataFetchTooOld) {
-                response = await api.post(`api/user`, {
-                    username: userData.username,
-                    email: userData.email,
-                    password: localStorage.getItem('passwordtxt')
-                });
 
-                if (response.status === 200 && response.data) {
-                    console.log("User profile response data:", response.data);
-                    localStorage.setItem('Earnings', JSON.stringify(response.data.earnings || []));
-                    localStorage.setItem('Unlocks', JSON.stringify(response.data.unlocks || []));
-                    localStorage.setItem('userdata', JSON.stringify(response.data.user || {}));
-                    localStorage.setItem('lastDataFetch', Date.now().toString()); // Set account type
-                    setBalance(response.data.user?.credits || 0); // Use credits from userData or fallback
+            response = await api.post(`api/user`, {
+                username: userData.username,
+                email: userData.email,
+                password: localStorage.getItem('passwordtxt')
+            });
+
+            // if (response.status === 200 && response.data) {
+            console.log("API user response:", response);
+            response.ok && console.log("API user response OK");
+            if (response.data && response.data.success) {
+                console.log("User profile response data:", response.data);
+                // localStorage.setItem('Earnings', JSON.stringify(response.data.earnings || []));
+                // localStorage.setItem('Unlocks', JSON.stringify(response.data.unlocks || []));
+                localStorage.setItem('userdata', JSON.stringify(response.data.user || {}));
+                localStorage.setItem('lastDataFetch', Date.now().toString()); // Set account type
+
+                // Store dayPass data properly (don't store null as string)
+                if (response.data.dayPassExpiry) {
+                    localStorage.setItem('dayPassExpiry', response.data.dayPassExpiry);
                 } else {
-                    throw new Error('Failed to fetch wallet data');
+                    localStorage.removeItem('dayPassExpiry');
                 }
+
+                if (response.data.dayPassMode) {
+                    localStorage.setItem('dayPassMode', response.data.dayPassMode);
+                } else {
+                    localStorage.setItem('dayPassMode', 'free');
+                }
+
+                setDayPassExpiry(response.data.dayPassExpiry || null);
+                setDayPassMode(response.data.dayPassMode || 'free');
+                setBalance(response.data.user.credits || 0); // Use credits from userData or fallback
+                setAccountType(response.data.user.accountType || 'free');
             } else {
-                // Use cached data if not fetching new data
-                const cachedUser = JSON.parse(localStorage.getItem('userdata') || '{}');
-                setBalance(cachedUser.credits || 0);
+                throw new Error('Failed to fetch wallet data');
             }
+
         } catch (e) {
             console.error('Error loading wallet balance:', e);
             setBalance(750); // demo fallback with realistic amount
@@ -64,6 +100,108 @@ export default function Wallet() {
 
     const onPaymentError = () => error('Payment could not be started');
 
+    const handleModeChange = (mode) => {
+
+        console.log("handleModeChange called with mode:", mode);
+        console.log("Current dayPassExpiry:", dayPassExpiry);
+        console.log("Current dayPassMode:", dayPassMode);
+        console.log("dayPassExpiry type:", typeof dayPassExpiry);
+        console.log("Is expiry valid?", dayPassExpiry && new Date(dayPassExpiry) > new Date());
+
+        // Define mode hierarchy for comparison
+        const modeHierarchy = { 'free': 0, 'basic': 1, 'standard': 2, 'premium': 3 };
+        const hasActivePass = dayPassExpiry && new Date(dayPassExpiry) > new Date();
+
+        if (mode === 'free') {
+            setServiceMode('free');
+            return;
+        }
+
+
+
+        // if user has a active plan (not a 24 pass but a full month 30day plan) Override the dayPass
+        if (accountType && accountType !== 'free') {
+            const currentLevel = modeHierarchy[accountType] || 0;
+            const selectedLevel = modeHierarchy[mode] || 0;
+
+            // If trying to use lower tier services
+            if (selectedLevel < currentLevel) {
+               
+                setServiceMode(mode)
+                // return;
+            }
+
+            // setServiceMode(accountType);
+            // return;
+        }
+
+        // If user has an active pass
+        if (hasActivePass) {
+            const currentLevel = modeHierarchy[dayPassMode] || 0;
+            const selectedLevel = modeHierarchy[mode] || 0;
+
+            // If trying to select same mode they already have
+            if (mode === dayPassMode) {
+                info(`You have an active ${mode} pass until it expires at ${new Date(dayPassExpiry).toLocaleString()}.`);
+                setServiceMode(dayPassMode);
+                return;
+            }
+
+            // / If trying to use lower tier services
+            if (selectedLevel < currentLevel) {
+                // error(`Cannot downgrade from ${dayPassMode} to ${mode}. Your current pass is still active.`);
+                setServiceMode(mode)
+                return;
+            }
+
+            // Allow upgrade to higher tier
+            console.log(`Allowing upgrade from ${dayPassMode} to ${mode}`);
+        }
+
+        // Open modal for purchase/upgrade
+        setSelectedMode(mode);
+        setShowModeModal(true);
+    };
+
+    const handlePurchasePass = async () => {
+        const cost = modeCredits[selectedMode];
+        const modeHierarchy = { 'free': 0, 'basic': 1, 'standard': 2, 'premium': 3 };
+        const hasActivePass = dayPassExpiry && new Date(dayPassExpiry) > new Date();
+        const isUpgrade = hasActivePass && modeHierarchy[selectedMode] > modeHierarchy[dayPassMode];
+
+        if (balance < cost) {
+            error(`Insufficient credits. You need ${cost} credits but only have ${balance}.`);
+            setShowModeModal(false);
+            return;
+        }
+
+        try {
+            // Placeholder API call - will be connected to backend later
+            const response = await api.post('/api/purchase-mode-pass', {
+                username: userData.username,
+                mode: selectedMode,
+                cost: cost,
+                timestamp: new Date().toISOString()
+            });
+
+            if (response.data.success) {
+                setBalance(balance - cost);
+                setServiceMode(selectedMode);
+                setDayPassMode(selectedMode);
+                setDayPassExpiry(new Date(new Date().getTime() + 24 * 60 * 60 * 1000).toISOString());
+                localStorage.setItem('dayPassMode', selectedMode);
+                localStorage.setItem('dayPassExpiry', new Date(new Date().getTime() + 24 * 60 * 60 * 1000).toISOString());
+                setShowModeModal(false);
+
+                const actionText = isUpgrade ? 'upgraded to' : 'activated';
+                success(`🎉 ${selectedMode.charAt(0).toUpperCase() + selectedMode.slice(1)} pass ${actionText}! ${cost} credits deducted.`);
+            }
+        } catch (err) {
+            console.error('Mode pass purchase error:', err);
+            error('Failed to purchase mode pass. Please try again.');
+        }
+    };
+
     return (
         <Container sx={{ py: 4, backgroundColor: '#0a0a0a', minHeight: '100vh' }}>
             <Stack spacing={2}>
@@ -74,18 +212,22 @@ export default function Wallet() {
                     borderRadius: 2
                 }}>
                     <CardContent>
-                        <Typography variant="h6" sx={{ color: '#ffd700' }}>Current Balance</Typography>
+                        {/* <Typography variant="h4" sx={{ color: '#ffd700' }}>Current Balance</Typography> */}
                         {balance === null ? (
                             <Skeleton variant="text" width={220} height={54} animation="wave" />
                         ) : (
                             <Typography variant="h3" sx={{ fontWeight: 800, color: '#2e7d32' }}>{balance} credits</Typography>
                         )}
 
-                    </CardContent>
+                        <Typography variant="h4" sx={{ color: '#f7e244ff', mt: 1 }}>
+                            Plan: {accountType.charAt(0).toUpperCase() + accountType.slice(1)} {dayPassMode !== "free" && `|| 24h Pass: ${dayPassMode.charAt(0).toUpperCase() + dayPassMode.slice(1)}`}
+                        </Typography>
 
-                    {/* purchase button : go to purchase page */}
+                        {/* </CardContent> */}
 
-                    <CardContent>
+                        {/* purchase button : go to purchase page */}
+
+                        {/* <CardContent> */}
                         <Divider sx={{ my: 2, borderColor: '#444' }} />
                         {/* {accountType === 'buyer' && ( */}
                         <div style={{ display: 'flex', flexDirection: 'row', gap: '10px' }}>
@@ -115,7 +257,7 @@ export default function Wallet() {
                                     }
                                 }}
                             >
-                                Your Plan
+                                Change Plan
                             </Button>
                             <Button
                                 onClick={() => navigate("/purchase-history")}
@@ -160,7 +302,7 @@ export default function Wallet() {
                                         backgroundColor: serviceMode === 'free' ? '#e6c200' : 'rgba(255, 215, 0, 0.1)'
                                     }
                                 }}
-                                onClick={() => setServiceMode('free')}>
+                                onClick={() => handleModeChange('free')}>
                                 Free
                             </Button>
                             <Button
@@ -173,7 +315,7 @@ export default function Wallet() {
                                         backgroundColor: serviceMode === 'basic' ? '#e6c200' : 'rgba(255, 215, 0, 0.1)'
                                     }
                                 }}
-                                onClick={() => setServiceMode('basic')}>
+                                onClick={() => handleModeChange('basic')}>
                                 Basic
                             </Button>
                             <Button
@@ -186,7 +328,7 @@ export default function Wallet() {
                                         backgroundColor: serviceMode === 'standard' ? '#e6c200' : 'rgba(255, 215, 0, 0.1)'
                                     }
                                 }}
-                                onClick={() => setServiceMode('standard')}>
+                                onClick={() => handleModeChange('standard')}>
                                 Standard
                             </Button>
                             <Button
@@ -199,7 +341,7 @@ export default function Wallet() {
                                         backgroundColor: serviceMode === 'premium' ? '#e6c200' : 'rgba(255, 215, 0, 0.1)'
                                     }
                                 }}
-                                onClick={() => setServiceMode('premium')}>
+                                onClick={() => handleModeChange('premium')}>
                                 Premium
                             </Button>
                         </div>
@@ -214,7 +356,7 @@ export default function Wallet() {
                         }}>
 
                             {/* Free Scramble Video Service */}
-                            {(serviceMode === 'free' || serviceMode === 'basic') && (
+                            {(hasAccessToTier('free') && !hasAccessToTier('standard')) && (
                                 <Card sx={{
                                     backgroundColor: '#2a2a2a',
                                     border: '1px solid #2e7d32',
@@ -227,7 +369,7 @@ export default function Wallet() {
                                         boxShadow: '0 4px 12px rgba(46, 125, 50, 0.3)'
                                     }
                                 }}
-                                    onClick={() => navigate("/video-scrambler")}>
+                                    onClick={() => navigate(serviceMode === 'free' ? "/video-scrambler" : "/video-scrambler-basic")}>
                                     <CardContent sx={{ p: 2 }}>
                                         <Typography variant="h6" sx={{ color: '#2e7d32', mb: 1, fontWeight: 'bold' }}>
                                             🔐🎬 Scramble Video {serviceMode === 'free' ? '' : '    (No Ads)'}
@@ -240,7 +382,7 @@ export default function Wallet() {
                             )}
 
                             {/* Free Scramble Photo Service */}
-                            {(serviceMode === 'free' || serviceMode === 'basic') && (
+                            {(hasAccessToTier('free') && !hasAccessToTier('standard')) && (
                                 <Card sx={{
                                     backgroundColor: '#2a2a2a',
                                     border: '1px solid #2e7d32',
@@ -253,7 +395,7 @@ export default function Wallet() {
                                         boxShadow: '0 4px 12px rgba(46, 125, 50, 0.3)'
                                     }
                                 }}
-                                    onClick={() => navigate("/photo-scrambler")}>
+                                    onClick={() => navigate(serviceMode === 'free' ? "/photo-scrambler" : "/photo-scrambler-basic")}>
                                     <CardContent sx={{ p: 2 }}>
                                         <Typography variant="h6" sx={{ color: '#2e7d32ff', mb: 1, fontWeight: 'bold' }}>
                                             🔐📸 Scramble Photo {serviceMode === 'free' ? '' : '\n    (No Ads)'}
@@ -268,7 +410,7 @@ export default function Wallet() {
 
 
                             {/* Basic Only Service: Scramble Audio Service */}
-                            {(serviceMode === 'basic') && (
+                            {(hasAccessToTier('basic') && !hasAccessToTier('standard')) && (
                                 <Card sx={{
                                     backgroundColor: '#2a2a2a',
                                     border: '1px solid #2e7d32',
@@ -293,7 +435,7 @@ export default function Wallet() {
                                 </Card>
                             )}
 
-                            {(serviceMode === 'basic' || serviceMode === 'free') && (
+                            {(hasAccessToTier('free') && !hasAccessToTier('standard')) && (
                                 <Divider sx={{ my: 0, borderColor: '#444', gridColumn: '1 / -1' }} />
                             )}
 
@@ -303,7 +445,7 @@ export default function Wallet() {
                             {/* Free Services */}
 
                             {/* Free Unscramble Video Service */}
-                            {(serviceMode === 'free' || serviceMode === 'basic') && (
+                            {(hasAccessToTier('free') && !hasAccessToTier('standard')) && (
                                 <Card sx={{
                                     backgroundColor: '#2a2a2a',
                                     border: '1px solid #ff9800',
@@ -316,7 +458,7 @@ export default function Wallet() {
                                         boxShadow: '0 4px 12px rgba(255, 152, 0, 0.3)'
                                     }
                                 }}
-                                    onClick={() => navigate("/video-unscrambler")}>
+                                    onClick={() => navigate(serviceMode === 'free' ? "/video-unscrambler" : "/video-unscrambler-basic")}>
                                     <CardContent sx={{ p: 2 }}>
                                         <Typography variant="h6" sx={{ color: '#ff9900ff', mb: 1, fontWeight: 'bold' }}>
                                             🎬 Unscramble Video {serviceMode === 'free' ? '' : '    (No Ads)'}
@@ -329,7 +471,7 @@ export default function Wallet() {
                             )}
 
                             {/* Free Unscramble Photo Service */}
-                            {(serviceMode === 'free' || serviceMode === 'basic') && (
+                            {(hasAccessToTier('free') && !hasAccessToTier('standard')) && (
                                 <Card sx={{
                                     backgroundColor: '#2a2a2a',
                                     border: '1px solid #ff9800',
@@ -342,7 +484,7 @@ export default function Wallet() {
                                         boxShadow: '0 4px 12px rgba(255, 152, 0, 0.3)'
                                     }
                                 }}
-                                    onClick={() => navigate("/photo-unscrambler")}>
+                                    onClick={() => navigate(serviceMode === 'free' ? "/photo-unscrambler" : "/photo-unscrambler-basic")}>
                                     <CardContent sx={{ p: 2 }}>
                                         <Typography variant="h6" sx={{ color: '#ff9800', mb: 1, fontWeight: 'bold' }}>
                                             🖼️ Unscramble Photo {serviceMode === 'free' ? '' : '    (No Ads)'}
@@ -357,7 +499,7 @@ export default function Wallet() {
                             {/* Basic Services */}
 
                             {/* Unscramble Audio Service */}
-                            {(serviceMode === 'basic') && (
+                            {(hasAccessToTier('basic') && !hasAccessToTier('standard')) && (
                                 <Card sx={{
                                     backgroundColor: '#2a2a2a',
                                     border: '1px solid #ff9800',
@@ -385,7 +527,7 @@ export default function Wallet() {
                             {/* Pro Services */}
 
                             {/*  Scramble Photo Service */}
-                            {(serviceMode === 'premium' || serviceMode === 'standard') && (
+                            {hasAccessToTier('standard') && (
                                 <Card sx={{
                                     backgroundColor: '#2a2a2a',
                                     border: '1px solid #2e7d32',
@@ -412,7 +554,7 @@ export default function Wallet() {
 
 
                             {/* Pro Unscramble Photo Service */}
-                            {(serviceMode === 'premium' || serviceMode === 'standard') && (
+                            {hasAccessToTier('standard') && (
 
                                 <Card sx={{
                                     backgroundColor: '#2a2a2a',
@@ -441,7 +583,7 @@ export default function Wallet() {
                             <Divider sx={{ my: 0, borderColor: '#444', gridColumn: '1 / -1' }} />
 
                             {/* Pro Scramble Video Service */}
-                            {(serviceMode === 'premium' || serviceMode === 'standard') && (
+                            {hasAccessToTier('standard') && (
                                 <Card sx={{
                                     backgroundColor: '#2a2a2a',
                                     border: '1px solid #2e7d32',
@@ -467,7 +609,7 @@ export default function Wallet() {
                             )}
 
                             {/* Pro Unscramble Video Service */}
-                            {(serviceMode === 'premium' || serviceMode === 'standard') && (
+                            {hasAccessToTier('standard') && (
 
                                 <Card sx={{
                                     backgroundColor: '#2a2a2a',
@@ -496,8 +638,8 @@ export default function Wallet() {
                             <Divider sx={{ my: 0, borderColor: '#444', gridColumn: '1 / -1' }} />
 
 
-                            {/* Photo Leak Checker Service */}
-                            {serviceMode === 'premium' && (
+                            {/* Audio Leak Checker Service */}
+                            {hasAccessToTier('premium') && (
                                 <Card sx={{
                                     backgroundColor: '#2a2a2a',
                                     border: '1px solid #e91e63',
@@ -523,7 +665,7 @@ export default function Wallet() {
                             )}
 
                             {/* Photo Leak Checker Service */}
-                            {serviceMode === 'premium' && (
+                            {hasAccessToTier('premium') && (
                                 <Card sx={{
                                     backgroundColor: '#2a2a2a',
                                     border: '1px solid #e91e63',
@@ -549,7 +691,7 @@ export default function Wallet() {
                             )}
 
                             {/* Video Leak Checker Service */}
-                            {serviceMode === 'premium' && (
+                            {hasAccessToTier('premium') && (
                                 <Card sx={{
                                     backgroundColor: '#2a2a2a',
                                     border: '1px solid #e91e63',
@@ -591,6 +733,138 @@ export default function Wallet() {
                     </CardContent>
                 </Card>
             </Stack>
+
+            {/* Mode Purchase Modal */}
+            <Modal open={showModeModal} onClose={() => setShowModeModal(false)}>
+                <Box sx={{
+                    position: 'absolute',
+                    top: '50%',
+                    left: '50%',
+                    transform: 'translate(-50%, -50%)',
+                    width: { xs: '90vw', sm: '500px' },
+                    bgcolor: '#1a1a1a',
+                    border: '3px solid #ffd700',
+                    borderRadius: 3,
+                    boxShadow: '0 8px 32px rgba(255, 215, 0, 0.3)',
+                    p: 4
+                }}>
+                    <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
+                        <Typography variant="h5" sx={{ color: '#ffd700', fontWeight: 'bold', display: 'flex', alignItems: 'center', gap: 1 }}>
+                            <Lock /> Unlock {selectedMode && selectedMode.charAt(0).toUpperCase() + selectedMode.slice(1)} Mode
+                        </Typography>
+                        <IconButton onClick={() => setShowModeModal(false)} sx={{ color: '#ffd700' }}>
+                            <Close />
+                        </IconButton>
+                    </Box>
+
+                    <Divider sx={{ mb: 3, borderColor: '#444' }} />
+
+                    <Box sx={{ mb: 3 }}>
+                        <Typography variant="body1" sx={{ color: '#ccc', mb: 2 }}>
+                            To access <strong style={{ color: '#ffd700' }}>{selectedMode}</strong> mode features, you need to purchase a pass.
+                        </Typography>
+
+                        <Card sx={{ backgroundColor: '#2a2a2a', border: '2px solid #2e7d32', p: 2, mb: 2 }}>
+                            <Typography variant="h6" sx={{ color: '#2e7d32', mb: 1, display: 'flex', alignItems: 'center', gap: 1 }}>
+                                <Star /> Mode Benefits:
+                            </Typography>
+                            <Typography variant="body2" sx={{ color: '#ccc', mb: 0.5 }}>
+                                • {selectedMode === 'basic' && 'Ad-free experience + Audio scrambling'}
+                                {selectedMode === 'standard' && 'HD quality + Pro video/photo scrambling'}
+                                {selectedMode === 'premium' && 'FHD quality + Leak detection scanners'}
+                            </Typography>
+                            <Typography variant="body2" sx={{ color: '#ccc', mb: 0.5 }}>
+                                • Priority processing and faster exports
+                            </Typography>
+                            <Typography variant="body2" sx={{ color: '#ccc' }}>
+                                • Access to advanced scrambling algorithms
+                            </Typography>
+                        </Card>
+
+                        <Box sx={{ backgroundColor: '#2a2a2a', border: '2px solid #ffd700', p: 2, borderRadius: 2, textAlign: 'center' }}>
+                            <Typography variant="h4" sx={{ color: '#ffd700', fontWeight: 'bold' }}>
+                                {selectedMode && modeCredits[selectedMode]} Credits
+                            </Typography>
+                            <Typography variant="body2" sx={{ color: '#999', mt: 0.5 }}>
+                                One-time pass purchase
+                            </Typography>
+                        </Box>
+                    </Box>
+
+                    <Box sx={{ mb: 2, p: 2, backgroundColor: '#2a2a2a', borderRadius: 2 }}>
+                        <Typography variant="body2" sx={{ color: '#ccc' }}>
+                            Your Balance: <strong style={{ color: balance >= (selectedMode && modeCredits[selectedMode]) ? '#2e7d32' : '#f44336' }}>
+                                {balance} credits
+                            </strong>
+                        </Typography>
+                        {balance < (selectedMode && modeCredits[selectedMode]) && (
+                            <Typography variant="body2" sx={{ color: '#f44336', mt: 1 }}>
+                                ⚠️ Insufficient credits. You need {selectedMode && (modeCredits[selectedMode] - balance)} more credits.
+                            </Typography>
+                        )}
+                    </Box>
+
+                    <Box sx={{ display: 'flex', gap: 2 }}>
+                        <Button
+                            fullWidth
+                            variant="outlined"
+                            onClick={() => setShowModeModal(false)}
+                            sx={{
+                                borderColor: '#666',
+                                color: '#ccc',
+                                '&:hover': {
+                                    borderColor: '#ffd700',
+                                    backgroundColor: 'rgba(255, 215, 0, 0.1)'
+                                }
+                            }}
+                        >
+                            Cancel
+                        </Button>
+                        <Button
+                            fullWidth
+                            variant="contained"
+                            onClick={handlePurchasePass}
+                            disabled={balance < (selectedMode && modeCredits[selectedMode])}
+                            sx={{
+                                backgroundColor: balance >= (selectedMode && modeCredits[selectedMode]) ? '#ffd700' : '#666',
+                                color: '#0a0a0a',
+                                fontWeight: 'bold',
+                                '&:hover': {
+                                    backgroundColor: balance >= (selectedMode && modeCredits[selectedMode]) ? '#e6c200' : '#666'
+                                },
+                                '&:disabled': {
+                                    backgroundColor: '#444',
+                                    color: '#666'
+                                }
+                            }}
+                        >
+                            {balance >= (selectedMode && modeCredits[selectedMode]) ? 'Purchase Pass' : 'Get More Credits'}
+                        </Button>
+                    </Box>
+
+                    {balance < (selectedMode && modeCredits[selectedMode]) && (
+                        <Button
+                            fullWidth
+                            variant="outlined"
+                            onClick={() => {
+                                setShowModeModal(false);
+                                navigate('/wallet');
+                            }}
+                            sx={{
+                                mt: 2,
+                                borderColor: '#2e7d32',
+                                color: '#2e7d32',
+                                '&:hover': {
+                                    backgroundColor: '#2e7d32',
+                                    color: '#fff'
+                                }
+                            }}
+                        >
+                            Go to Wallet & Buy Credits
+                        </Button>
+                    )}
+                </Box>
+            </Modal>
         </Container >
     );
 }

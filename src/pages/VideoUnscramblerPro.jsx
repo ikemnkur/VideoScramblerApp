@@ -61,7 +61,8 @@ export default function VideoUnscramblerPro() {
   const [unscrambledFilename, setUnscrambledFilename] = useState('');
   const [isProcessing, setIsProcessing] = useState(false);
   const [unscrambledReady, setUnscrambledReady] = useState(false);
-
+  const [scrambleLevel, setScrambleLevel] = useState(1); // Level of scrambling (for credit calculation)
+  
   const [userData, setUserData] = useState(JSON.parse(localStorage.getItem("userdata")));
   const [allowUnscrambling, setAllowUnscrambling] = useState(false);
   const [showCreditModal, setShowCreditModal] = useState(false);
@@ -270,6 +271,10 @@ export default function VideoUnscramblerPro() {
         input: selectedFile.name,
         output: `unscrambled_${selectedFile.name}`
       };
+
+      console.log("Unscramble parameters:", params);
+
+      setScrambleLevel(params.cols >= params.rows ? params.cols : params.rows);
 
       try {
 
@@ -743,7 +748,8 @@ export default function VideoUnscramblerPro() {
         onClose={() => setShowCreditModal(false)}
         onConfirm={handleCreditConfirm}
         mediaType="video"
-        creditCost={actionCost}
+        
+        scrambleLevel={scrambleLevel}
         currentCredits={userCredits}
         fileName={selectedFile?.name || ''}
         file={selectedFile}

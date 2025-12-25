@@ -78,6 +78,7 @@ export default function AudioUnscrambler() {
   const [userCredits, setUserCredits] = useState(0);
   // const actionCost = 3;
   const [actionCost, setActionCost] = useState(3);
+  const [scrambleLevel, setScrambleLevel] = useState(1);
 
   const [userData] = useState(JSON.parse(localStorage.getItem("userdata")));
 
@@ -827,9 +828,14 @@ export default function AudioUnscrambler() {
             />
           </Box>
 
+          {/* Unnscramble Action Button */}
+
           <Button
             variant="contained"
-            onClick={() => setShowCreditModal(true)}
+            onClick={() => {
+              setShowCreditModal(true);
+              setScrambleLevel(2 + audioDuration / segmentSize);
+            }}
             startIcon={<LockOpen />}
             disabled={!scrambledAudioBuffer || !loadedKeyData || isProcessing}
             sx={{
@@ -879,7 +885,8 @@ export default function AudioUnscrambler() {
         onConfirm={handleCreditConfirm}
         mediaType="audio"
         description="scramble audio"
-        creditCost={actionCost}
+        
+        scrambleLevel={scrambleLevel}
         currentCredits={userCredits}
         fileName={filename}
         isProcessing={isProcessing}

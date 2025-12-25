@@ -244,7 +244,7 @@ const Notifications = () => {
 
   // Format relative time
   const getRelativeTime = (dateString) => {
-    console.log("dateString:", dateString);
+    // console.log("dateString:", dateString);
     const now = new Date();
     const then = new Date(dateString);
     const diffMs = now - then;

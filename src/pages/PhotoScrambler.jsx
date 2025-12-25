@@ -41,7 +41,7 @@ import api from '../api/client';
 // - “Subscription-ready”: a tiny gate is included (isPro) to demo how you’d disable ads / waiting for paid users.
 // - Replace the mock auth/subscription bits in the "// SUBSCRIPTION HOOKS" area with your real auth and Stripe/etc.
 
-export default function ScramblerPhotos() {
+export default function PhotoScrambler() {
 
   // export default function App() {
   const { success, error } = useToast();
@@ -66,6 +66,7 @@ export default function ScramblerPhotos() {
 
   const [selectedLevel, setSelectedLevel] = useState("med"); // low|med|high
   const [grid, setGrid] = useState({ n: 8, m: 8 }); // Increased grid values for photos
+
   const [seed, setSeed] = useState(() => genRandomSeed());
   const [permDestToSrc0, setPermDestToSrc0] = useState([]);
   const [base64Key, setBase64Key] = useState("");
@@ -87,10 +88,11 @@ export default function ScramblerPhotos() {
   // Credit modal state
   const [showCreditModal, setShowCreditModal] = useState(false);
   const [userCredits, setUserCredits] = useState(0); // Mock credits, replace with actual user data
-  const actionCost = 5; // Cost to scramble a photo (less than video)
+  const [actionCost, setActionCost] = useState(5); // Cost to scramble a photo (less than video)
+  const [scrambleLevel, setScrambleLevel] = useState(8); // New state for scramble level
 
   const [selectedFile, setSelectedFile] = useState(null);
-  const [scrambledFilename, setScrambledFilename] = useState('');
+  // const [scrambledFilename, setScrambledFilename] = useState('');
   const [keyCode, setKeyCode] = useState('');
 
   const [previewUrl, setPreviewUrl] = useState(null);
@@ -112,7 +114,7 @@ export default function ScramblerPhotos() {
 
     setSelectedFile(file);
     setImageFile(file); // Also set imageFile for scrambling logic
-    setScrambledFilename('');
+    // setScrambledFilename('');
     setKeyCode('');
 
     // Reset previous state
@@ -212,6 +214,7 @@ export default function ScramblerPhotos() {
     if (selectedLevel === "low") setGrid({ n: 6, m: 6 });      // 36 pieces
     else if (selectedLevel === "med") setGrid({ n: 8, m: 8 }); // 64 pieces
     else if (selectedLevel === "high") setGrid({ n: 10, m: 10 }); // 100 pieces
+    setScrambleLevel(selectedLevel === "low" ? 6 : selectedLevel === "med" ? 8 : 10);
   }, [selectedLevel]);
 
   // =============================
@@ -227,7 +230,7 @@ export default function ScramblerPhotos() {
     canvas.height = image.naturalHeight + 64;
   }, [imageLoaded]);
 
- 
+
   // =============================
   // DRAW SCRAMBLED IMAGE
   // =============================
@@ -244,10 +247,10 @@ export default function ScramblerPhotos() {
     // Step 1: Calculate padded dimensions to be evenly divisible by grid size
     const originalWidth = image.naturalWidth;
     const originalHeight = image.naturalHeight;
-    
+
     // Round up to nearest multiple of grid size
-    const paddedWidth = Math.ceil(originalWidth / grid.m) * grid.m;
-    const paddedHeight = Math.ceil(originalHeight / grid.n) * grid.n;
+    const paddedWidth = Math.floor(originalWidth / grid.m) * grid.m;
+    const paddedHeight = Math.floor(originalHeight / grid.n) * grid.n;
 
     // Step 2: Set canvas size with padded dimensions + 128px border
     canvas.width = paddedWidth + 128;
@@ -265,11 +268,11 @@ export default function ScramblerPhotos() {
     tempCanvas.width = paddedWidth;
     tempCanvas.height = paddedHeight;
     const tempCtx = tempCanvas.getContext('2d');
-    
+
     // Fill temp canvas with black (for padding areas)
     tempCtx.fillStyle = '#000000';
     tempCtx.fillRect(0, 0, paddedWidth, paddedHeight);
-    
+
     // Draw original image (centered if there's padding)
     tempCtx.drawImage(image, 0, 0);
 
@@ -294,9 +297,9 @@ export default function ScramblerPhotos() {
     // Step 6: Add metadata text on top of scrambled image (readable)
     ctx.fillStyle = '#ffffff';
     ctx.font = '14px Arial, sans-serif';
-    ctx.fillText(`Scrambled by: ${user.username || 'Anonymous'}`, 10, 20);
-    ctx.fillText(`Scramble Level: ${selectedLevel.toUpperCase()} (${grid.n}×${grid.m})`, 10, 40);
-    ctx.fillText('Visit our app to unscramble this image with the key', 10, 60);
+    ctx.fillText(`Scrambled by: ${userData.username || 'Anonymous'}`, 10, 20);
+    // ctx.fillText(`Scramble Level: ${selectedLevel.toUpperCase()} (${grid.n}×${grid.m})`, 10, 40);
+    ctx.fillText('Unscramble this image using the VideoScrambler app', 10, 40);
 
     // Step 7: Add subtle watermark on the scrambled image (centered, readable)
     ctx.globalAlpha = 0.3;
@@ -304,7 +307,7 @@ export default function ScramblerPhotos() {
     ctx.font = 'bold 48px Arial, sans-serif';
     ctx.textAlign = 'center';
     const centerX = canvas.width / 2;
-    const centerY = canvas.height - offsetY/2 + (offsetY-48);
+    const centerY = canvas.height - offsetY / 2 + (offsetY - 48);
     ctx.fillText('SCRAMBLED', centerX, centerY);
     ctx.globalAlpha = 1.0;
     ctx.textAlign = 'left';
@@ -314,7 +317,7 @@ export default function ScramblerPhotos() {
   // =============================
   // EVENTS
   // =============================
- 
+
 
   const onGenerate = useCallback(() => {
     if (!imageFile) {
@@ -352,9 +355,17 @@ export default function ScramblerPhotos() {
     }
   }, [userData]);
 
-  const handleCreditConfirm = useCallback(() => {
+  const handleCreditConfirm = useCallback((actualCostSpent) => {
     setShowCreditModal(false);
     setIsProcessing(true);
+
+    // Now you have access to the actual cost that was calculated and spent
+    console.log('Credits spent:', actualCostSpent);
+
+    // You can use this value for logging, analytics, or displaying to user
+    setActionCost(actualCostSpent);
+    // setAllowScrambling(true);
+
 
     setTimeout(() => {
       const newSeed = genRandomSeed();
@@ -364,7 +375,8 @@ export default function ScramblerPhotos() {
       const perm = seededPermutation(N, newSeed);
       setPermDestToSrc0(perm);
 
-      const obj = paramsToJSON(newSeed, grid.n, grid.m, perm);
+      // create key JSON
+       const obj = paramsToJSON(newSeed, grid.n, grid.m, perm, userData.username ||'Anonymous', userData.userId || 'Unknown',   timestamp=new Date().toISOString());
       const pretty = JSON.stringify(obj, null, 2);
       setJsonKey(pretty);
       setBase64Key(toBase64(pretty));
@@ -388,6 +400,9 @@ export default function ScramblerPhotos() {
       drawScrambledImage();
     }
   }, [imageLoaded, drawScrambledImage, permDestToSrc0]);
+
+
+
 
   // =============================
   // DOWNLOAD SCRAMBLED IMAGE
@@ -414,13 +429,7 @@ export default function ScramblerPhotos() {
       showAdModal();
     }
 
-    // Convert canvas to blob and download
-    canvas.toBlob((blob) => {
-      if (blob) {
-        download(selectedFile.name + "-scrambled-image.png", blob);
-        success("Scrambled image downloaded successfully!");
-      }
-    }, "image/png", 1.0);
+
   }, [permDestToSrc0, imageLoaded, imageFile, isPro, error, success]);
 
   // =============================
@@ -450,6 +459,15 @@ export default function ScramblerPhotos() {
           setModalReady(true);
           setTimerText("Ready! You can close this window.");
           clearInterval(interval);
+
+          // // Convert canvas to blob and download
+          // canvas.toBlob((blob) => {
+          //   if (blob) {
+          //     download(selectedFile.name + "-scrambled-image.png", blob);
+          //     success("Scrambled image downloaded successfully!");
+          //   }
+          // }, "image/png", 1.0);
+
           return 0;
         }
         setTimerText(`Please wait ${prev - 1} seconds...`);
@@ -463,7 +481,17 @@ export default function ScramblerPhotos() {
   }, []);
 
   const onCloseModal = useCallback(() => {
+
+    const canvas = canvasRef.current;
     if (isPro || modalReady) hideAdModal();
+    // Convert canvas to blob and download
+    canvas.toBlob((blob) => {
+      if (blob) {
+        download(selectedFile.name + "-scrambled-image.png", blob);
+        success("Scrambled image downloaded successfully!");
+      }
+    }, "image/png", 1.0);
+
   }, [hideAdModal, isPro, modalReady]);
 
   // =============================
@@ -488,7 +516,7 @@ export default function ScramblerPhotos() {
       return;
     }
     const blob = new Blob([base64Key], { type: "text/plain" });
-    download("unscramble_key.txt", blob);
+    download(selectedFile.name + "unscramble_key.txt", blob);
     success("Key file downloaded successfully!");
   }, [base64Key, error, success]);
 
@@ -562,7 +590,7 @@ export default function ScramblerPhotos() {
               <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap', mb: 1 }}>
                 <Button
                   variant={selectedLevel === "low" ? "contained" : "outlined"}
-                  onClick={() => setSelectedLevel("low")}
+                  onClick={() => { setSelectedLevel("low"); setScrambleLevel(6); }}
                   sx={{
                     backgroundColor: selectedLevel === "low" ? '#4caf50' : 'transparent',
                     borderColor: '#4caf50',
@@ -573,7 +601,7 @@ export default function ScramblerPhotos() {
                 </Button>
                 <Button
                   variant={selectedLevel === "med" ? "contained" : "outlined"}
-                  onClick={() => setSelectedLevel("med")}
+                  onClick={() => { setSelectedLevel("med"); setScrambleLevel(8); }}
                   sx={{
                     backgroundColor: selectedLevel === "med" ? '#2196f3' : 'transparent',
                     borderColor: '#2196f3',
@@ -584,7 +612,7 @@ export default function ScramblerPhotos() {
                 </Button>
                 <Button
                   variant={selectedLevel === "high" ? "contained" : "outlined"}
-                  onClick={() => setSelectedLevel("high")}
+                  onClick={() => { setSelectedLevel("high"); setScrambleLevel(10); }}
                   sx={{
                     backgroundColor: selectedLevel === "high" ? '#f44336' : 'transparent',
                     borderColor: '#f44336',
@@ -604,7 +632,13 @@ export default function ScramblerPhotos() {
           <Box sx={{ display: 'flex', gap: 2, flexWrap: 'wrap', mb: 3 }}>
             <Button
               variant="contained"
-              onClick={onGenerate}
+              // onClick={onGenerate}
+              onClick={() => {
+                setShowCreditModal(true);
+
+                // setScrambleLevel(cols >= rows ? cols : rows);
+                onGenerate();
+              }}
               startIcon={<Shuffle />}
               disabled={!imageLoaded || isProcessing}
               sx={{
@@ -626,13 +660,24 @@ export default function ScramblerPhotos() {
               Step 2: 🖼️ Download Scrambled Image
             </Button>
 
-            <Button
+            {/* <Button
               variant="outlined"
               onClick={togglePro}
               startIcon={<Settings />}
               sx={{ borderColor: '#666', color: '#e0e0e0' }}
             >
               {isPro ? "Switch to Free (show ads)" : "Simulate Pro (no ads)"}
+            </Button> */}
+
+            <Button
+              variant="outlined"
+              // onClick={() => setIsPro(true)}
+              onClick={() => {
+                navigate('/plans')
+              }}
+              sx={{ borderColor: 'gold', color: 'gold', ml: 'auto' }}
+            >
+              Upgrade to Pro (No Ads)
             </Button>
           </Box>
 
@@ -841,6 +886,10 @@ export default function ScramblerPhotos() {
             <Typography variant="body2" sx={{ mb: 3, color: '#22d3ee' }}>
               {isPro ? "Pro: no wait" : timerText}
             </Typography>
+
+            {/* display ad  */}
+            {/* <AdComponent /> */}
+
             <Button
               variant="contained"
               onClick={onCloseModal}
@@ -865,7 +914,8 @@ export default function ScramblerPhotos() {
           onConfirm={handleCreditConfirm}
           mediaType="photo"
           description="scramble photo (lite)"
-          creditCost={actionCost}
+          
+          scrambleLevel={scrambleLevel}
           currentCredits={userCredits}
           fileName={selectedFile?.name || ''}
           isProcessing={isProcessing}

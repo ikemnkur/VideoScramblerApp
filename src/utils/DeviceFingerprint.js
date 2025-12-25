@@ -33,135 +33,135 @@ class DeviceFingerprint {
     // Browser Information
     try {
       fingerprint.browser = this.getBrowserInfo();
-      console.log('✓ Browser info collected');
+      //console.log('✓ Browser info collected');
     } catch (e) {
-      console.error('✗ Browser info failed:', e);
+      //console.error('✗ Browser info failed:', e);
       fingerprint.browser = { error: e.message };
     }
     
     // Device Information
     try {
       fingerprint.device = this.getDeviceInfo();
-      console.log('✓ Device info collected');
+      //console.log('✓ Device info collected');
     } catch (e) {
-      console.error('✗ Device info failed:', e);
+      //console.error('✗ Device info failed:', e);
       fingerprint.device = { error: e.message };
     }
     
     // Screen Information
     try {
       fingerprint.screen = this.getScreenInfo();
-      console.log('✓ Screen info collected');
+      //console.log('✓ Screen info collected');
     } catch (e) {
-      console.error('✗ Screen info failed:', e);
+      //console.error('✗ Screen info failed:', e);
       fingerprint.screen = { error: e.message };
     }
     
     // Network Information
     try {
       fingerprint.network = await this.getNetworkInfo();
-      console.log('✓ Network info collected');
+      //console.log('✓ Network info collected');
     } catch (e) {
-      console.error('✗ Network info failed:', e);
+      //console.error('✗ Network info failed:', e);
       fingerprint.network = { error: e.message };
     }
     
     // Hardware Information
     try {
       fingerprint.hardware = this.getHardwareInfo();
-      console.log('✓ Hardware info collected');
+      //console.log('✓ Hardware info collected');
     } catch (e) {
-      console.error('✗ Hardware info failed:', e);
+      //console.error('✗ Hardware info failed:', e);
       fingerprint.hardware = { error: e.message };
     }
     
     // Canvas Fingerprint
     try {
       fingerprint.canvas = this.getCanvasFingerprint();
-      console.log('✓ Canvas fingerprint generated');
+      //console.log('✓ Canvas fingerprint generated');
     } catch (e) {
-      console.error('✗ Canvas fingerprint failed:', e);
+      //console.error('✗ Canvas fingerprint failed:', e);
       fingerprint.canvas = 'error';
     }
     
     // WebGL Fingerprint
     try {
       fingerprint.webgl = this.getWebGLFingerprint();
-      console.log('✓ WebGL fingerprint generated');
+      //console.log('✓ WebGL fingerprint generated');
     } catch (e) {
-      console.error('✗ WebGL fingerprint failed:', e);
+      //console.error('✗ WebGL fingerprint failed:', e);
       fingerprint.webgl = { error: e.message };
     }
     
     // Audio Fingerprint
     try {
       fingerprint.audio = await this.getAudioFingerprint();
-      console.log('✓ Audio fingerprint generated');
+      //console.log('✓ Audio fingerprint generated');
     } catch (e) {
-      console.error('✗ Audio fingerprint failed:', e);
+      //console.error('✗ Audio fingerprint failed:', e);
       fingerprint.audio = { error: e.message };
     }
     
     // Plugins
     try {
       fingerprint.plugins = this.getPlugins();
-      console.log('✓ Plugins collected');
+      //console.log('✓ Plugins collected');
     } catch (e) {
-      console.error('✗ Plugins collection failed:', e);
+      //console.error('✗ Plugins collection failed:', e);
       fingerprint.plugins = [];
     }
     
     // Features
     try {
       fingerprint.features = this.getFeatures();
-      console.log('✓ Features detected');
+      //console.log('✓ Features detected');
     } catch (e) {
-      console.error('✗ Features detection failed:', e);
+      //console.error('✗ Features detection failed:', e);
       fingerprint.features = { error: e.message };
     }
     
     // Fonts
     try {
       fingerprint.fonts = this.getFonts();
-      console.log('✓ Fonts detected');
+      //console.log('✓ Fonts detected');
     } catch (e) {
-      console.error('✗ Fonts detection failed:', e);
+      //console.error('✗ Fonts detection failed:', e);
       fingerprint.fonts = [];
     }
     
     // Battery
     try {
       fingerprint.battery = await this.getBatteryInfo();
-      console.log('✓ Battery info collected');
+      //console.log('✓ Battery info collected');
     } catch (e) {
-      console.error('✗ Battery info failed:', e);
+      //console.error('✗ Battery info failed:', e);
       fingerprint.battery = { error: e.message };
     }
     
     // Timezone
     try {
       fingerprint.timezone = this.getTimezoneInfo();
-      console.log('✓ Timezone info collected');
+      //console.log('✓ Timezone info collected');
     } catch (e) {
-      console.error('✗ Timezone info failed:', e);
+      //console.error('✗ Timezone info failed:', e);
       fingerprint.timezone = { error: e.message };
     }
     
     // Language
     try {
       fingerprint.language = this.getLanguageInfo();
-      console.log('✓ Language info collected');
+      //console.log('✓ Language info collected');
     } catch (e) {
-      console.error('✗ Language info failed:', e);
+      //console.error('✗ Language info failed:', e);
       fingerprint.language = { error: e.message };
     }
     
     // Storage
     try {
       fingerprint.storage = this.getStorageInfo();
-      console.log('✓ Storage info collected');
+      //console.log('✓ Storage info collected');
     } catch (e) {
-      console.error('✗ Storage info failed:', e);
+      //console.error('✗ Storage info failed:', e);
       fingerprint.storage = { error: e.message };
     }
 
@@ -169,9 +169,9 @@ class DeviceFingerprint {
     try {
       fingerprint.hash = await this.generateHash(fingerprint);
       fingerprint.shortHash = fingerprint.hash.substring(0, 16);
-      console.log('✓ Fingerprint hash generated');
+      //console.log('✓ Fingerprint hash generated');
     } catch (e) {
-      console.error('✗ Hash generation failed:', e);
+      //console.error('✗ Hash generation failed:', e);
       fingerprint.hash = 'error';
       fingerprint.shortHash = 'error';
     }

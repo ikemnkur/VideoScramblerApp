@@ -1,4 +1,4 @@
-// ScramblerPhotosPro.jsx — Pro Photo Scrambler with Python Backend
+// ScramblerVideosPro.jsx — Pro Video Scrambler with Python Backend
 // Connects to Flask server on port 5000 for advanced scrambling algorithms
 // Supports: Position, Color, Rotation, Mirror, and Intensity scrambling
 
@@ -41,7 +41,7 @@ const API_URL = import.meta.env.VITE_API_SERVER_URL || 'http://localhost:3001'; 
 const Flask_API_URL = 'http://localhost:5000/';
 
 
-export default function ScramblerPhotosPro() {
+export default function ScramblerVideosPro() {
   const { success, error } = useToast();
 
   // Refs
@@ -66,6 +66,7 @@ export default function ScramblerPhotosPro() {
   const [allowScrambling, setAllowScrambling] = useState(false);
   const [showCreditModal, setShowCreditModal] = useState(false);
   const [actionCost, setActionCost] = useState(15); // Cost to unscramble a video (less than video)
+  const [scrambleLevel, setScrambleLevel] = useState(6); // 'lite' or 'pro'
 
   // Scrambling Parameters
   const [algorithm, setAlgorithm] = useState('position'); // position, color, rotation, mirror, intensity
@@ -186,34 +187,34 @@ export default function ScramblerPhotosPro() {
   // =============================
   // API CALLS
   // =============================
-  const uploadFile = async () => {
-    if (!selectedFile) {
-      error("Please select a file first");
-      return null;
-    }
+  // const uploadFile = async () => {
+  //   if (!selectedFile) {
+  //     error("Please select a file first");
+  //     return null;
+  //   }
 
-    const formData = new FormData();
-    formData.append('file', selectedFile);
+  //   const formData = new FormData();
+  //   formData.append('file', selectedFile);
 
-    try {
-      const response = await fetch(`${API_URL}/api/upload`, {
-        method: 'POST',
-        body: formData
-      });
+  //   try {
+  //     const response = await fetch(`${API_URL}/api/upload`, {
+  //       method: 'POST',
+  //       body: formData
+  //     });
 
-      if (!response.ok) {
-        throw new Error('Upload failed');
-      }
+  //     if (!response.ok) {
+  //       throw new Error('Upload failed');
+  //     }
 
-      const data = await response.json();
-      setUploadedFilename(data.filename);
-      success("File uploaded to server!");
-      return data.filename;
-    } catch (err) {
-      error("Failed to upload file: " + err.message);
-      return null;
-    }
-  };
+  //     const data = await response.json();
+  //     setUploadedFilename(data.filename);
+  //     success("File uploaded to server!");
+  //     return data.filename;
+  //   } catch (err) {
+  //     error("Failed to upload file: " + err.message);
+  //     return null;
+  //   }
+  // };
 
 
 
@@ -321,7 +322,9 @@ export default function ScramblerPhotosPro() {
           percentage: scramblingPercentage,
           maxHueShift,
           maxIntensityShift,
-          timestamp: Date.now()
+          timestamp: Date.now(),
+          username: userData.username || 'Anonymous',
+          userId: userData.userId || 'Unknown'
         };
 
         const encodedKey = btoa(JSON.stringify(key));
@@ -443,9 +446,9 @@ export default function ScramblerPhotosPro() {
 
         {/* Status indicators */}
         <Box sx={{ display: 'flex', gap: 1, justifyContent: 'center', flexWrap: 'wrap' }}>
-          <Chip label="Server: localhost:5000" size="small" color="success" />
-          <Chip label="Format: PNG/JPG" size="small" />
-          <Chip label="Pro Features Enabled" size="small" color="primary" />
+          <Chip label="Server Based" size="small" color="success" />
+          <Chip label="Format: MP4/WEBM" size="small" />
+          <Chip label="HD/FHD" size="small" color="primary" />
         </Box>
       </Box>
 
@@ -454,7 +457,7 @@ export default function ScramblerPhotosPro() {
         <CardContent sx={{ p: 4 }}>
           <Typography variant="h4" sx={{ mb: 3, display: 'flex', alignItems: 'center', gap: 1 }}>
             <Shuffle />
-            Scramble Photo (Server-Side)
+            Scramble Video (Server-Side)
           </Typography>
 
           {/* File Upload */}
@@ -527,7 +530,7 @@ export default function ScramblerPhotosPro() {
                 />
               </Grid>
 
-              
+
               {/* Position, Rotation, Mirror - need rows/cols */}
               {(algorithm === 'position' || algorithm === 'rotation' || algorithm === 'mirror') && (
                 <>
@@ -648,7 +651,10 @@ export default function ScramblerPhotosPro() {
           <Box sx={{ display: 'flex', gap: 2, flexWrap: 'wrap', mb: 3 }}>
             <Button
               variant="contained"
-              onClick={() => setShowCreditModal(true)}
+              onClick={() => {
+                setShowCreditModal(true);
+                setScrambleLevel(cols >= rows ? cols : rows);
+              }}
               startIcon={isProcessing ? <CircularProgress size={20} /> : <CloudUpload />}
               disabled={!videoLoaded || isProcessing}
               sx={{
@@ -819,7 +825,8 @@ export default function ScramblerPhotosPro() {
         onClose={() => setShowCreditModal(false)}
         onConfirm={handleCreditConfirm}
         mediaType="video"
-        creditCost={actionCost}
+        
+        scrambleLevel={scrambleLevel}
         currentCredits={userCredits}
         fileName={selectedFile?.name || ''}
         file={selectedFile}

@@ -42,7 +42,7 @@ import CreditConfirmationModal from '../components/CreditConfirmationModal';
 import api from '../api/client';
 import { all } from 'axios';
 
-export default function VideoUnscrambler() {
+export default function VideoUnscramblerBasic() {
   const API_URL = import.meta.env.VITE_API_SERVER_URL || 'http://localhost:3001'; // = 'http://localhost:3001/api';
 
 
@@ -320,7 +320,7 @@ export default function VideoUnscrambler() {
     } catch (e) {
       error('Invalid parameters: ' + e.message);
       console.error("Error applying parameters:", e);
-      handleRefundCredits();
+      handleRefundCredit();
     }
   };
 
@@ -340,6 +340,8 @@ export default function VideoUnscrambler() {
     setSrcToDest(inversePerm);
   };
 
+  
+
   const drawUnscrambledFrame = useCallback((targetCanvas = null) => {
     const video = shufVideoRef.current;
     const canvas = targetCanvas || unscrambleCanvasRef.current;
@@ -347,6 +349,8 @@ export default function VideoUnscrambler() {
 
     canvas.width = Math.floor(video.videoWidth / unscrambleParams.m) * unscrambleParams.m;
     canvas.height = Math.floor(video.videoHeight / unscrambleParams.n) * unscrambleParams.n;
+
+
 
     const ctx = canvas.getContext('2d');
     ctx.clearRect(0, 0, canvas.width, canvas.height);
@@ -357,7 +361,7 @@ export default function VideoUnscrambler() {
       const sR = rectsSrcFromShuffled[shuffledDestIdx];
       const dR = rectsDest[origIdx];
       if (!sR || !dR) continue;
-      ctx.drawImage(video, sR.x, sR.y, sR.w, sR.h, dR.x, dR.y, dR.w, dR.h);
+      ctx.drawImage(video, sR.x, sR.y, sR.w, sR.h, dR.x, dR.y, dR.w, dR.h+1);
     }
 
     // Add transparent watermark overlay to indicate unscrambled
@@ -386,36 +390,36 @@ export default function VideoUnscrambler() {
 
   // ------------monetization and modal handling------------
 
-  const showWatchModal = () => {
-    const video = shufVideoRef.current;
-    if (!video?.src) {
-      error('Please select a scrambled video first');
-      return;
-    }
-    if (!srcToDest.length) {
-      error('Please apply scramble parameters first (Step 2)');
-      return;
-    }
+  // const showWatchModal = () => {
+  //   const video = shufVideoRef.current;
+  //   if (!video?.src) {
+  //     error('Please select a scrambled video first');
+  //     return;
+  //   }
+  //   if (!srcToDest.length) {
+  //     error('Please apply scramble parameters first (Step 2)');
+  //     return;
+  //   }
 
-    // Show ad modal first
-    setShowAdModal(true);
-    setAdProgress(0);
-    setAdCanClose(false);
+  //   // Show ad modal first
+  //   setShowAdModal(true);
+  //   setAdProgress(0);
+  //   setAdCanClose(false);
 
-    // Simulate ad progress
-    const progressInterval = setInterval(() => {
-      setAdProgress(prev => {
-        if (prev >= 100) {
-          clearInterval(progressInterval);
-          setAdCanClose(true);
-          return 100;
-        }
-        return prev + 5;
-      });
-    }, 300);
-  };
+  //   // Simulate ad progress
+  //   const progressInterval = setInterval(() => {
+  //     setAdProgress(prev => {
+  //       if (prev >= 100) {
+  //         clearInterval(progressInterval);
+  //         setAdCanClose(true);
+  //         return 100;
+  //       }
+  //       return prev + 5;
+  //     });
+  //   }, 300);
+  // };
 
-  const closeAdModal = () => {
+  const openWatchVideoModal = () => {
     if (!adCanClose) return;
     setShowAdModal(false);
     setShowModal(true);
@@ -466,7 +470,7 @@ export default function VideoUnscrambler() {
 
   }, [decodedParams]);
 
-  const handleRefundCredits = async () => {
+  const handleRefundCredit = async () => {
     // error("Unscrambling failed: " + e.message);
     // setIsProcessing(false);
     // try {
@@ -797,7 +801,7 @@ export default function VideoUnscrambler() {
 
               <Button
                 variant="contained"
-                onClick={showWatchModal}
+                onClick={openWatchVideoModal}
                 startIcon={<Visibility />}
                 disabled={!srcToDest.length}
                 sx={{
@@ -915,7 +919,7 @@ export default function VideoUnscrambler() {
       </Paper>
 
       {/* Ad Modal */}
-      <Modal open={showAdModal}>
+      {/* <Modal open={showAdModal}>
         <Box sx={{
           position: 'absolute',
           top: '50%',
@@ -964,7 +968,7 @@ export default function VideoUnscrambler() {
             </Button>
           </Box>
         </Box>
-      </Modal>
+      </Modal> */}
 
       {/* Watch Video Modal */}
       <Modal open={showModal} onClose={() => setShowModal(false)}>

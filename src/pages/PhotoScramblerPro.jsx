@@ -40,7 +40,7 @@ import api from '../api/client';
 const API_URL = import.meta.env.VITE_API_SERVER_URL || 'http://localhost:3001'; // = 'http://localhost:3001/api';
 const Flask_API_URL = 'http://localhost:5000/';
 
-export default function ScramblerPhotosPro() {
+export default function PhotoScramblerPro() {
     const { success, error } = useToast();
 
 
@@ -55,7 +55,7 @@ export default function ScramblerPhotosPro() {
     const [selectedFile, setSelectedFile] = useState(null);
     const [imageLoaded, setImageLoaded] = useState(false);
     const [isProcessing, setIsProcessing] = useState(false);
-    const [uploadedFilename, setUploadedFilename] = useState('');
+    // const [uploadedFilename, setUploadedFilename] = useState('');
     const [scrambledFilename, setScrambledFilename] = useState('');
     const [keyCode, setKeyCode] = useState('');
     const [currentTab, setCurrentTab] = useState(0);
@@ -68,6 +68,7 @@ export default function ScramblerPhotosPro() {
     const [allowScrambling, setAllowScrambling] = useState(false);
     const [userCredits, setUserCredits] = useState(0); // Mock credits, replace with actual user data
     const [actionCost, setActionCost] = useState(15); // Cost to unscramble a video (pro version)
+    const [scrambleLevel, setScrambleLevel] = useState(1); // Level of scrambling (for credit calculation)
 
     // Scrambling Parameters
     const [algorithm, setAlgorithm] = useState('position'); // position, color, rotation, mirror, intensity
@@ -188,14 +189,7 @@ export default function ScramblerPhotosPro() {
     // =============================
     const scrambleImage = async (file) => {
 
-        // if ((showCreditModal === false) && (allowScrambling === false)) {
-        //     // OPEN CREDIT CONFIRMATION MODAL FIRST
 
-        //     setShowCreditModal(true);
-
-        // } else {
-
-        // console.log("fiel:", file);
         console.log("scrambleImage called, selectedFile:", selectedFile);
         // console.log("selected Image File:", localStorage.getItem("selectedImageFile"));
         if (!selectedFile) {
@@ -204,10 +198,7 @@ export default function ScramblerPhotosPro() {
             return;
         }
 
-        // if (!allowScrambling) {
-        //     error("You need to spend credits to enable scrambling before proceeding");
-        //     return;
-        // }
+
 
         setIsProcessing(true);
 
@@ -283,7 +274,9 @@ export default function ScramblerPhotosPro() {
                     percentage: scramblingPercentage,
                     maxHueShift,
                     maxIntensityShift,
-                    timestamp: Date.now()
+                    timestamp: Date.now(),
+                    username: userData.username || 'Anonymous',
+                    userId: userData.userId || 'Unknown'
                 };
                 const encodedKey = btoa(JSON.stringify(key));
                 setKeyCode(encodedKey);
@@ -439,9 +432,9 @@ export default function ScramblerPhotosPro() {
 
                 {/* Status indicators */}
                 <Box sx={{ display: 'flex', gap: 1, justifyContent: 'center', flexWrap: 'wrap' }}>
-                    <Chip label="Server: localhost:5000" size="small" color="success" />
+                    <Chip label="Server Based" size="small" color="success" />
                     <Chip label="Format: PNG/JPG" size="small" />
-                    <Chip label="Pro Features Enabled" size="small" color="primary" />
+                    <Chip label="HD/FHD" size="small" color="primary" />
                 </Box>
             </Box>
 
@@ -637,7 +630,10 @@ export default function ScramblerPhotosPro() {
 
                         <Button
                             variant="contained"
-                            onClick={() => setShowCreditModal(true)}
+                            onClick={() => {
+                                setShowCreditModal(true);
+                                setScrambleLevel(cols >= rows ? cols : rows);
+                            }}
                             startIcon={isProcessing ? <CircularProgress size={20} /> : <CloudUpload />}
                             disabled={!imageLoaded || isProcessing}
                             sx={{
@@ -806,7 +802,8 @@ export default function ScramblerPhotosPro() {
                 onClose={() => setShowCreditModal(false)}
                 onConfirm={handleCreditConfirm}
                 mediaType="photo"
-                creditCost={actionCost}
+                
+                scrambleLevel={scrambleLevel}
                 currentCredits={userCredits}
                 fileName={selectedFile?.name || ''}
                 fileDetails={{

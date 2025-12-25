@@ -75,6 +75,7 @@ export default function AudioScrambler() {
   const [showCreditModal, setShowCreditModal] = useState(false);
   const [userCredits, setUserCredits] = useState(0);
   const [actionCost, setActionCost] = useState(3);
+  const [scrambleLevel, setScrambleLevel] = useState(1);
 
   const [userData] = useState(JSON.parse(localStorage.getItem("userdata")));
 
@@ -490,6 +491,8 @@ export default function AudioScrambler() {
       error("Please load an audio file first!");
       return;
     }
+
+    setScrambleLevel(2 + audioDuration / segmentSize);
     setShowCreditModal(true);
   };
 
@@ -545,7 +548,13 @@ export default function AudioScrambler() {
           seed: noiseSd,
           level: noiseLevel_,
           multiFrequency: true
+        },
+        user: {
+          username: userData.username || 'Anonymous',
+          userId: userData.userId || 'Unknown',
+          timestamp: new Date().toISOString()
         }
+
       };
 
       setScramblingParameters(params);
@@ -974,6 +983,8 @@ export default function AudioScrambler() {
             </Grid>
           </Grid>
 
+          {/* Scramble Action Buttons */}
+
           <Box sx={{ display: 'flex', gap: 2, flexWrap: 'wrap', mb: 3 }}>
             <Button
               variant="contained"
@@ -1039,11 +1050,16 @@ export default function AudioScrambler() {
       {/* Credit Confirmation Modal */}
       <CreditConfirmationModal
         open={showCreditModal}
+        // onClick={() => {
+        //   setShowCreditModal(true);
+        //   setScrambleLevel(2 + audioDuration / segmentSize);
+        // }}
         onClose={() => setShowCreditModal(false)}
         onConfirm={handleCreditConfirm}
         mediaType="audio"
         description="scramble audio"
-        creditCost={actionCost}
+        
+        scrambleLevel={scrambleLevel}
         currentCredits={userCredits}
         fileName={filename}
         isProcessing={isProcessing}
@@ -1060,7 +1076,7 @@ export default function AudioScrambler() {
           type: 'audio',
           size: selectedFile?.size || 0,
           name: filename || '',
-          duration: processedAudioPlayerRef.current?.duration || 0,
+          duration: Math.ceil(audioPlayerRef.current?.duration) || 0,
           sampleRate: sampleRate,
           numberOfChannels: numberOfChannels,
           // horizontal: audioRef.current?.audioWidth || 0,

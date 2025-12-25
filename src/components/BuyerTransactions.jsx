@@ -393,14 +393,14 @@ const BuyerTransactions = () => {
         // Transform unlocks to transaction format
         const unlocksTransactions = userUnlocks.map((unlock) => ({
           id: `unlock_${unlock.id}`,
-          transaction_type: "Key Purchase",
+          transaction_type: "Scrambling Media Purchase",
           credits: unlock.price,
           amount_usd: (unlock.price * 0.01).toFixed(2), // Assuming 1 credit = $0.01
           key_title: unlock.keyTitle,
           buyer_username: unlock.username,
           status: unlock.status,
           created_at: new Date(unlock.date).toISOString(),
-          message: `Key Purchase: ${unlock.keyTitle}`,
+          message: `Scrambling Media Purchase: ${unlock.keyTitle}`,
           payout_method: null,
           commission_rate: null,
         }));

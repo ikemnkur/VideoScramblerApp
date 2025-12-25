@@ -35,7 +35,7 @@ import api from '../api/client';
 const API_URL = import.meta.env.VITE_API_SERVER_URL || 'http://localhost:3001'; // = 'http://localhost:3001/api';
 const Flask_API_URL = 'http://localhost:5000/';
 
-export default function UnscramblerPhotosPro() {
+export default function PhotoUnscramblerPro() {
     const { success, error } = useToast();
 
     // Refs
@@ -64,30 +64,31 @@ export default function UnscramblerPhotosPro() {
     const [userCredits, setUserCredits] = useState(0); // Mock credits, replace with actual user data
     // const actionCost = 10; // Cost to scramble a photo (less than video)
     const [actionCost, setActionCost] = useState(15); // Cost to unscramble a photo (pro version)
+    const [scrambleLevel, setScrambleLevel] = useState(1); // Level of scrambling (for credit calculation)
 
 
 
-      useEffect(() => {
-    const fetchUserCredits = async () => {
-      try {
-        const response = await api.post(`api/wallet/balance/${userData.username}`, {
-          username: userData.username,
-          email: userData.email,
-          password: localStorage.getItem('passwordtxt')
-        });
+    useEffect(() => {
+        const fetchUserCredits = async () => {
+            try {
+                const response = await api.post(`api/wallet/balance/${userData.username}`, {
+                    username: userData.username,
+                    email: userData.email,
+                    password: localStorage.getItem('passwordtxt')
+                });
 
-        if (response.status === 200 && response.data) {
-          setUserCredits(response.data.credits);
+                if (response.status === 200 && response.data) {
+                    setUserCredits(response.data.credits);
+                }
+            } catch (err) {
+                console.error('Failed to fetch user credits:', err);
+            }
+        };
+
+        if (userData?.username) {
+            fetchUserCredits();
         }
-      } catch (err) {
-        console.error('Failed to fetch user credits:', err);
-      }
-    };
-
-    if (userData?.username) {
-      fetchUserCredits();
-    }
-  }, [userData]);
+    }, [userData]);
 
 
     const handleCreditConfirm = useCallback((actualCostSpent) => {
@@ -102,6 +103,8 @@ export default function UnscramblerPhotosPro() {
         // For example, update a state variable:
         // setLastCreditCost(actualCostSpent);
         setActionCost(actualCostSpent);
+
+
 
         // Use setTimeout to ensure state update completes before scrambling
         setTimeout(() => {
@@ -228,13 +231,6 @@ export default function UnscramblerPhotosPro() {
             return;
         }
 
-        // if (!allowScrambling) {
-        //     error('You need to confirm credit usage before applying parameters.');
-        //     return;
-        // }
-
-
-
         setIsProcessing(true);
 
         try {
@@ -251,6 +247,8 @@ export default function UnscramblerPhotosPro() {
                 max_hue_shift: decodedKey.maxHueShift,
                 max_intensity_shift: decodedKey.maxIntensityShift
             };
+
+            setScrambleLevel(params.cols >= params.rows ? params.cols : params.rows);
 
             console.log("Unscrambling with params:", params);
 
@@ -369,27 +367,27 @@ export default function UnscramblerPhotosPro() {
         }
     };
 
-    useEffect(() => {
-        const fetchUserCredits = async () => {
-            try {
-                const response = await api.post(`api/wallet/balance/${userData.username}`, {
-                    username: userData.username,
-                    email: userData.email,
-                    password: localStorage.getItem('passwordtxt')
-                });
+    // useEffect(() => {
+    //     const fetchUserCredits = async () => {
+    //         try {
+    //             const response = await api.post(`api/wallet/balance/${userData.username}`, {
+    //                 username: userData.username,
+    //                 email: userData.email,
+    //                 password: localStorage.getItem('passwordtxt')
+    //             });
 
-                if (response.status === 200 && response.data) {
-                    setUserCredits(response.data.credits);
-                }
-            } catch (err) {
-                console.error('Failed to fetch user credits:', err);
-            }
-        };
+    //             if (response.status === 200 && response.data) {
+    //                 setUserCredits(response.data.credits);
+    //             }
+    //         } catch (err) {
+    //             console.error('Failed to fetch user credits:', err);
+    //         }
+    //     };
 
-        if (userData?.username) {
-            fetchUserCredits();
-        }
-    }, [userData]);
+    //     if (userData?.username) {
+    //         fetchUserCredits();
+    //     }
+    // }, [userData]);
 
 
 
@@ -554,7 +552,10 @@ export default function UnscramblerPhotosPro() {
                             <Button
                                 variant="contained"
                                 // onClick={unscrambleImage}
-                                onClick={() => setShowCreditModal(true)}
+                                onClick={() => {
+                                    setShowCreditModal(true);
+                                    setScrambleLevel(n >= rows ? cols : rows);
+                                }}
                                 startIcon={isProcessing ? <CircularProgress size={20} /> : <CloudDownload />}
                                 disabled={!imageLoaded || !keyValid || isProcessing}
                                 sx={{
@@ -699,7 +700,8 @@ export default function UnscramblerPhotosPro() {
                 onClose={() => setShowCreditModal(false)}
                 onConfirm={handleCreditConfirm}
                 mediaType="photo"
-                creditCost={actionCost}
+                
+                scrambleLevel={scrambleLevel}
                 currentCredits={userCredits}
                 fileName={selectedFile?.name || ''}
                 file={selectedFile}
@@ -712,10 +714,6 @@ export default function UnscramblerPhotosPro() {
                     horizontal: imageRef.current?.naturalWidth || 0,
                     vertical: imageRef.current?.naturalHeight || 0
                 }}
-
-
-
-
                 actionType="unscramble-photo-pro"
                 actionDescription="pro level photo unscrambling"
                 height={400}
