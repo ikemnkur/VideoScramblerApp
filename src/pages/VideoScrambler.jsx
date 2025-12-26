@@ -179,8 +179,10 @@ export default function VideoScrambler() {
 
     let finalWidth = paddedWidth;
     let finalHeight = paddedHeight;
-    const maxWidth = 854;
-    const maxHeight = 480;
+    
+    const maxWidth = Math.floor(854/grid.m)*grid.m; // 854px is 480p width
+    const maxHeight = Math.floor(480/grid.n)*grid.n; // 480px is 480p height
+
     const aspectRatio = paddedWidth / paddedHeight;
 
     if (paddedWidth > maxWidth || paddedHeight > maxHeight) {

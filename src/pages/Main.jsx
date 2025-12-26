@@ -770,7 +770,7 @@ export default function MainPage() {
                             </Typography>
                             <Typography variant="body2" sx={{ color: '#ccc', mb: 0.5 }}>
                                 • {selectedMode === 'basic' && 'Ad-free experience + Audio scrambling'}
-                                {selectedMode === 'standard' && 'HD quality + Pro video/photo scrambling'}
+                                {selectedMode === 'standard' && 'Pro HD video/photo scrambling + Audio in Videos'}
                                 {selectedMode === 'premium' && 'FHD quality + Leak detection scanners'}
                             </Typography>
                             <Typography variant="body2" sx={{ color: '#ccc', mb: 0.5 }}>

@@ -35,15 +35,17 @@ import VideoScramblerBasic from './pages/VideoScramblerBasic';
 import VideoUnscrambler from './pages/VideoUnscrambler';
 import VideoUnscramblerBasic from './pages/VideoUnscramblerBasic';
 
-import ScramblerPhotos from './pages/PhotoScrambler';
-import UnscramblerPhotos from './pages/PhotoUnscrambler';
+import PhotoScrambler from './pages/PhotoScrambler';
+import PhotoScramblerBasic from './pages/PhotoScramblerBasic';
+import PhotoUnscrambler from './pages/PhotoUnscrambler';
+import PhotoUnscramblerBasic from './pages/PhotoUnscramblerBasic';
 
 import AudioScrambler from './pages/AudioScrambler';
 import AudioUnscrambler from './pages/AudioUnscrambler';
 
 
-import ScramblerPhotosPro from './pages/PhotoScramblerPro';
-import UnscramblerPhotosPro from './pages/PhotoUnscramblerPro';
+import PhotoScramblerPro from './pages/PhotoScramblerPro';
+import PhotoUnscramblerPro from './pages/PhotoUnscramblerPro';
 
 import VideoScramblerPro from './pages/VideoScramblerPro';
 import VideoUnscramblerPro from './pages/VideoUnscramblerPro';
@@ -174,9 +176,13 @@ export default function App() {
 
             {/* Photo Editor */}
 
-            <Route path="/photo-scrambler" element={<ScramblerPhotos />} />
+            <Route path="/photo-scrambler" element={<PhotoScrambler />} />
 
-            <Route path="/photo-unscrambler" element={<UnscramblerPhotos />} />
+            <Route path="/photo-scrambler-basic" element={<PhotoScramblerBasic />} />
+
+            <Route path="/photo-unscrambler" element={<PhotoUnscrambler />} />
+
+            <Route path="/photo-unscrambler-basic" element={<PhotoUnscramblerBasic />} />
 
             {/* Audio Editor Routes (in future) */}
 
@@ -186,9 +192,9 @@ export default function App() {
 
             {/* Pro services */}
 
-            <Route path="/photo-scrambler-pro" element={<ScramblerPhotosPro />} />
+            <Route path="/photo-scrambler-pro" element={<PhotoScramblerPro />} />
 
-            <Route path="/photo-unscrambler-pro" element={<UnscramblerPhotosPro />} />
+            <Route path="/photo-unscrambler-pro" element={<PhotoUnscramblerPro />} />
 
 
             <Route path="/video-scrambler-pro" element={<VideoScramblerPro />} />

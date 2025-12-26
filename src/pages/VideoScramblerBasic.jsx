@@ -25,7 +25,7 @@ import {
   Shuffle,
   Download,
   ContentCopy,
-  CloudUpload,
+  CloudDownload,
   AutoAwesome,
   Close,
   Movie
@@ -181,8 +181,10 @@ export default function VideoScramblerBasic() {
     // if the video dimension are above HD reduce canvas size to fit within 1280x720 while maintaining aspect ratio
     let finalWidth = paddedWidth;
     let finalHeight = paddedHeight;
-    const maxWidth = 1280;
-    const maxHeight = 720;
+    
+    const maxWidth = Math.floor(1280/grid.m)*grid.m;
+    const maxHeight = Math.floor(720/grid.n)*grid.n;
+
     const aspectRatio = paddedWidth / paddedHeight;
 
     if (paddedWidth > maxWidth || paddedHeight > maxHeight) {
@@ -523,6 +525,7 @@ export default function VideoScramblerBasic() {
 
     recorder.ondataavailable = (e) => { if (e.data && e.data.size) chunksRef.current.push(e.data); };
     recorder.onstop = () => {
+      setIsProcessing(false);
       const blob = new Blob(chunksRef.current, { type: "video/webm" });
       const baseName = selectedFile?.name
         ? selectedFile.name.replace(/\.[^/.]+$/, '').replace(/[^\w\-. ]+/g, '').replace(/\s+/g, '_')
@@ -725,7 +728,7 @@ export default function VideoScramblerBasic() {
             <Button
               variant="contained"
               onClick={onRecordScrambled}
-              startIcon={<CloudUpload />}
+              startIcon={<CloudDownload />}
               disabled={!permDestToSrc0 || permDestToSrc0.length === 0}
               sx={{ backgroundColor: '#9c27b0', color: 'white' }}
             >

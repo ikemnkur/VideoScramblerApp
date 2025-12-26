@@ -180,9 +180,6 @@ export default function VideoUnscramblerBasic() {
     const canvas = unscrambleCanvasRef.current;
     if (!video || !canvas) return;
 
-    canvas.width = video.videoWidth;
-    canvas.height = video.videoHeight;
-
     if (unscrambleParams.n && unscrambleParams.m) {
       buildUnscrambleRects();
     }
@@ -305,6 +302,16 @@ export default function VideoUnscramblerBasic() {
         setTimeout(() => video.pause(), 50);
       }
 
+      const canvas = unscrambleCanvasRef.current;
+
+      // Adjust canvas size
+      canvas.width = Math.floor(video.videoWidth / unscrambleParams.m) * unscrambleParams.m;
+      canvas.height = Math.floor(video.videoHeight / unscrambleParams.n) * unscrambleParams.n;
+
+      
+      
+
+
       // if (!permDestToSrc0 || permDestToSrc0.length !== n * m) {
       // fecth from localStorage as fallback
       const storedSrcToDest = JSON.parse(localStorage.getItem('srcToDest'));
@@ -362,7 +369,7 @@ export default function VideoUnscramblerBasic() {
       const sR = rectsSrcFromShuffled[shuffledDestIdx];
       const dR = rectsDest[origIdx];
       if (!sR || !dR) continue;
-      ctx.drawImage(video, sR.x, sR.y, sR.w, sR.h, dR.x, dR.y, dR.w, dR.h + 1);
+      ctx.drawImage(video, sR.x, sR.y, sR.w, sR.h, dR.x, dR.y, dR.w, dR.h);
     }
 
     // Add transparent watermark overlay to indicate unscrambled
@@ -387,42 +394,9 @@ export default function VideoUnscramblerBasic() {
     requestAnimationFrame(animateUnscramble);
   }, [isAnimating, drawUnscrambledFrame, showModal]);
 
-
-
-  // ------------monetization and modal handling------------
-
-  // const showWatchModal = () => {
-  //   const video = shufVideoRef.current;
-  //   if (!video?.src) {
-  //     error('Please select a scrambled video first');
-  //     return;
-  //   }
-  //   if (!srcToDest.length) {
-  //     error('Please apply scramble parameters first (Step 2)');
-  //     return;
-  //   }
-
-  //   // Show ad modal first
-  //   setShowAdModal(true);
-  //   setAdProgress(0);
-  //   setAdCanClose(false);
-
-  //   // Simulate ad progress
-  //   const progressInterval = setInterval(() => {
-  //     setAdProgress(prev => {
-  //       if (prev >= 100) {
-  //         clearInterval(progressInterval);
-  //         setAdCanClose(true);
-  //         return 100;
-  //       }
-  //       return prev + 5;
-  //     });
-  //   }, 300);
-  // };
-
   const openWatchVideoModal = () => {
-    if (!adCanClose) return;
-    setShowAdModal(false);
+    // if (!adCanClose) return;
+    // setShowAdModal(false);
     setShowModal(true);
 
     // Setup modal canvas
@@ -1078,8 +1052,8 @@ export default function VideoUnscramblerBasic() {
           }}
           user={userData}
           isProcessing={false}
-          actionType="unscramble-video-free"
-          actionDescription="free video unscrambling"
+          actionType="unscramble-video-basic"
+          actionDescription="basic video unscrambling"
         />
       )}
     </Container>

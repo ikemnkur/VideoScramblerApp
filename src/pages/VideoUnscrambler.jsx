@@ -73,6 +73,7 @@ export default function VideoUnscrambler() {
     duration: 0,
     volume: 100
   });
+  const [randomXY, setRandomXY] = useState({ x: 0, y: 0 });
   const [showAdModal, setShowAdModal] = useState(false);
   const [adProgress, setAdProgress] = useState(0);
   const [adCanClose, setAdCanClose] = useState(false);
@@ -91,7 +92,12 @@ export default function VideoUnscrambler() {
   const [srcToDest, setSrcToDest] = useState([]);
 
 
-
+  useEffect(() => {    // Fetch user credits from API
+    const random = () => Math.random() * 10 * Math.random() * 10;
+    setInterval(() => {
+      setRandomXY({ x: random(), y: random() });
+    }, 500);
+  }, []);
 
   useEffect(() => {
     const fetchUserCredits = async () => {
@@ -257,7 +263,7 @@ export default function VideoUnscrambler() {
 
     // // Use the video's reported duration directly
     // const video = shufVideoRef.current;
-    
+
     // // If duration is not available yet, wait for metadata to load
     // if (!video.duration || isNaN(video.duration)) {
     //   video.addEventListener('loadedmetadata', () => {
@@ -305,6 +311,9 @@ export default function VideoUnscrambler() {
         setTimeout(() => video.pause(), 50);
       }
 
+      canvas.height = video.videoHeight;
+      canvas.width = video.videoWidth;
+
       // if (!permDestToSrc0 || permDestToSrc0.length !== n * m) {
       // fecth from localStorage as fallback
       const storedSrcToDest = JSON.parse(localStorage.getItem('srcToDest'));
@@ -312,7 +321,7 @@ export default function VideoUnscrambler() {
         setSrcToDest(storedSrcToDest);
         console.log("Using stored srcToDest from localStorage:", storedSrcToDest);
       } else {
-        console.log( "n = ", n, "m = ", m, " || n * m: ", n * m, " || ",  permDestToSrc0.length);
+        console.log("n = ", n, "m = ", m, " || n * m: ", n * m, " || ", permDestToSrc0.length);
         throw new Error("Permutation length doesn't match n*m");
       }
       // }
@@ -365,10 +374,10 @@ export default function VideoUnscrambler() {
     // Add transparent watermark overlay to indicate unscrambled
     ctx.fillStyle = 'rgba(255, 255, 255, 0.5)';
     ctx.font = '25px Arial';
-    const random = () => 10*Math.random() * 10 - 5;
-    ctx.fillText(`🔓 Unscrambled by: ${userData.username}`, canvas.width / 2 - 150 + random(), canvas.height / 2 + 7);
 
-  }, [srcToDest, rectsSrcFromShuffled, rectsDest, unscrambleParams]);
+    ctx.fillText(`🔓 Unscrambled by: ${userData.username}`, canvas.width / 2 - 150 + randomXY.x, canvas.height / 2 + Math.ceil(0.5 * randomXY.y));
+
+  }, [srcToDest, rectsSrcFromShuffled, rectsDest, unscrambleParams, randomXY]);
 
 
 
@@ -470,24 +479,24 @@ export default function VideoUnscrambler() {
   }, [decodedParams]);
 
   // Refund credits on error using shared utility
-    const handleRefundCredits = async () => {
-      const result = await refundCredits({
-        userId: userData.id,
-        username: userData.username,
-        email: userData.email,
-        credits: actionCost,
-        currentCredits: userCredits,
-        password: localStorage.getItem('passwordtxt'),
-        params: decodedParams,
-        action: 'unscramble_video_pro'
-      });
-  
-      if (result.success) {
-        error(`An error occurred during scrambling. ${result.message}`);
-      } else {
-        error(`Scrambling failed. ${result.message}`);
-      }
-    };
+  const handleRefundCredits = async () => {
+    const result = await refundCredits({
+      userId: userData.id,
+      username: userData.username,
+      email: userData.email,
+      credits: actionCost,
+      currentCredits: userCredits,
+      password: localStorage.getItem('passwordtxt'),
+      params: decodedParams,
+      action: 'unscramble_video_pro'
+    });
+
+    if (result.success) {
+      error(`An error occurred during scrambling. ${result.message}`);
+    } else {
+      error(`Scrambling failed. ${result.message}`);
+    }
+  };
 
   // ========== EFFECTS ==========
 
@@ -1061,7 +1070,7 @@ export default function VideoUnscrambler() {
           onClose={() => setShowCreditModal(false)}
           onConfirm={handleCreditConfirm}
           mediaType="video"
-          
+
           scrambleLevel={scrambleLevel}
           currentCredits={userCredits}
           fileName={selectedFile?.name || ''}
