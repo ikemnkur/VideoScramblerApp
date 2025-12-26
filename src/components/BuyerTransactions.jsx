@@ -30,88 +30,7 @@ import {
 } from "@mui/icons-material";
 import { useNavigate } from "react-router-dom";
 
-// Generate Video Scrambler specific mock transaction data for buyers
-const generateBuyerMockData = () => {
-  const currentTime = new Date();
-  return [
-    {
-      id: 1,
-      amount: 250,
-      credits: 250,
-      transaction_type: "Key Purchase",
-      key_title: "Windows Pro License Key",
-      sellerUsername: "TechDealer",
-      status: "Completed",
-      created_at: new Date(
-        currentTime.getTime() - 2 * 60 * 60 * 1000
-      ).toISOString(), // 2 hours ago
-      message: "Purchased Windows Pro license key for personal use",
-    },
-    {
-      id: 2,
-      amount: 500,
-      credits: 500,
-      transaction_type: "Credit Purchase",
-      payment_method: "Bitcoin",
-      status: "Completed",
-      created_at: new Date(
-        currentTime.getTime() - 1 * 24 * 60 * 60 * 1000
-      ).toISOString(), // 1 day ago
-      message: "Added 500 credits to account via Bitcoin payment",
-    },
-    {
-      id: 3,
-      amount: 120,
-      credits: 120,
-      transaction_type: "Key Purchase",
-      key_title: "Steam Game Code",
-      sellerUsername: "GameVault",
-      status: "Completed",
-      created_at: new Date(
-        currentTime.getTime() - 6 * 60 * 60 * 1000
-      ).toISOString(), // 6 hours ago
-      message: "Purchased premium indie game activation code",
-    },
-    {
-      id: 4,
-      amount: 1000,
-      credits: 1000,
-      transaction_type: "Credit Purchase",
-      payment_method: "Ethereum",
-      status: "Processing",
-      created_at: new Date(
-        currentTime.getTime() - 30 * 60 * 1000
-      ).toISOString(), // 30 minutes ago
-      message: "Credit purchase pending blockchain confirmation",
-    },
-    {
-      id: 5,
-      amount: 75,
-      credits: 75,
-      transaction_type: "Key Purchase",
-      key_title: "Archive Password",
-      sellerUsername: "DataVault",
-      status: "Completed",
-      created_at: new Date(
-        currentTime.getTime() - 4 * 60 * 60 * 1000
-      ).toISOString(), // 4 hours ago
-      message: "Purchased password for encrypted file archive",
-    },
-    {
-      id: 6,
-      amount: 0,
-      credits: 0,
-      transaction_type: "Report Submitted",
-      key_title: "Invalid Game Key",
-      sellerUsername: "BadSeller",
-      status: "Under Review",
-      created_at: new Date(
-        currentTime.getTime() - 12 * 60 * 60 * 1000
-      ).toISOString(), // 12 hours ago
-      message: "Reported non-working game activation key",
-    },
-  ];
-};
+
 
 // Helper component for the modal with Video Scrambler specific styling
 const DetailsModal = ({ transaction, open, handleClose }) => {
@@ -343,14 +262,7 @@ const BuyerTransactions = () => {
   useEffect(() => {
     const loadTransactions = async () => {
       try {
-        // Simulate API call with mock data
-        // setTimeout(() => {
-        //   const mockData = generateBuyerMockData();
-        //   setTransactions(mockData);
-        //   setFilteredTransactions(mockData);
-        //   setLoading(false);
-        // }, 1000);
-
+       
         // Real API call
         // Get current user from localStorage
         const userData = JSON.parse(
@@ -359,51 +271,57 @@ const BuyerTransactions = () => {
         const username = userData.username || "seller_123";
 
         // Fetch data from JSON server
-        // Get unlocks and credit purchases for the buyer
-        // const unlocksResponse = await fetch(`${API_URL}/api/unlocks`);
-        const unlocksResponse = await fetch(`${API_URL}/api/actions`);
-        const creditsResponse = await fetch(`${API_URL}/api/buyCredits`);
+        // Get actions and credit purchases for the buyer
+        // const actionsResponse = await fetch(`${API_URL}/api/actions`);
+        const actionsResponse = await fetch(`${API_URL}/api/actions/${username}`);
+        const creditsResponse = await fetch(`${API_URL}/api/buyCredits/${username}`);
 
-        if (!unlocksResponse.ok) {
-          throw new Error(`HTTP error! status: ${unlocksResponse.status}`);
+        if (!actionsResponse.ok) {
+          throw new Error(`HTTP error! status: ${actionsResponse.status}`);
         }
         if (!creditsResponse.ok) {
           throw new Error(`HTTP error! status: ${creditsResponse.status}`);
         }
 
         // Get all data and filter for current user
-        const allUnlocks = await unlocksResponse.json();
+        const allActions = await actionsResponse.json();
         const allCreditPurchases = await creditsResponse.json();
 
         // Filter for current user's transactions
-        const userUnlocks = allUnlocks.filter(
-          (unlock) => unlock.username === username
+        const userActions = allActions.filter(
+          (action) => action.username === username
         );
         const userCredits = allCreditPurchases.filter(
           (credit) => credit.username === username
         );
 
         // Combine both datasets for processing
-        const combinedData = [...userUnlocks, ...userCredits];
+        const combinedData = [...userActions, ...userCredits];
         console.log("Fetched combined transaction data:", combinedData);
 
         // Sort by date descending by default
         combinedData.sort((a, b) => new Date(b.date) - new Date(a.date));
 
-        // Transform unlocks to transaction format
-        const unlocksTransactions = userUnlocks.map((unlock) => ({
-          id: `unlock_${unlock.id}`,
-          transaction_type: "Scrambling Media Purchase",
-          credits: unlock.price,
-          amount_usd: (unlock.price * 0.01).toFixed(2), // Assuming 1 credit = $0.01
-          key_title: unlock.keyTitle,
-          buyer_username: unlock.username,
-          status: unlock.status,
-          created_at: new Date(unlock.date).toISOString(),
-          message: `Scrambling Media Purchase: ${unlock.keyTitle}`,
-          payout_method: null,
-          commission_rate: null,
-        }));
+        // Transform actions to transaction format
+        const actionsTransactions = userActions.map((action) => {
+          const transactionType = action.action_description?.includes("pass") 
+            ? "Pass Purchase" 
+            : "Scrambling Media Purchase";
+          
+          return {
+            id: `action_${action.id}`,
+            transaction_type: transactionType,
+            credits: action.action_cost,
+            amount_usd: (action.price * 0.01).toFixed(2), // Assuming 1 credit = $0.01
+            title: action.action_type,
+            buyer_username: action.username,
+            status: "Completed",
+            created_at: new Date(action.date).toISOString(),
+            message: `Scrambling Media Purchase: ${action.keyTitle}`,
+            payout_method: null,
+            commission_rate: null,
+          };
+        });
 
         // Transform credit purchases to transaction format
         const creditTransactions = userCredits.map((credit) => ({
@@ -411,17 +329,18 @@ const BuyerTransactions = () => {
           transaction_type: "Credit Purchase",
           credits: credit.credits,
           amount_usd: credit.amount, // Keep original amount precision
-          key_title: null,
+          title: credit.package +" via " + credit.paymentMethod,
           buyer_username: credit.username,
           status: credit.status,
           created_at: new Date(credit.date).toISOString(),
           message: `Credit Purchase: ${credit.credits} credits via ${credit.currency}`,
           payout_method: credit.currency,
           commission_rate: null,
+          paymentMethod: credit.paymentMethod,
         }));
 
         // Combine all transactions
-        const allTransactions = [...unlocksTransactions, ...creditTransactions];
+        const allTransactions = [...actionsTransactions, ...creditTransactions];
 
         // Sort by date descending
         allTransactions.sort(
@@ -521,7 +440,7 @@ const BuyerTransactions = () => {
     const rows = transactionsToDisplay.map((t) => [
       new Date(t.created_at).toLocaleDateString(),
       t.transaction_type,
-      t.key_title || t.payment_method || "N/A",
+      t.title || t.paymentMethod || "N/A",
       t.sellerUsername || "System",
       t.credits || 0,
       t.status,
@@ -775,7 +694,7 @@ const BuyerTransactions = () => {
                   sx={{ width: { xs: "35%", sm: "auto" }, color: "#ffd700" }}
                 >
                   <Box sx={{ display: { xs: "none", sm: "block" } }}>
-                    Item/Seller
+                    Item
                   </Box>
                   <Box sx={{ display: { xs: "block", sm: "none" } }}>
                     Details
@@ -839,7 +758,7 @@ const BuyerTransactions = () => {
               {transactionsToDisplay.map((t) => {
                 // normalize common fields coming from different APIs / transformations
                 const title =
-                  t.keyTitle ||
+                  t.title ||
                   t.key_title ||
                   t.key ||
                   t.item ||
@@ -884,7 +803,19 @@ const BuyerTransactions = () => {
                       <Box>
                         {/* Desktop view - show item and seller */}
                         <Box sx={{ display: { xs: "none", sm: "block" } }}>
-                          {title && (
+                          
+                           <Typography
+                              variant="body2"
+                              sx={{
+                                fontWeight: "bold",
+                                fontSize: "0.75rem",
+                                color: "#ffd700",
+                              }}
+                            >
+                              {title}
+                            </Typography>
+
+                          {/* {title && (
                             <Typography
                               variant="body2"
                               sx={{
@@ -911,7 +842,7 @@ const BuyerTransactions = () => {
                             >
                               via {paymentMethod}
                             </Typography>
-                          )}
+                          )} */}
                         </Box>
 
                         {/* Mobile view - compact format */}
@@ -928,7 +859,7 @@ const BuyerTransactions = () => {
                               color: "#ffd700",
                             }}
                           >
-                            {t.key_title || t.payment_method || "Transaction"}
+                            {t.title || t.paymentMethod || "Transaction"}
                           </Typography>
                           {t.sellerUsername && (
                             <Typography

@@ -39,6 +39,7 @@ import {
 } from '@mui/icons-material';
 import { useToast } from '../contexts/ToastContext';
 import CreditConfirmationModal from '../components/CreditConfirmationModal';
+import { refundCredits } from '../utils/creditUtils';
 import api from '../api/client';
 import { all } from 'axios';
 
@@ -311,6 +312,7 @@ export default function VideoUnscrambler() {
         setSrcToDest(storedSrcToDest);
         console.log("Using stored srcToDest from localStorage:", storedSrcToDest);
       } else {
+        console.log( "n = ", n, "m = ", m, " || n * m: ", n * m, " || ",  permDestToSrc0.length);
         throw new Error("Permutation length doesn't match n*m");
       }
       // }
@@ -361,9 +363,10 @@ export default function VideoUnscrambler() {
     }
 
     // Add transparent watermark overlay to indicate unscrambled
-    ctx.fillStyle = 'rgba(255, 255, 255, 0.1)';
-    ctx.font = '15px Arial';
-    ctx.fillText(`🔓 Unscrambled by: ${userData.username}`, 10, canvas.height / 2 + 7);
+    ctx.fillStyle = 'rgba(255, 255, 255, 0.5)';
+    ctx.font = '25px Arial';
+    const random = () => 10*Math.random() * 10 - 5;
+    ctx.fillText(`🔓 Unscrambled by: ${userData.username}`, canvas.width / 2 - 150 + random(), canvas.height / 2 + 7);
 
   }, [srcToDest, rectsSrcFromShuffled, rectsDest, unscrambleParams]);
 
@@ -466,29 +469,25 @@ export default function VideoUnscrambler() {
 
   }, [decodedParams]);
 
-  const handleRefundCredits = async () => {
-    // error("Unscrambling failed: " + e.message);
-    // setIsProcessing(false);
-    // try {
-    // TODO: Refund credits if applicable
-    const response = await fetch(`${API_URL}/api/refund-credits`, {
-      method: 'POST',
-      // headers: {
-      //   'Content-Type': 'application/json'
-      // },
-
-      body: {
+  // Refund credits on error using shared utility
+    const handleRefundCredits = async () => {
+      const result = await refundCredits({
         userId: userData.id,
         username: userData.username,
         email: userData.email,
-        password: localStorage.getItem('passwordtxt'),
         credits: actionCost,
-        params: params,
+        currentCredits: userCredits,
+        password: localStorage.getItem('passwordtxt'),
+        params: decodedParams,
+        action: 'unscramble_video_pro'
+      });
+  
+      if (result.success) {
+        error(`An error occurred during scrambling. ${result.message}`);
+      } else {
+        error(`Scrambling failed. ${result.message}`);
       }
-    });
-
-    console.log("Refund response:", response);
-  }
+    };
 
   // ========== EFFECTS ==========
 

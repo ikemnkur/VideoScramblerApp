@@ -34,6 +34,7 @@ import { useToast } from '../contexts/ToastContext';
 import CreditConfirmationModal from '../components/CreditConfirmationModal';
 import api from '../api/client';
 import { Navigate, useNavigate } from "react-router-dom";
+import { refundCredits } from '../utils/creditUtils';
 
 export default function VideoScramblerBasic() {
 
@@ -403,7 +404,7 @@ export default function VideoScramblerBasic() {
       const perm = seededPermutation(N, newSeed);
       setPermDestToSrc0(perm);
 
-      const obj = paramsToJSON(newSeed, grid.n, grid.m, perm, userData.username ||'Anonymous', userData.userId || 'Unknown',  timestamp = new Date().toISOString());
+      const obj = paramsToJSON(newSeed, grid.n, grid.m, perm, userData.username || 'Anonymous', userData.userId || 'Unknown', new Date().toISOString());
       const pretty = JSON.stringify(obj, null, 2);
       setParams(pretty);
       setJsonKey(pretty);
@@ -427,38 +428,31 @@ export default function VideoScramblerBasic() {
       }, 100);
 
     } catch (error) {
-      handleRefundCredits(actualCostSpent);
+      handleRefundCredits();
     }
 
   }, [grid, drawScrambledFrame, success, actionCost]);
 
 
-  // Refund credits on error
+  // Refund credits on error using shared utility
   const handleRefundCredits = async () => {
-    // error("Unscrambling failed: " + e.message);
-    // setIsProcessing(false);
-    // try {
-    // TODO: Refund credits if applicable
-    const response = await fetch(`${API_URL}/api/refund-credits`, {
-      method: 'POST',
-      // headers: {
-      //   'Content-Type': 'application/json'
-      // },
-
-      body: {
-        userId: userData.id,
-        username: userData.username,
-        email: userData.email,
-        password: localStorage.getItem('passwordtxt'),
-        credits: actionCost,
-        params: params,
-      }
+    const result = await refundCredits({
+      userId: userData.id,
+      username: userData.username,
+      email: userData.email,
+      credits: actionCost,
+      currentCredits: userCredits,
+      password: localStorage.getItem('passwordtxt'),
+      params: params,
+      action: 'scramble_video_basic'
     });
 
-    error(`An error occurred during scrambling. Refunded ${actionCost} credits.`);
-
-    console.log("Refund response:", response);
-  }
+    if (result.success) {
+      error(`An error occurred during scrambling. ${result.message}`);
+    } else {
+      error(`Scrambling failed. ${result.message}`);
+    }
+  };
 
 
 

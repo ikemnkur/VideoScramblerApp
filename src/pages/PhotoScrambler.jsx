@@ -27,6 +27,7 @@ import {
   Key,
   Settings
 } from '@mui/icons-material';
+import { useNavigate } from 'react-router-dom'; 
 import { useToast } from '../contexts/ToastContext';
 import CreditConfirmationModal from '../components/CreditConfirmationModal';
 import api from '../api/client';
@@ -43,6 +44,7 @@ import api from '../api/client';
 
 export default function PhotoScrambler() {
 
+  const navigate = useNavigate();
   // export default function App() {
   const { success, error } = useToast();
 
@@ -376,7 +378,7 @@ export default function PhotoScrambler() {
       setPermDestToSrc0(perm);
 
       // create key JSON
-       const obj = paramsToJSON(newSeed, grid.n, grid.m, perm, userData.username ||'Anonymous', userData.userId || 'Unknown',   timestamp=new Date().toISOString());
+       const obj = paramsToJSON(newSeed, grid.n, grid.m, perm, userData.username || 'Anonymous', userData.userId || 'Unknown', new Date().toISOString());//, grid.n, grid.m, perm, userData.username ||'Anonymous', userData.userId || 'Unknown',   timestamp=new Date().toISOString());
       const pretty = JSON.stringify(obj, null, 2);
       setJsonKey(pretty);
       setBase64Key(toBase64(pretty));
@@ -929,7 +931,7 @@ export default function PhotoScrambler() {
           }}
           user={userData}
           actionType="scramble-photo"
-          actionDescription="basic photo scrambling"
+          actionDescription="free photo scrambling"
         />
       )}
     </Container>

@@ -30,8 +30,8 @@ import api from '../api/client';
 const PACKAGES = [
   { credits: 2500, dollars: 2.5, label: "$2.50", color: '#4caf50', priceId: 'price_1SR9nNEViYxfJNd2pijdhiBM' },
   { credits: 5250, dollars: 5, label: "$5.00", color: '#2196f3', priceId: 'price_1SR9lZEViYxfJNd20x2uwukQ' },
-  { credits: 11200, dollars: 10, label: "$10.00", color: '#9c27b0', popular: true, priceId: 'price_1SR9kzEViYxfJNd27aLA7kFW' },
-  { credits: 26000, dollars: 20, label: "$20.00", color: '#f57c00', priceId: 'price_1SR9mrEViYxfJNd2dD5NHFoL' },
+  { credits: 11200, dollars: 10, label: "$10.00", color: '#9c27b0', priceId: 'price_1SR9kzEViYxfJNd27aLA7kFW' },
+  { credits: 26000, dollars: 20, label: "$20.00", color: '#f57c00', popular: true, priceId: 'price_1SR9mrEViYxfJNd2dD5NHFoL' },
 ];
 
 // Incentive multipliers by package amount (bigger packages get larger bonus)
@@ -100,7 +100,7 @@ export default function PurchaseStripe() {
   const load = async () => {
     try {
       const { data } = await api.post(`/api/wallet/balance/${ud.username}`, { Password: ud.password, email: ud.email });
-      
+
       setBalance(data?.balance ?? 0);
     } catch (e) {
       console.error(e);

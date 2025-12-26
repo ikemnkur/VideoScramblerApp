@@ -31,6 +31,7 @@ import {
 } from '@mui/icons-material';
 import { useToast } from '../contexts/ToastContext';
 import CreditConfirmationModal from '../components/CreditConfirmationModal';
+import { refundCredits } from '../utils/creditUtils';
 import api from '../api/client';
 
 export default function PhotoUnscrambler() {
@@ -267,29 +268,24 @@ export default function PhotoUnscrambler() {
 
   }, []);
 
+  // Refund credits on error using shared utility
   const handleRefundCredits = async () => {
-    // error("Unscrambling failed: " + e.message);
-    // setIsProcessing(false);
-    // try {
-    // TODO: Refund credits if applicable
-    const response = await fetch(`${API_URL}/api/refund-credits`, {
-      method: 'POST',
-      // headers: {
-      //   'Content-Type': 'application/json'
-      // },
-
-      body: {
-        userId: userData.id,
-        username: userData.username,
-        email: userData.email,
-        password: localStorage.getItem('passwordtxt'),
-        credits: actionCost,
-        params: params,
-      }
+    const result = await refundCredits({
+      userId: userData.id,
+      username: userData.username,
+      email: userData.email,
+      credits: actionCost,
+      currentCredits: userCredits,
+      password: localStorage.getItem('passwordtxt'),
+      params: decodedParams
     });
 
-    console.log("Refund response:", response);
-  }
+    if (result.success) {
+      error(`An error occurred during scrambling. ${result.message}`);
+    } else {
+      error(`Scrambling failed. ${result.message}`);
+    }
+  };
 
 
   const confirmSpendingCredits = () => {
@@ -856,7 +852,7 @@ export default function PhotoUnscrambler() {
           onConfirm={handleCreditConfirm}
           mediaType="photo"
           description="unscramble photo (lite)"
-          
+
           scrambleLevel={scrambleLevel}
           currentCredits={userCredits}
           fileName={selectedFile?.name || ''}

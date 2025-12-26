@@ -148,7 +148,7 @@ export default function Wallet() {
             <Box>
               <Typography variant="h5" sx={{ mb: 2, display: 'flex', alignItems: 'center', gap: 1 }}>
                 <Star color="secondary" />
-                Quiz: Answer correctly to earn 10 bonus credits
+                Quiz: Answer correctly to earn 200 bonus credits
               </Typography>
 
               {timeLeft > 0 ? (
@@ -252,13 +252,13 @@ export default function Wallet() {
                           // Placeholder API call - will be connected to backend later
                           await api.post('/api/bonus-credits/award', {
                             username: ud.username,
-                            amount: 10,
+                            amount: 200,
                             reason: 'Bonus credits for correct quiz answer',
                             adId: 'sample-ad-001',
                             timestamp: new Date().toISOString()
                           });
                           
-                          success('🎉 Correct! 10 bonus credits added to your wallet.');
+                          success('🎉 Correct! 200 bonus credits added to your wallet.');
                           
                           // Reset quiz for next round
                           setTimeLeft(75);

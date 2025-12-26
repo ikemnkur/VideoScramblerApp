@@ -22,25 +22,6 @@ import api from '../api/client';
 import { useToast } from '../contexts/ToastContext';
 
 // {/* Credit Confirmation Modal */ }
-// <CreditConfirmationModal
-//   open={showCreditModal}
-//   onClose={() => setShowCreditModal(false)}
-//   onConfirm={handleCreditConfirm}
-//   mediaType="photo"
-//   
-//   currentCredits={userCredits}
-//   fileName={imageFile?.name || ''}
-//   isProcessing={isProcessing}
-//   file={imageFile}
-//   fileDetails={{
-//     type: 'image',
-//     size: imageFile?.size || 0,
-//     name: imageFile?.name || '',
-//     horizontal: imageRef.current?.naturalWidth || 0,
-//     vertical: imageRef.current?.naturalHeight || 0
-//   }}
-//   user={userData}
-// />
 
 export default function CreditConfirmationModal({
   open,
@@ -126,7 +107,12 @@ export default function CreditConfirmationModal({
         action: {
           type: actionType,
           cost: totalCost,
-          description: actionDescription
+          description: actionDescription,
+          details: {
+            fileName: file.name || 'untitled',
+            ...fileDetails,
+            scrambleLevel: scrambleLevel
+          }
         }
       });
 
@@ -168,24 +154,9 @@ export default function CreditConfirmationModal({
     let calculatedCost = 0;
 
     if (!fileDetails || (!fileDetails.horizontal && !fileDetails.vertical)) {
-    //   // No file details available, use base cost
-    //   setTotalCost(0);
-    //   setHasEnoughCredits(userCredits >= 0);
-    //   setRemainingCredits(userCredits - creditCost);
-    //   // check if audio file
-    //   // // if (mediaType === 'audio' && fileDetails) {
-    //   // //   // simple cost calculation for audio based on size
-    //   // //   const sizeInMB = fileDetails.size / (1000 * 1000);
-    //   // //   calculatedCost += Math.ceil(sizeInMB); // 1 credit per MB
-    //   // //   setTotalCost(calculatedCost);
-    //   // //   setHasEnoughCredits(userCredits >= calculatedCost);
-    //   // //   setRemainingCredits(userCredits - calculatedCost);
-    //   // // } else {
+  
        return () => { console.log('No file details available for cost calculation'); };
-    //   // }
-
-    // } else {
-    //   // Handle the case where fileDetails is available but lacks horizontal and vertical properties
+  
     }
 
     const LQ = 2;
@@ -256,7 +227,7 @@ export default function CreditConfirmationModal({
       console.log ("cost due to size: ", (1 + fileDetails.size / (1000 * 1000 * 1)))
 
 
-      calculatedCost = Math.ceil( (duration * resolutionCost) + (1 + fileDetails.size / (1000 * 1000 * 1))); // scale by size in MB over 1MB
+      calculatedCost = Math.ceil( (duration * resolutionCost) * 2 * Math.sqrt(1 + fileDetails.size / (1000 * 1000 * 1))); // scale by size in MB over 1MB
 
       // console.log('Calculated Video Cost:', calculatedCost);
     }

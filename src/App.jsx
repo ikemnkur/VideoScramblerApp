@@ -67,6 +67,7 @@ import SubscribeConfirmation from './pages/SubscribeConfirmation';
 import SubscriptionPlans from './pages/SubscriptionPlans';
 import SubscriptionSuccess from './pages/SubscriptionSuccess';
 import BonusCredits from './pages/BonusCredits';
+import PurchaseStripeSuccessful from './pages/PurchaseStripeSuccesful';
 // import Intro from './pages/Intro';
 //
 
@@ -210,6 +211,8 @@ export default function App() {
 
             {/* need a redirect or fallback route if not logged in and the user tries to visit a protected route */}
             <Route path="*" element={<LoadingPage />} />
+
+            <Route path="/stripe/success" element={<PurchaseStripeSuccessful />} />
 
 
           </Routes>

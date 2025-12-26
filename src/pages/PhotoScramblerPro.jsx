@@ -35,6 +35,7 @@ import {
 } from '@mui/icons-material';
 import { useToast } from '../contexts/ToastContext';
 import CreditConfirmationModal from '../components/CreditConfirmationModal';
+import { refundCredits } from '../utils/creditUtils';
 import api from '../api/client';
 
 const API_URL = import.meta.env.VITE_API_SERVER_URL || 'http://localhost:3001'; // = 'http://localhost:3001/api';
@@ -103,17 +104,30 @@ export default function PhotoScramblerPro() {
         }
     }, [userData]);
 
-    // const handleCreditConfirm = useCallback(() => {
-    //     setShowCreditModal(false);
+    const handleRefundCredits = async () => {
+        const result = await refundCredits({
+            userId: userData.id,
+            username: userData.username,
+            email: userData.email,
+            credits: actionCost,
+            currentCredits: userCredits,
+            password: localStorage.getItem('passwordtxt'),
+            action: 'scramble_photo_pro',
+            params: {
+                scrambleLevel: scrambleLevel,
+                grid: { rows, cols },
+                seed: seed,
+                algorithm: algorithm,
+                percentage: scramblingPercentage
+            }
+        });
 
-    //     setAllowScrambling(true);
-
-    //     // Use setTimeout to ensure state update completes before scrambling
-    //     setTimeout(() => {
-    //         scrambleImage(selectedFile);
-    //     }, 0);
-
-    // }, [selectedFile, allowScrambling]);
+        if (result.success) {
+            error(`An error occurred during scrambling. ${result.message}`);
+        } else {
+            error(`Scrambling failed. ${result.message}`);
+        }
+    };
 
     const handleCreditConfirm = useCallback((actualCostSpent) => {
         setShowCreditModal(false);
@@ -304,24 +318,8 @@ export default function PhotoScramblerPro() {
 
             } catch (error) {
                 // TODO: Refund credits if applicable
-                const response = await fetch(`${API_URL}/api/refund-credits`, {
-                    method: 'POST',
-                    // headers: {
-                    //   'Content-Type': 'application/json'
-                    // },
 
-                    body: {
-                        userId: userData.id,
-                        username: userData.username,
-                        email: userData.email,
-                        password: localStorage.getItem('passwordtxt'),
-                        credits: actionCost,
-                        params: params,
-                    }
-
-                });
-
-                console.log("Refund response:", response);
+                handleRefundCredits();
 
                 throw new Error(data.error || data.message || 'Scrambling failed');
             }
@@ -802,9 +800,11 @@ export default function PhotoScramblerPro() {
                 onClose={() => setShowCreditModal(false)}
                 onConfirm={handleCreditConfirm}
                 mediaType="photo"
-                
+
                 scrambleLevel={scrambleLevel}
                 currentCredits={userCredits}
+
+                file={selectedFile}
                 fileName={selectedFile?.name || ''}
                 fileDetails={{
                     type: 'image',
@@ -813,9 +813,10 @@ export default function PhotoScramblerPro() {
                     horizontal: imageRef.current?.naturalWidth || 0,
                     vertical: imageRef.current?.naturalHeight || 0
                 }}
+
                 user={userData}
                 isProcessing={false}
-                file={selectedFile}
+
                 actionType="scramble-photo-pro"
                 actionDescription="pro photo scrambling"
                 height={600}

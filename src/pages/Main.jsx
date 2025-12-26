@@ -71,7 +71,7 @@ export default function MainPage() {
                     localStorage.removeItem('dayPassExpiry');
                 }
 
-                if (response.data.dayPassMode) {
+                if (response.data.dayPassMode && new Date(response.data.dayPassExpiry) > new Date()) {
                     localStorage.setItem('dayPassMode', response.data.dayPassMode);
                 } else {
                     localStorage.setItem('dayPassMode', 'free');
@@ -220,7 +220,7 @@ export default function MainPage() {
                         )}
 
                         <Typography variant="h4" sx={{ color: '#f7e244ff', mt: 1 }}>
-                            Plan: {accountType.charAt(0).toUpperCase() + accountType.slice(1)} {dayPassMode !== "free" && `|| 24h Pass: ${dayPassMode.charAt(0).toUpperCase() + dayPassMode.slice(1)}`}
+                            Plan: {accountType.charAt(0).toUpperCase() + accountType.slice(1)} {dayPassMode !== "free" && new Date(dayPassExpiry) > new Date() && `|| 24h Pass: ${dayPassMode.charAt(0).toUpperCase() + dayPassMode.slice(1)}`}
                         </Typography>
 
                         {/* </CardContent> */}

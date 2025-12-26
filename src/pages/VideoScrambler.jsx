@@ -34,6 +34,7 @@ import { useToast } from '../contexts/ToastContext';
 import CreditConfirmationModal from '../components/CreditConfirmationModal';
 import api from '../api/client';
 import { Navigate, useNavigate } from "react-router-dom";
+import { refundCredits } from '../utils/creditUtils';
 
 export default function VideoScrambler() {
 
@@ -58,7 +59,7 @@ export default function VideoScrambler() {
   // =============================
   const [user] = useState({ id: "demo-user-123", email: "demo@example.com" });
   const [userData] = useState(JSON.parse(localStorage.getItem("userdata")));
-  const [isPro, setIsPro] = useState(false);
+  // const [isPro, setIsPro] = useState(false);
 
   const [selectedFile, setSelectedFile] = useState(null);
   const [selectedLevel, setSelectedLevel] = useState("med"); // low|med|high
@@ -398,8 +399,8 @@ export default function VideoScrambler() {
       const perm = seededPermutation(N, newSeed);
       setPermDestToSrc0(perm);
 
-       // create key JSON
-      const obj = paramsToJSON(newSeed, grid.n, grid.m, perm, userData.username ||'Anonymous', userData.userId || 'Unknown',   timestamp=new Date().toISOString());
+      // create key JSON
+      const obj = paramsToJSON(newSeed, grid.n, grid.m, perm, userData.username || 'Anonymous', userData.userId || 'Unknown', new Date().toISOString());//, grid.n, grid.m, perm, userData.username || 'Anonymous', userData.userId || 'Unknown', new Date().toISOString());
       const pretty = JSON.stringify(obj, null, 2);
       setParams(pretty);
       setJsonKey(pretty);
@@ -423,49 +424,39 @@ export default function VideoScrambler() {
       }, 100);
 
     } catch (error) {
+
+      console.error("Error during scrambling:", error);
       handleRefundCredits(actualCostSpent);
     }
 
   }, [grid, drawScrambledFrame, success, actionCost]);
 
 
-  // Refund credits on error
+  // Refund credits on error using shared utility
   const handleRefundCredits = async () => {
-    // error("Unscrambling failed: " + e.message);
-    // setIsProcessing(false);
-    // try {
-    // TODO: Refund credits if applicable
-    const response = await fetch(`${API_URL}/api/refund-credits`, {
-      method: 'POST',
-      // headers: {
-      //   'Content-Type': 'application/json'
-      // },
-
-      body: {
-        userId: userData.id,
-        username: userData.username,
-        email: userData.email,
-        password: localStorage.getItem('passwordtxt'),
-        credits: actionCost,
-        params: params,
-      }
+    const result = await refundCredits({
+      userId: userData.id,
+      username: userData.username,
+      email: userData.email,
+      credits: actionCost,
+      currentCredits: userCredits,
+      password: localStorage.getItem('passwordtxt'),
+      params: params
     });
 
-    error(`An error occurred during scrambling. Refunded ${actionCost} credits.`);
-
-    console.log("Refund response:", response);
-  }
+    if (result.success) {
+      error(`An error occurred during scrambling. ${result.message}`);
+    } else {
+      error(`Scrambling failed. ${result.message}`);
+    }
+  };
 
 
   // =============================
   // AD MODAL FUNCTIONS
   // =============================
   const showAdModal = useCallback((adUrl = "") => {
-    if (isPro) {
-      setModalShown(false);
-      setModalReady(true);
-      return;
-    }
+
     setModalReady(false);
     setRecordingFinished(false);
     setWaitTimeRemaining(15);
@@ -478,12 +469,13 @@ export default function VideoScrambler() {
     }
 
     setTimeout(() => { //force close modal after video duration +15 seconds
-      // startAdModalCloseoutTimer();
-      setModalShown(false);
-      setModalReady(true);
-    }, (videoDuration + 15) * 1000);
+      startAdModalCloseoutTimer();
+      //   setModalShown(false);
+      //   setModalReady(true);
+    }, (videoDuration) * 1000);
 
-  }, [isPro]);
+  }, [videoDuration]);
+
 
   const startAdModalCloseoutTimer = useCallback(() => {
     // Clear any existing timer
@@ -493,14 +485,8 @@ export default function VideoScrambler() {
     }
 
     // Use ref to track countdown to avoid closure issues
-    waitTimeRef.current = isPro ? 0 : 15;
+    waitTimeRef.current = 10;
     setWaitTimeRemaining(waitTimeRef.current);
-
-    if (isPro) {
-      setModalReady(true);
-      setTimerText("Done! You can close this window.");
-      return;
-    }
 
     timerIdRef.current = setInterval(() => {
       waitTimeRef.current = Math.max(0, waitTimeRef.current - 1);
@@ -516,7 +502,8 @@ export default function VideoScrambler() {
         setTimerText("Done! You can close this window.");
       }
     }, 1000);
-  }, [isPro]);
+  }, []);
+
 
   const hideAdModal = useCallback(() => {
     setModalShown(false);
@@ -528,9 +515,10 @@ export default function VideoScrambler() {
 
   const markRecordingFinished = useCallback(() => {
     setRecordingFinished(true);
-    setWaitTimeRemaining(isPro ? 0 : 15);
+    // setWaitTimeRemaining(isPro ? 0 : 15);
+    setWaitTimeRemaining(15);
     startAdModalCloseoutTimer();
-  }, [isPro]);
+  }, []);
 
   // =============================
   // RECORD SCRAMBLED VIDEO
@@ -595,19 +583,17 @@ export default function VideoScrambler() {
 
     recorder.ondataavailable = (e) => { if (e.data && e.data.size) chunksRef.current.push(e.data); };
     recorder.onstop = () => {
-      const blob = new Blob(chunksRef.current, { type: "video/webm" });
-      const baseName = selectedFile?.name
-        ? selectedFile.name.replace(/\.[^/.]+$/, '').replace(/[^\w\-. ]+/g, '').replace(/\s+/g, '_')
-        : 'unscramble_key';
-      download(`${baseName}_scrambled.webm`, blob);
+      // const blob = new Blob(chunksRef.current, { type: "video/webm" });
+      // const baseName = selectedFile?.name
+      //   ? selectedFile.name.replace(/\.[^/.]+$/, '').replace(/[^\w\-. ]+/g, '').replace(/\s+/g, '_')
+      //   : 'unscramble_key';
+      // download(`${baseName}_scrambled.webm`, blob);
       setRecorder(null);
-      chunksRef.current = [];
+      // chunksRef.current = [];
       markRecordingFinished();
       setRecordingFinished(true);
-      success("Scrambled video downloaded!");
+
     };
-
-
 
     setRecorder(recorder);
 
@@ -620,9 +606,25 @@ export default function VideoScrambler() {
     }
   }, [permDestToSrc0, showAdModal, markRecordingFinished, error, success]);
 
+
+  const downloadRecording = () => {
+    const blob = new Blob(chunksRef.current, { type: "video/webm" });
+    const baseName = selectedFile?.name
+      ? selectedFile.name.replace(/\.[^/.]+$/, '').replace(/[^\w\-. ]+/g, '').replace(/\s+/g, '_')
+      : 'unscramble_key';
+    download(`${baseName}_scrambled.webm`, blob);
+    chunksRef.current = [];
+  };
+
+
   const onCloseModal = useCallback(() => {
-    if (isPro || modalReady) hideAdModal();
-  }, [hideAdModal, isPro, modalReady]);
+    if (modalReady) {
+      downloadRecording();
+      success("Scrambled video downloaded!");
+      hideAdModal();
+    }
+
+  }, [hideAdModal, modalReady]);
 
   // =============================
   // COPY & DOWNLOAD KEY
@@ -677,7 +679,7 @@ export default function VideoScrambler() {
         <Box sx={{ display: 'flex', gap: 1, justifyContent: 'center', flexWrap: 'wrap' }}>
           <Chip label="Export: WebM" size="small" color="success" />
           <Chip label="Quality: 30 FPS" size="small" />
-          <Chip label={isPro ? "Pro Plan" : "Free Plan"} size="small" color={isPro ? "primary" : "default"} />
+          <Chip label={"Free Plan"} size="small" color={"default"} />
         </Box>
       </Box>
 
@@ -804,18 +806,17 @@ export default function VideoScrambler() {
               Download Scrambled Video
             </Button>
 
-            {!isPro && (
-              <Button
-                variant="outlined"
-                // onClick={() => setIsPro(true)}
-                onClick={() => {
-                  navigate('/plans')
-                }}
-                sx={{ borderColor: 'gold', color: 'gold', ml: 'auto' }}
-              >
-                Upgrade to Pro (No Ads)
-              </Button>
-            )}
+
+            <Button
+              variant="outlined"
+              onClick={() => {
+                navigate('/plans')
+              }}
+              sx={{ borderColor: 'gold', color: 'gold', ml: 'auto' }}
+            >
+              Upgrade to Pro (No Ads)
+            </Button>
+
           </Box>
 
           {/* Video Comparison */}
@@ -951,7 +952,7 @@ export default function VideoScrambler() {
       </Paper>
 
       {/* Ad Modal */}
-      <Modal open={modalShown} onClose={() => (isPro || modalReady) && onCloseModal()}>
+      <Modal open={modalShown} onClose={() => (modalReady) && onCloseModal()}>
         <Box sx={{
           position: 'absolute',
           top: '50%',
@@ -970,7 +971,7 @@ export default function VideoScrambler() {
             <Typography variant="h5" sx={{ color: 'white' }}>
               🎥 Processing Your Video...
             </Typography>
-            {(isPro || modalReady) && (
+            {(modalReady) && (
               <IconButton onClick={onCloseModal} sx={{ color: 'white' }}>
                 <Close />
               </IconButton>
@@ -992,9 +993,7 @@ export default function VideoScrambler() {
           </Box>
 
           <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-            <Typography variant="body2" sx={{ color: '#22d3ee' }}>
-              {isPro ? "Pro: No wait" : timerText}
-            </Typography>
+
             {/* cancel button */}
             <Button
               variant="outlined"
@@ -1011,16 +1010,20 @@ export default function VideoScrambler() {
               Cancel
             </Button>
 
+            <Typography variant="body2" sx={{ color: '#22d3ee' }}>
+              {timerText}
+            </Typography>
+
             <Button
               variant="contained"
               onClick={onCloseModal}
-              disabled={!isPro && !modalReady}
+              disabled={!modalReady}
               sx={{
-                backgroundColor: (isPro || modalReady) ? '#22d3ee' : '#666',
-                color: (isPro || modalReady) ? '#001018' : '#999'
+                backgroundColor: modalReady ? '#22d3ee' : '#666',
+                color: modalReady ? '#001018' : '#999'
               }}
             >
-              {(isPro || modalReady) ? 'Continue' : 'Please wait...'}
+              {'Continue to Download'}
             </Button>
 
           </Box>
@@ -1036,7 +1039,7 @@ export default function VideoScrambler() {
         onClose={() => setShowCreditModal(false)}
         onConfirm={handleCreditConfirm}
         mediaType="video"
-        
+
         scrambleLevel={scrambleLevel}
         currentCredits={userCredits}
         fileName={selectedFile?.name || ''}

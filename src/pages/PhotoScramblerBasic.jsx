@@ -376,7 +376,7 @@ export default function PhotoScrambler() {
       setPermDestToSrc0(perm);
 
       // create key JSON
-       const obj = paramsToJSON(newSeed, grid.n, grid.m, perm, userData.username || 'Anonymous', userData.userId || 'Unknown',  timestamp=new Date().toISOString());
+       const obj = paramsToJSON(newSeed, grid.n, grid.m, perm, userData.username || 'Anonymous', userData.userId || 'Unknown', new Date().toISOString());//, grid.n, grid.m, perm, userData.username || 'Anonymous', userData.userId || 'Unknown',  timestamp=new Date().toISOString());
       const pretty = JSON.stringify(obj, null, 2);
       setJsonKey(pretty);
       setBase64Key(toBase64(pretty));
@@ -910,6 +910,7 @@ export default function PhotoScrambler() {
             horizontal: imageRef.current?.naturalWidth || 0,
             vertical: imageRef.current?.naturalHeight || 0
           }}
+          
           user={userData}
           actionType="scramble-photo"
           actionDescription="basic photo scrambling"

@@ -1050,28 +1050,17 @@ export default function AudioScrambler() {
       {/* Credit Confirmation Modal */}
       <CreditConfirmationModal
         open={showCreditModal}
-        // onClick={() => {
-        //   setShowCreditModal(true);
-        //   setScrambleLevel(2 + audioDuration / segmentSize);
-        // }}
+
         onClose={() => setShowCreditModal(false)}
         onConfirm={handleCreditConfirm}
         mediaType="audio"
         description="scramble audio"
-        
+        isProcessing={isProcessing}
         scrambleLevel={scrambleLevel}
         currentCredits={userCredits}
-        fileName={filename}
-        isProcessing={isProcessing}
-        file={audioBuffer}
-        // fileDetails={{
-        //   type: 'audio',
-        //   duration: audioDuration,
-        //   sampleRate: sampleRate,
-        //   channels: numberOfChannels,
-        //   name: filename
-        // }}
 
+        fileName={filename}
+        file={audioBuffer}
         fileDetails={{
           type: 'audio',
           size: selectedFile?.size || 0,
@@ -1079,11 +1068,11 @@ export default function AudioScrambler() {
           duration: Math.ceil(audioPlayerRef.current?.duration) || 0,
           sampleRate: sampleRate,
           numberOfChannels: numberOfChannels,
-          // horizontal: audioRef.current?.audioWidth || 0,
-          // vertical: audioRef.current?.audioHeight || 0
         }}
+
         user={userData}
         actionType="scramble-audio"
+        actionDescription="Scrambling audio"
       />
     </Container>
   );

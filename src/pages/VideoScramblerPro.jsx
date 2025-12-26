@@ -35,6 +35,7 @@ import {
 } from '@mui/icons-material';
 import { useToast } from '../contexts/ToastContext';
 import CreditConfirmationModal from '../components/CreditConfirmationModal';
+import { refundCredits } from '../utils/creditUtils';
 import api from '../api/client';
 
 const API_URL = import.meta.env.VITE_API_SERVER_URL || 'http://localhost:3001'; // = 'http://localhost:5000';
@@ -338,24 +339,7 @@ export default function ScramblerVideosPro() {
         error("Scrambling failed: " + err.message);
         setIsProcessing(false);
 
-        // TODO: Refund credits if applicable
-        const response = await fetch(`${API_URL}/api/refund-credits`, {
-          method: 'POST',
-          // headers: {
-          //   'Content-Type': 'application/json'
-          // },
-
-          body: {
-            userId: userData.id,
-            username: userData.username,
-            email: userData.email,
-            password: localStorage.getItem('passwordtxt'),
-            credits: actionCost,
-            params: params,
-          }
-        });
-
-        console.log("Refund response:", response);
+        handleRefundCredits();
 
       }
 
@@ -363,6 +347,32 @@ export default function ScramblerVideosPro() {
       error("Scrambling failed: " + err.message);
     } finally {
       setIsProcessing(false);
+    }
+  };
+
+  const handleRefundCredits = async () => {
+    const result = await refundCredits({
+      userId: userData.id,
+      username: userData.username,
+      email: userData.email,
+      credits: actionCost,
+      currentCredits: userCredits,
+      password: localStorage.getItem('passwordtxt'),
+      action: 'scramble_video_pro',
+      params: {
+
+        scrambleLevel: scrambleLevel,
+        grid: { rows, cols },
+        seed: seed,
+        algorithm: algorithm,
+        percentage: scramblingPercentage
+      }
+    });
+
+    if (result.success) {
+      error(`An error occurred during scrambling. ${result.message}`);
+    } else {
+      error(`Scrambling failed. ${result.message}`);
     }
   };
 
@@ -825,7 +835,7 @@ export default function ScramblerVideosPro() {
         onClose={() => setShowCreditModal(false)}
         onConfirm={handleCreditConfirm}
         mediaType="video"
-        
+
         scrambleLevel={scrambleLevel}
         currentCredits={userCredits}
         fileName={selectedFile?.name || ''}

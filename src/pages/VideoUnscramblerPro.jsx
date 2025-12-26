@@ -36,6 +36,7 @@ import {
 } from '@mui/icons-material';
 import { useToast } from '../contexts/ToastContext';
 import CreditConfirmationModal from '../components/CreditConfirmationModal';
+import { refundCredits } from '../utils/creditUtils';
 import api from '../api/client';
 
 export default function VideoUnscramblerPro() {
@@ -62,7 +63,7 @@ export default function VideoUnscramblerPro() {
   const [isProcessing, setIsProcessing] = useState(false);
   const [unscrambledReady, setUnscrambledReady] = useState(false);
   const [scrambleLevel, setScrambleLevel] = useState(1); // Level of scrambling (for credit calculation)
-  
+
   const [userData, setUserData] = useState(JSON.parse(localStorage.getItem("userdata")));
   const [allowUnscrambling, setAllowUnscrambling] = useState(false);
   const [showCreditModal, setShowCreditModal] = useState(false);
@@ -87,34 +88,34 @@ export default function VideoUnscramblerPro() {
   };
 
 
-   const decryptKeyData = () => {
-        if (!keyCode || keyCode.trim() === '') {
-            error("Please paste your unscramble key first");
-            return;
-        }
+  const decryptKeyData = () => {
+    if (!keyCode || keyCode.trim() === '') {
+      error("Please paste your unscramble key first");
+      return;
+    }
 
-        try {
-            // Decode base64 key
-            const jsonString = atob(keyCode.trim());
-            const keyData = JSON.parse(jsonString);
+    try {
+      // Decode base64 key
+      const jsonString = atob(keyCode.trim());
+      const keyData = JSON.parse(jsonString);
 
-            // Validate key structure
-            if (!keyData.algorithm || !keyData.seed) {
-                throw new Error("Invalid key format");
-            }
+      // Validate key structure
+      if (!keyData.algorithm || !keyData.seed) {
+        throw new Error("Invalid key format");
+      }
 
-            setDecodedKey(keyData);
-            setKeyValid(true);
-            success("Key decoded successfully!");
+      setDecodedKey(keyData);
+      setKeyValid(true);
+      success("Key decoded successfully!");
 
-            console.log("Decoded key:", keyData);
-        } catch (err) {
-            console.error("Key decode error:", err);
-            error("Invalid key format. Please check your key and try again.");
-            setKeyValid(false);
-            setDecodedKey(null);
-        }
-    };
+      console.log("Decoded key:", keyData);
+    } catch (err) {
+      console.error("Key decode error:", err);
+      error("Invalid key format. Please check your key and try again.");
+      setKeyValid(false);
+      setDecodedKey(null);
+    }
+  };
 
 
   const handleKeyFileSelect = async (event) => {
@@ -123,7 +124,7 @@ export default function VideoUnscramblerPro() {
 
     try {
       const text = await file.text();
-      
+
       // Try to decrypt the key file (if it's encrypted)
       try {
         const keyData = decryptKeyData(text);
@@ -246,11 +247,6 @@ export default function VideoUnscramblerPro() {
       return;
     }
 
-    // if (!allowUnscrambling) {
-    //   error("You need to confirm credit usage before unscrambling");
-    //   return;
-    // }
-
     setIsProcessing(true);
 
     try {
@@ -301,23 +297,7 @@ export default function VideoUnscramblerPro() {
         setIsProcessing(false);
         // try {
         // TODO: Refund credits if applicable
-        const response = await fetch(`${API_URL}/api/refund-credits`, {
-          method: 'POST',
-          // headers: {
-          //   'Content-Type': 'application/json'
-          // },
-
-          body: {
-            userId: userData.id,
-            username: userData.username,
-            email: userData.email,
-            password: localStorage.getItem('passwordtxt'),
-            credits: actionCost,
-            params: params,
-          }
-        });
-
-        console.log("Refund response:", response);
+        handleRefundCredits();
 
       }
 
@@ -395,7 +375,26 @@ export default function VideoUnscramblerPro() {
 
   }, [selectedFile, decodedParams, allowUnscrambling]);
 
-  
+  const handleRefundCredits = async () => {
+    const result = await refundCredits({
+      userId: userData.id,
+      username: userData.username,
+      email: userData.email,
+      credits: actionCost,
+      currentCredits: userCredits,
+      password: localStorage.getItem('passwordtxt'),
+      params: decodedParams,
+      action: 'unscramble-video-pro'
+    });
+
+    if (result.success) {
+      error(`An error occurred during scrambling. ${result.message}`);
+    } else {
+      error(`Scrambling failed. ${result.message}`);
+    }
+  };
+
+
 
   useEffect(() => {
     const fetchUserData = async () => {
@@ -428,24 +427,6 @@ export default function VideoUnscramblerPro() {
         videoUrlRef.current = null;
       }
     };
-  }, []);
-
-  // Remove old photo-related code from here
-  const cellRects = (w, h, n, m) => {
-    const rects = [];
-    const cw = w / m, ch = h / n;
-    for (let r = 0; r < n; r++) {
-      for (let c = 0; c < m; c++) {
-        rects.push({ x: c * cw, y: r * ch, w: cw, h: ch });
-      }
-    }
-    return rects;
-  };
-
-  // Note: Old photo-related canvas drawing functions removed for video processing
-  const drawUnscrambledImage = useCallback((
-  ) => {
-    // Placeholder for future canvas-based preview if needed
   }, []);
 
   return (
@@ -693,20 +674,20 @@ export default function VideoUnscramblerPro() {
                       src={unscrambledFilename ? `${Flask_API_URL}/download/${unscrambledFilename}` : ''}
                       alt="Scrambled"
                       controls
-                       style={{
-                          width: '100%',
-                          maxHeight: '400px',
-                          backgroundColor: '#0b1020',
-                          borderRadius: '8px'
-                        }}
+                      style={{
+                        width: '100%',
+                        maxHeight: '400px',
+                        backgroundColor: '#0b1020',
+                        borderRadius: '8px'
+                      }}
                     />
-                  // ) : isProcessing ? (
-                  //   <Box sx={{ textAlign: 'center' }}>
-                  //     <CircularProgress sx={{ color: '#22d3ee', mb: 2 }} />
-                  //     <Typography variant="body2" sx={{ color: '#22d3ee' }}>
-                  //       Processing video on server...
-                  //     </Typography>
-                  //   </Box>
+                    // ) : isProcessing ? (
+                    //   <Box sx={{ textAlign: 'center' }}>
+                    //     <CircularProgress sx={{ color: '#22d3ee', mb: 2 }} />
+                    //     <Typography variant="body2" sx={{ color: '#22d3ee' }}>
+                    //       Processing video on server...
+                    //     </Typography>
+                    //   </Box>
                   ) : (
                     <>
                       <Typography variant="body2" sx={{ color: '#666' }}>
@@ -742,13 +723,13 @@ export default function VideoUnscramblerPro() {
         </Typography>
       </Paper>
 
-    {/* Credit Confirmation Modal */}
+      {/* Credit Confirmation Modal */}
       <CreditConfirmationModal
         open={showCreditModal}
         onClose={() => setShowCreditModal(false)}
         onConfirm={handleCreditConfirm}
         mediaType="video"
-        
+
         scrambleLevel={scrambleLevel}
         currentCredits={userCredits}
         fileName={selectedFile?.name || ''}

@@ -30,6 +30,7 @@ import {
 } from '@mui/icons-material';
 import { useToast } from '../contexts/ToastContext';
 import CreditConfirmationModal from '../components/CreditConfirmationModal';
+import { refundCredits } from '../utils/creditUtils';
 import api from '../api/client';
 
 export default function AudioUnscrambler() {
@@ -106,6 +107,35 @@ export default function AudioUnscrambler() {
 
     fetchCredits();
   }, [userData]);
+
+  // =============================
+  // HANDLE CREDIT REFUND
+  // =============================
+
+  const handleRefundCredits = async () => {
+    const result = await refundCredits({
+      userId: userData.id,
+      username: userData.username,
+      email: userData.email,
+      credits: actionCost,
+      currentCredits: userCredits,
+      password: localStorage.getItem('passwordtxt'),
+      action: 'scramble_photo_pro',
+      params: {
+        scrambleLevel: scrambleLevel,
+        grid: { rows, cols },
+        seed: seed,
+        algorithm: algorithm,
+        percentage: scramblingPercentage
+      }
+    });
+
+    if (result.success) {
+      error(`An error occurred during scrambling. ${result.message}`);
+    } else {
+      error(`Scrambling failed. ${result.message}`);
+    }
+  };
 
   // =============================
   // UTILITY FUNCTIONS
@@ -487,14 +517,6 @@ export default function AudioUnscrambler() {
     }
   };
 
-  // const handleScrambleAudio = () => {
-  //   if (!audioBuffer) {
-  //     error("Please load an audio file first!");
-  //     return;
-  //   }
-  //   setShowCreditModal(true);
-  // };
-
   const handleCreditConfirm = useCallback(async (actualCostSpent) => {
     setShowCreditModal(false);
     setIsProcessing(true);
@@ -521,26 +543,8 @@ export default function AudioUnscrambler() {
       error('Error during scrambling: ' + err.message);
       setIsProcessing(false);
 
-
-      // try {
-      // TODO: Refund credits if applicable
-      const response = await fetch(`${API_URL}/api/refund-credits`, {
-        method: 'POST',
-        // headers: {
-        //   'Content-Type': 'application/json'
-        // },
-
-        body: {
-          userId: userData.id,
-          username: userData.username,
-          email: userData.email,
-          password: localStorage.getItem('passwordtxt'),
-          credits: actionCost,
-          params: params,
-        }
-      });
-
-      console.log("Refund response:", response);
+      handleRefundCredits();
+      
     }
   }, [audioBuffer, segmentSize, padding, shuffleSeed, noiseLevel, noiseSeed, actionCost, setUserCredits, success, error]);
 
@@ -884,12 +888,12 @@ export default function AudioUnscrambler() {
         onClose={() => setShowCreditModal(false)}
         onConfirm={handleCreditConfirm}
         mediaType="audio"
-        description="scramble audio"
-        
+
+
+        isProcessing={isProcessing}
         scrambleLevel={scrambleLevel}
         currentCredits={userCredits}
         fileName={filename}
-        isProcessing={isProcessing}
         file={audioBuffer}
         fileDetails={{
           type: 'audio',
@@ -900,7 +904,8 @@ export default function AudioUnscrambler() {
           size: audioBuffer ? (audioBuffer.length * numberOfChannels * 4) / (1024 * 1024) : 0
         }}
         user={userData}
-        actionType="scramble-audio"
+        actionType="unscramble-audio"
+        actionDescription="Unscrambling audio"
       />
     </Container>
   );

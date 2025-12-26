@@ -96,7 +96,7 @@ export const FingerprintProvider = ({ children }) => {
   };
 
   const refreshFingerprint = () => {
-    alert('Refreshing fingerprint...');
+    // alert('Refreshing fingerprint...');
     generateFingerprint();
     return fingerprint, compactFingerprint;
   };

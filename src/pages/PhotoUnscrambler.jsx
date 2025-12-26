@@ -2,7 +2,7 @@
 // Unscrambles photos that were scrambled with the photo scrambler
 // Uses the same algorithm but works with images instead of videos
 
-import React, { useState, useRef, useEffect, useCallback } from 'react';
+import React, { useState, useRef, useEffect, useCallback,  } from 'react';
 import {
   Container,
   Typography,
@@ -29,13 +29,17 @@ import {
   Key,
   Image as ImageIcon
 } from '@mui/icons-material';
+import { useNavigate } from 'react-router-dom';
 import { useToast } from '../contexts/ToastContext';
 import CreditConfirmationModal from '../components/CreditConfirmationModal';
+import { refundCredits } from '../utils/creditUtils';
 import api from '../api/client';
 
 export default function PhotoUnscrambler() {
   const API_URL = import.meta.env.VITE_API_SERVER_URL || 'http://localhost:3001'; // = 'http://localhost:3001/api';
   const { success, error } = useToast();
+
+  const navigate = useNavigate();
 
   // 
   // Refs for image and canvas elements
@@ -249,6 +253,8 @@ export default function PhotoUnscrambler() {
     setShowCreditModal(false);
     setAllowScrambling(true);
 
+
+
     // Now you have access to the actual cost that was calculated and spent
     console.log('Credits spent:', actualCostSpent);
 
@@ -260,7 +266,7 @@ export default function PhotoUnscrambler() {
       applyParameters();
     }, 1000);
 
-  }, []);
+  }, [actionCost, decodedParams]);
 
 
   const decodeKeyCode = () => {
@@ -281,38 +287,27 @@ export default function PhotoUnscrambler() {
 
   };
 
+  // Refund credits on error using shared utility
   const handleRefundCredits = async () => {
-    // error("Unscrambling failed: " + e.message);
-    // setIsProcessing(false);
-    // try {
-    // TODO: Refund credits if applicable
-    const response = await fetch(`${API_URL}/api/refund-credits`, {
-      method: 'POST',
-      // headers: {
-      //   'Content-Type': 'application/json'
-      // },
-
-      body: {
-        userId: userData.id,
-        username: userData.username,
-        email: userData.email,
-        password: localStorage.getItem('passwordtxt'),
-        credits: actionCost,
-        params: decodedParams,
-      }
+    const result = await refundCredits({
+      userId: userData.id,
+      username: userData.username,
+      email: userData.email,
+      credits: actionCost,
+      currentCredits: userCredits,
+      password: localStorage.getItem('passwordtxt'),
+      params: decodedParams
     });
 
-    console.log("Refund response:", response);
-  }
+    if (result.success) {
+      error(`An error occurred during scrambling. ${result.message}`);
+    } else {
+      error(`Scrambling failed. ${result.message}`);
+    }
+  };
 
 
   const applyParameters = () => {
-
-    // if (!allowScrambling) {
-    //   error('You need to confirm credit usage before applying parameters.');
-    //   return;
-    // }
-
 
     try {
       const obj = JSON.parse(decodedParams);
@@ -329,6 +324,7 @@ export default function PhotoUnscrambler() {
       }
     } catch (e) {
       error('Invalid parameters: ' + e.message);
+      console.error('Error parsing parameters:', e);
       handleRefundCredits();
     }
   };
@@ -441,7 +437,7 @@ export default function PhotoUnscrambler() {
 
   const closeAdModal = () => {
     const canvas = modalCanvasRef.current || unscrambleCanvasRef.current;
-    
+
     if (!adCanClose) return;
     setShowAdModal(false);
     setShowModal(true);
@@ -455,7 +451,7 @@ export default function PhotoUnscrambler() {
       drawUnscrambledImage(img, modalCanvas, rectsDest, rectsSrcFromShuffled, srcToDest, unscrambleParams.n, unscrambleParams.m);
     }
 
-     canvas.toBlob((blob) => {
+    canvas.toBlob((blob) => {
       if (blob) {
         const url = URL.createObjectURL(blob);
         const a = document.createElement('a');
@@ -492,7 +488,7 @@ export default function PhotoUnscrambler() {
         return prev + 5;
       });
     }, 300);
-    
+
   };
 
   // ========== EFFECTS ==========
@@ -871,7 +867,7 @@ export default function PhotoUnscrambler() {
           </Box>
         </Box>
       </Modal>
-      
+
 
       {showCreditModal && (
         /* Credit Confirmation Modal */
@@ -881,7 +877,7 @@ export default function PhotoUnscrambler() {
           onConfirm={handleCreditConfirm}
           mediaType="photo"
           description="unscramble photo (lite)"
-          
+
           scrambleLevel={scrambleLevel}
           currentCredits={userCredits}
           fileName={selectedFile?.name || ''}
@@ -896,7 +892,7 @@ export default function PhotoUnscrambler() {
             vertical: scrambledImageRef.current?.naturalHeight || 0
           }}
           actionType="unscramble-photo"
-          actionDescription="basic photo unscrambling"
+          actionDescription="free photo unscrambling"
         />
 
       )}

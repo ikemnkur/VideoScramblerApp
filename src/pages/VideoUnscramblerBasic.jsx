@@ -39,6 +39,7 @@ import {
 } from '@mui/icons-material';
 import { useToast } from '../contexts/ToastContext';
 import CreditConfirmationModal from '../components/CreditConfirmationModal';
+import { refundCredits } from '../utils/creditUtils';
 import api from '../api/client';
 import { all } from 'axios';
 
@@ -256,7 +257,7 @@ export default function VideoUnscramblerBasic() {
 
     // // Use the video's reported duration directly
     // const video = shufVideoRef.current;
-    
+
     // // If duration is not available yet, wait for metadata to load
     // if (!video.duration || isNaN(video.duration)) {
     //   video.addEventListener('loadedmetadata', () => {
@@ -320,7 +321,7 @@ export default function VideoUnscramblerBasic() {
     } catch (e) {
       error('Invalid parameters: ' + e.message);
       console.error("Error applying parameters:", e);
-      handleRefundCredit();
+      handleRefundCredits();
     }
   };
 
@@ -340,7 +341,7 @@ export default function VideoUnscramblerBasic() {
     setSrcToDest(inversePerm);
   };
 
-  
+
 
   const drawUnscrambledFrame = useCallback((targetCanvas = null) => {
     const video = shufVideoRef.current;
@@ -361,7 +362,7 @@ export default function VideoUnscramblerBasic() {
       const sR = rectsSrcFromShuffled[shuffledDestIdx];
       const dR = rectsDest[origIdx];
       if (!sR || !dR) continue;
-      ctx.drawImage(video, sR.x, sR.y, sR.w, sR.h, dR.x, dR.y, dR.w, dR.h+1);
+      ctx.drawImage(video, sR.x, sR.y, sR.w, sR.h, dR.x, dR.y, dR.w, dR.h + 1);
     }
 
     // Add transparent watermark overlay to indicate unscrambled
@@ -470,29 +471,25 @@ export default function VideoUnscramblerBasic() {
 
   }, [decodedParams]);
 
-  const handleRefundCredit = async () => {
-    // error("Unscrambling failed: " + e.message);
-    // setIsProcessing(false);
-    // try {
-    // TODO: Refund credits if applicable
-    const response = await fetch(`${API_URL}/api/refund-credits`, {
-      method: 'POST',
-      // headers: {
-      //   'Content-Type': 'application/json'
-      // },
-
-      body: {
-        userId: userData.id,
-        username: userData.username,
-        email: userData.email,
-        password: localStorage.getItem('passwordtxt'),
-        credits: actionCost,
-        params: params,
-      }
+  // Refund credits on error using shared utility
+  const handleRefundCredits = async () => {
+    const result = await refundCredits({
+      userId: userData.id,
+      username: userData.username,
+      email: userData.email,
+      credits: actionCost,
+      currentCredits: userCredits,
+      password: localStorage.getItem('passwordtxt'),
+      params: decodedParams,
+      action: 'unscramble_video_basic'
     });
 
-    console.log("Refund response:", response);
-  }
+    if (result.success) {
+      error(`An error occurred during scrambling. ${result.message}`);
+    } else {
+      error(`Scrambling failed. ${result.message}`);
+    }
+  };
 
   // ========== EFFECTS ==========
 
@@ -1066,7 +1063,7 @@ export default function VideoUnscramblerBasic() {
           onClose={() => setShowCreditModal(false)}
           onConfirm={handleCreditConfirm}
           mediaType="video"
-          
+
           scrambleLevel={scrambleLevel}
           currentCredits={userCredits}
           fileName={selectedFile?.name || ''}
