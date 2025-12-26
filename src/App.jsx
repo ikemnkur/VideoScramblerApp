@@ -209,10 +209,10 @@ export default function App() {
 
             <Route path="/bonus-credits" element={<BonusCredits />} />
 
+            <Route path="/stripe/success/*" element={<PurchaseStripeSuccessful />} />
+
             {/* need a redirect or fallback route if not logged in and the user tries to visit a protected route */}
             <Route path="*" element={<LoadingPage />} />
-
-            <Route path="/stripe/success" element={<PurchaseStripeSuccessful />} />
 
 
           </Routes>
