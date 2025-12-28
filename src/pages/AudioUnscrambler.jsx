@@ -83,6 +83,8 @@ export default function AudioUnscrambler() {
 
   const [userData] = useState(JSON.parse(localStorage.getItem("userdata")));
 
+  const API_URL = import.meta.env.VITE_API_SERVER_URL || 'http://localhost:3001';
+
   // =============================
   // FETCH USER CREDITS
   // =============================

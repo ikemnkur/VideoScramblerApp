@@ -43,7 +43,7 @@ export async function refundCredits({
     const data = await response.json();
 
     if (response.ok && data.success) {
-      console.log("Refund successful:", data);
+      console.log(`Refund of ${credits} successful:`, data);
       return {
         success: true,
         message: `Refunded ${credits} credits successfully.`,

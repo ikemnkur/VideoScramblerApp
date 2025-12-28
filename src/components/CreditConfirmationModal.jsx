@@ -29,6 +29,7 @@ export default function CreditConfirmationModal({
   onConfirm,
   mediaType = 'video', // 'video' or 'photo'
   description = '',
+  // actionCost = 0,
   // creditCost = 0,
   currentCredits = 0,
   scrambleLevel = 1,
@@ -53,6 +54,7 @@ export default function CreditConfirmationModal({
   const [userCredits, setUserCredits] = useState(currentCredits);
   const [hasEnoughCredits, setHasEnoughCredits] = useState(false);
   const [remainingCredits, setRemainingCredits] = useState(0);
+  const [processable, setProcessable] = useState(true);
   const [userData, setUserData] = useState(() => {
     const stored = localStorage.getItem('userdata');
     return stored ? JSON.parse(stored) : {};
@@ -149,20 +151,37 @@ export default function CreditConfirmationModal({
     }
   };
 
+
+  // =============================
+  // EFFECTS
+  // =============================
+
   useEffect(() => {
     // Calculate cost based on fileDetails
     let calculatedCost = 0;
 
     if (!fileDetails || (!fileDetails.horizontal && !fileDetails.vertical)) {
-  
-       return () => { console.log('No file details available for cost calculation'); };
-  
+      console.log('No file details available for cost calculation');
+      return;
     }
 
     const LQ = 2;
     const SDcharge = 3;
     const HDcharge = 5;
     const FHDCharge = 10;
+
+
+    if (fileDetails.size > 250000000) {  // over 250MB surcharge
+      console.log('File size over 250MB limit:', fileDetails.size);
+      setProcessable(false);
+      setTotalCost(0);
+      setHasEnoughCredits(false);
+      setRemainingCredits(userCredits);
+      return;
+    }
+
+    // Reset processable if file size is valid
+    setProcessable(true);
 
     if (mediaType === 'photo') {
       // Calculate cost based on photo resolution from fileDetails
@@ -172,48 +191,40 @@ export default function CreditConfirmationModal({
       console.log('Photo Dimensions:', width, 'x', height);
       console.log('Photo Size:', fileDetails.size, 'bytes');
 
+      let resolutionCost = LQ;
       if (width >= 1920 && height >= 1080) {
-        calculatedCost =  FHDCharge;
+        resolutionCost = FHDCharge;
       } else if (width >= 1280 && height >= 720) {
-        calculatedCost =  HDcharge;
+        resolutionCost = HDcharge;
       } else if (width >= 854 && height >= 480) {
-        calculatedCost =  SDcharge;
+        resolutionCost = SDcharge;
       } else {
-        calculatedCost =  LQ;
+        resolutionCost = LQ;
       }
 
-      calculatedCost = Math.ceil(calculatedCost * (1 + fileDetails.size / (1000 * 1000 * 0.5))); // scale by size in MB over 0.5MB
+      calculatedCost = Math.ceil(resolutionCost * (1 + fileDetails.size / (1000 * 1000 * 0.5))); // scale by size in MB over 0.5MB
 
-      console.log('Calculated Photo Cost:', calculatedCost);
+      // console.log('Calculated Photo Cost:', calculatedCost);
 
     } else if (mediaType === 'audio') {
       // Calculate cost based on video resolution and duration from fileDetails
-      // const width = fileDetails.horizontal;
-      // const height = fileDetails.vertical;
       const duration = Math.ceil((fileDetails.duration || 0) / 60); // duration in minutes
       const sampleRate = fileDetails.sampleRate || 44100;
       const numberOfChannels = fileDetails.numberOfChannels || 2;
 
-
       console.log('Audio Duration:', fileDetails.duration, 'seconds (', duration, 'minutes)');
-      // console.log('Audio Resolution:', width, 'x', height);
       console.log('Audio Size:', fileDetails.size, 'bytes');
+      console.log("cost due to size: ", (1 + fileDetails.size / (1000 * 1000 * 1)))
 
-      console.log ("cost due to size: ", (1 + fileDetails.size / (1000 * 1000 * 1)))
+      calculatedCost = Math.ceil((sampleRate / 24000) * duration + (numberOfChannels * fileDetails.size / (1000 * 1000 * 1))); // scale by size in MB over 1MB
 
-     calculatedCost = Math.ceil((sampleRate / 24000) * duration + (numberOfChannels * fileDetails.size / (1000 * 1000 * 1))); // scale by size in MB over 1MB
-
-      console.log('Calculated Audio Cost:', calculatedCost);
+      // console.log('Calculated Audio Cost:', calculatedCost);
 
     } else if (mediaType === 'video') {
       // Calculate cost based on video resolution and duration from fileDetails
       const width = fileDetails.horizontal;
       const height = fileDetails.vertical;
       const duration = Math.ceil((fileDetails.duration || 0) / 60); // duration in minutes
-
-      // console.log('Video Duration:', fileDetails.duration, 'seconds (', duration, 'minutes)');
-      // console.log('Video Resolution:', width, 'x', height);
-      // console.log('Video Size:', fileDetails.size, 'bytes');
 
       let resolutionCost = LQ;
       if (width >= 1920 && height >= 1080) {
@@ -224,17 +235,17 @@ export default function CreditConfirmationModal({
         resolutionCost = SDcharge;
       }
 
-      console.log ("cost due to size: ", (1 + fileDetails.size / (1000 * 1000 * 1)))
+      // console.log("cost due to size: ", (1 + fileDetails.size / (1000 * 1000 * 1)))
 
-
-      calculatedCost = Math.ceil( (duration * resolutionCost) * 2 * Math.sqrt(1 + fileDetails.size / (1000 * 1000 * 1))); // scale by size in MB over 1MB
-
-      // console.log('Calculated Video Cost:', calculatedCost);
+      calculatedCost = Math.ceil(Math.sqrt(duration * resolutionCost) * (1 + fileDetails.size / (1000 * 1000 * 1))); // scale by size in MB over 1MB
     }
 
-    setTotalCost(Math.ceil(calculatedCost * Math.sqrt(scrambleLevel)));
-    setHasEnoughCredits(userCredits >= totalCost);
-    setRemainingCredits(userCredits - totalCost);
+    const finalCost = Math.ceil(calculatedCost * Math.sqrt(scrambleLevel));
+    console.log('Total Cost after scramble level adjustment:', finalCost);
+    
+    setTotalCost(finalCost);
+    setHasEnoughCredits(userCredits >= finalCost);
+    setRemainingCredits(userCredits - finalCost);
 
   }, [fileDetails, mediaType, userCredits, scrambleLevel]);
 
@@ -270,7 +281,7 @@ export default function CreditConfirmationModal({
             {/* /* list attributes of video or photo */}
             <Typography variant="body2" color="text.secondary">
               {mediaType === 'video'
-                ? `Duration: ${fileDetails.duration ?? 'Unknown '} s | Resolution: ${fileDetails.horizontal}x${fileDetails.vertical} | Size: ${Math.floor(fileDetails.size / (1000 * 100)) / 10 ?? 'Unknown'} MB`
+                ? `Duration: ${fileDetails.duration ?? 'Unknown '} s | Resolution: ${fileDetails.horizontal}x${fileDetails.vertical} | Size: ${Math.floor(fileDetails.size / (1000 * 100)) / 10} MB`
                 : mediaType === 'audio'
                   ? `Duration: ${fileDetails.duration ?? 'Unknown '} s | Sample Rate: ${fileDetails.sampleRate ?? 'Unknown'} Hz | Channels: ${fileDetails.numberOfChannels ?? 'Unknown'} | Size: ${Math.floor(fileDetails.size / (1000 * 1000) * 10) / 10 ?? 'Unknown'} MB`
                   : `Dimensions: ${fileDetails.horizontal}x${fileDetails.vertical} | Size: ${Math.floor(fileDetails.size / 1000) ?? 'Unknown'} KB`}
@@ -282,37 +293,49 @@ export default function CreditConfirmationModal({
 
         {/* Credit Breakdown */}
         <Box sx={{ mb: 2 }}>
-          <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1 }}>
-            <Typography variant="body1">Current Credits:</Typography>
-            <Chip
-              label={`${userCredits} credits`}
-              color="primary"
-              size="small"
-            />
-          </Box>
 
-          <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1 }}>
-            <Typography variant="body1">Scrambling Cost:</Typography>
-            <Chip
-              label={`-${totalCost} credits`}
-              color="warning"
-              size="small"
-            />
-          </Box>
+          {!processable && (
+            <Alert severity="error" icon={<Warning />} sx={{ mb: 2 }}>
+              <strong>File Too Large!</strong> The selected file exceeds the 250MB size limit for scrambling. Please choose a smaller file.
+            </Alert>
+          )}
 
-          <Divider sx={{ my: 1 }} />
+          {processable && (
+            <>
+              <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1 }}>
+                <Typography variant="body1">Current Credits:</Typography>
+                <Chip
+                  label={`${userCredits} credits`}
+                  color="primary"
+                  size="small"
+                />
+              </Box>
 
-          <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
-            <Typography variant="body1" sx={{ fontWeight: 'bold' }}>
-              Remaining Credits:
-            </Typography>
-            <Chip
-              label={`${remainingCredits} credits`}
-              color={hasEnoughCredits ? 'success' : 'error'}
-              size="small"
-              sx={{ fontWeight: 'bold' }}
-            />
-          </Box>
+              <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1 }}>
+                <Typography variant="body1">Scrambling Cost:</Typography>
+                <Chip
+                  label={`-${totalCost} credits`}
+                  color="warning"
+                  size="small"
+                />
+              </Box>
+
+              <Divider sx={{ my: 1 }} />
+
+              <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
+                <Typography variant="body1" sx={{ fontWeight: 'bold' }}>
+                  Remaining Credits:
+                </Typography>
+                <Chip
+                  label={`${remainingCredits} credits`}
+                  color={hasEnoughCredits ? 'success' : 'error'}
+                  size="small"
+                  sx={{ fontWeight: 'bold' }}
+                />
+              </Box>
+            </>
+
+          )}
         </Box>
 
         {/* Warnings */}

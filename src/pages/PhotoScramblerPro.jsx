@@ -275,6 +275,12 @@ export default function PhotoScramblerPro() {
 
                 console.log("Scramble response:", response);
 
+                if (!response.ok || !data.success) {
+                    error("Scrambling failed: " + (data.message || "Unknown error"));
+                    setIsProcessing(false);
+                    handleRefundCredits();
+                    return;
+                }
 
                 // The backend should return the scrambled image info
                 setScrambledFilename(data.output_file || data.scrambledFileName);
@@ -363,7 +369,7 @@ export default function PhotoScramblerPro() {
             const url = URL.createObjectURL(blob);
             const a = document.createElement('a');
             a.href = url;
-            a.download = scrambledFilename;
+            a.download = `scrambled_${selectedFile?.name || 'unknown'}_${Date.now()}.png`;
             document.body.appendChild(a);
             a.click();
             document.body.removeChild(a);
@@ -400,7 +406,7 @@ export default function PhotoScramblerPro() {
         const url = URL.createObjectURL(blob);
         const a = document.createElement('a');
         a.href = url;
-        a.download = `unscramble_key_${Date.now()}.txt`;
+        a.download = `unscramble_key_${selectedFile?.name || 'unknown'}_${Date.now()}.txt`;
         document.body.appendChild(a);
         a.click();
         document.body.removeChild(a);

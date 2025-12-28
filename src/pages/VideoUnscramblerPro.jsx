@@ -281,7 +281,15 @@ export default function VideoUnscramblerPro() {
         });
 
         const data = await response.json();
+
         console.log("Video Unscramble response:", response);
+
+        if (!response.ok || !data.success) {
+          error("Scrambling failed: " + (data.message || "Unknown error"));
+          setIsProcessing(false);
+          handleRefundCredits();
+          return;
+        }
 
         setUnscrambledFilename(data.output_file || data.unscrambledFileName);
         // setUnscrambledReady(true);
@@ -681,29 +689,13 @@ export default function VideoUnscramblerPro() {
                         borderRadius: '8px'
                       }}
                     />
-                    // ) : isProcessing ? (
-                    //   <Box sx={{ textAlign: 'center' }}>
-                    //     <CircularProgress sx={{ color: '#22d3ee', mb: 2 }} />
-                    //     <Typography variant="body2" sx={{ color: '#22d3ee' }}>
-                    //       Processing video on server...
-                    //     </Typography>
-                    //   </Box>
+             
                   ) : (
                     <>
                       <Typography variant="body2" sx={{ color: '#666' }}>
                         Unscrambled video will appear here
                       </Typography>
-                      {/* <video
-                        ref={unscrambledVideoRef}
-                        // src={videoUrl}
-                        controls
-                        style={{
-                          // display: 'none',
-                          maxWidth: '100%',
-                          maxHeight: '400px',
-                          borderRadius: '8px'
-                        }}
-                      /> */}
+                    
                     </>
 
                   )}

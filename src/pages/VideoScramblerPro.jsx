@@ -106,6 +106,19 @@ export default function ScramblerVideosPro() {
   }, []);
 
 
+   useEffect(() => {
+
+    console.log("parameters have changed")
+    // console.log("Rows:", rows);
+    // console.log("Cols:", cols);
+    // console.log("Algorithm:", algorithm);
+    // console.log("Max Hue Shift:", maxHueShift);
+    // console.log("Max Intensity Shift:", maxIntensityShift);
+    // console.log("Scrambling Percentage:", scramblingPercentage);
+    // console.log("Selected file changed:", selectedFile);
+  }, [rows, cols, algorithm, maxHueShift, maxIntensityShift, scramblingPercentage]);
+
+
 
 
   // =============================
@@ -170,7 +183,7 @@ export default function ScramblerVideosPro() {
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = `unscramble_key_${Date.now()}.txt`;
+    a.download = `unscramble_key_${selectedFile?.name || 'unknown'}_${Date.now()}.txt`;
     document.body.appendChild(a);
     a.click();
     document.body.removeChild(a);
@@ -310,6 +323,13 @@ export default function ScramblerVideosPro() {
         const data = await response.json();
         console.log("Scramble response:", response);
 
+        if (!response.ok || !data.success) {
+          error("Scrambling failed: " + (data.message || "Unknown error"));
+          setIsProcessing(false);
+          handleRefundCredits();
+          return;
+        }
+
         // The backend should return the scrambled image info
         setScrambledFilename(data.output_file || data.scrambledFileName);
 
@@ -386,6 +406,7 @@ export default function ScramblerVideosPro() {
 
       if (scrambledDisplayRef.current) {
         scrambledDisplayRef.current.src = url;
+        console.log("SCRAMBLED VIDEO URL SET: " + url)
       }
     } catch (err) {
       error("Failed to load scrambled video: " + err.message);
@@ -406,7 +427,7 @@ export default function ScramblerVideosPro() {
       const url = URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = url;
-      a.download = scrambledFilename;
+      a.download = "scrambled_" + scrambledFilename;
       document.body.appendChild(a);
       a.click();
       document.body.removeChild(a);
@@ -762,22 +783,33 @@ export default function ScramblerVideosPro() {
                   overflow: 'hidden'
                 }}>
                   {scrambledFilename ? (
-                    <video
-                      ref={scrambledDisplayRef}
-                      src={scrambledFilename ? `${Flask_API_URL}/download/${scrambledFilename}` : ''}
-                      alt="Scrambled"
-                      style={{
-                        maxWidth: '100%',
-                        maxHeight: '400px',
-                        borderRadius: '8px'
-                      }}
-                    />
+                    <>
+
+                      <video
+                        ref={scrambledDisplayRef}
+                        src={scrambledFilename ? `${Flask_API_URL}/download/${scrambledFilename}` : ''}
+                        alt="Scrambled"
+                        style={{
+                          maxWidth: '100%',
+                          maxHeight: '400px',
+                          borderRadius: '8px'
+                        }}
+                      />
+
+                    </>
+
                   ) : (
                     <Typography variant="body2" sx={{ color: '#666' }}>
                       Scrambled video will appear here
                     </Typography>
                   )}
                 </Box>
+                  {scrambledFilename && (
+                     <Typography>
+                        {scrambledFilename + ' loaded. Size: ' + (scrambledDisplayRef.current?.videoWidth || 0) + '×' + (scrambledDisplayRef.current?.videoHeight || 0) + 'px'}
+                      </Typography>
+                  )}
+                     
               </Grid>
             </Grid>
           </Box>

@@ -32,7 +32,7 @@ import { useToast } from '../contexts/ToastContext';
 import CreditConfirmationModal from '../components/CreditConfirmationModal';
 import api from '../api/client';
 
-const API_URL = import.meta.env.VITE_API_SERVER_URL || 'http://localhost:3001'; // = 'http://localhost:3001/api';
+const API_URL = import.meta.env.VITE_API_SERVER_URL || 'http://localhost:3001'; 
 const Flask_API_URL = 'http://localhost:5000/';
 
 export default function PhotoUnscramblerPro() {
@@ -49,6 +49,7 @@ export default function PhotoUnscramblerPro() {
     const [selectedFile, setSelectedFile] = useState(null);
     const [imageLoaded, setImageLoaded] = useState(false);
     const [isProcessing, setIsProcessing] = useState(false);
+    const [grid, setGrid] = useState({ n: 5, m: 5 });
     const [unscrambledFilename, setUnscrambledFilename] = useState('');
     const [keyCode, setKeyCode] = useState('');
     const [decodedKey, setDecodedKey] = useState(null);
@@ -100,9 +101,8 @@ export default function PhotoUnscramblerPro() {
         console.log('Credits spent:', actualCostSpent);
 
         // You can use this value for logging, analytics, or displaying to user
-        // For example, update a state variable:
         // setLastCreditCost(actualCostSpent);
-        setActionCost(actualCostSpent);
+        // setActionCost(actualCostSpent);
 
 
 
@@ -130,7 +130,7 @@ export default function PhotoUnscramblerPro() {
         setSelectedFile(file);
         // localStorage.setItem("selectedImageFile", file);
         setImageFile(file); // Also set imageFile for scrambling logic
-        setUnscrambledFilename('');
+        // setUnscrambledFilename('');
         setKeyCode('');
 
         // Reset previous state
@@ -138,17 +138,46 @@ export default function PhotoUnscramblerPro() {
         // setBase64Key("");
         // setJsonKey("");
         // setImageLoaded(false);
-        setImageLoaded(true);
 
         const url = URL.createObjectURL(file);
         setPreviewUrl(url);
 
         // Load image into the hidden image ref for processing
-        if (imageRef.current) {
+        // if (imageRef.current) {
+        setTimeout(() => {
             imageRef.current.onload = () => {
                 console.log("Image loaded successfully");
                 setImageLoaded(true);
-                // updateCanvas();
+
+                // Calculate cost after image has loaded
+                const LQ = 2;
+                const SDcharge = 3;
+                const HDcharge = 5;
+                const FHDCharge = 10;
+
+                const width = imageRef.current?.naturalWidth || 0;
+                const height = imageRef.current?.naturalHeight || 0;
+
+                console.log('Photo Dimensions:', width, 'x', height);
+                console.log('Photo Size:', file.size, 'bytes');
+
+                let resolutionCost = LQ;
+                if (width >= 1920 && height >= 1080) {
+                    resolutionCost = FHDCharge;
+                } else if (width >= 1280 && height >= 720) {
+                    resolutionCost = HDcharge;
+                } else if (width >= 854 && height >= 480) {
+                    resolutionCost = SDcharge;
+                } else {
+                    resolutionCost = LQ;
+                }
+
+                let calculatedCost = Math.ceil(resolutionCost * (1 + file.size / (1000 * 1000 * 0.5))); // scale by size in MB over 0.5MB
+
+                console.log('Calculated Photo Cost:', calculatedCost);
+
+                setActionCost(calculatedCost);
+
                 URL.revokeObjectURL(url);
             };
 
@@ -160,30 +189,15 @@ export default function PhotoUnscramblerPro() {
             };
 
             imageRef.current.src = url;
-        }
+            // }
+
+            // slight delay to ensure state updates
+        }, 100);
 
         console.log("Selected file:", file);
+
     };
 
-    // // =============================
-    // // FILE HANDLING
-    // // =============================
-    // const handleFileSelect = (event) => {
-    //     const file = event.target.files?.[0];
-    //     if (!file) return;
-
-    //     if (!file.type.startsWith('image/')) {
-    //         error("Please select a valid image file");
-    //         return;
-    //     }
-
-    //     setSelectedFile(file);
-    //     setUnscrambledFilename('');
-
-    //     const url = URL.createObjectURL(file);
-    //     setPreviewUrl(url);
-    //     setImageLoaded(true);
-    // };
 
     // =============================
     // KEY HANDLING
@@ -264,7 +278,15 @@ export default function PhotoUnscramblerPro() {
                     body: formData
                 });
                 const data = await response.json();
+
                 console.log("Unscramble response:", response);
+                
+                if (!response.ok || !data.success) {
+                    error("Scrambling failed: " + (data.message || "Unknown error"));
+                    setIsProcessing(false);
+                    handleRefundCredits();
+                    return;
+                }
 
 
                 // The backend should return the unscrambled image info
@@ -366,28 +388,6 @@ export default function PhotoUnscramblerPro() {
             error("Download failed: " + err.message);
         }
     };
-
-    // useEffect(() => {
-    //     const fetchUserCredits = async () => {
-    //         try {
-    //             const response = await api.post(`api/wallet/balance/${userData.username}`, {
-    //                 username: userData.username,
-    //                 email: userData.email,
-    //                 password: localStorage.getItem('passwordtxt')
-    //             });
-
-    //             if (response.status === 200 && response.data) {
-    //                 setUserCredits(response.data.credits);
-    //             }
-    //         } catch (err) {
-    //             console.error('Failed to fetch user credits:', err);
-    //         }
-    //     };
-
-    //     if (userData?.username) {
-    //         fetchUserCredits();
-    //     }
-    // }, [userData]);
 
 
 
@@ -554,18 +554,19 @@ export default function PhotoUnscramblerPro() {
                                 // onClick={unscrambleImage}
                                 onClick={() => {
                                     setShowCreditModal(true);
-                                    setScrambleLevel(n >= rows ? cols : rows);
+                                    setScrambleLevel(decodedKey.cols >= decodedKey.rows ? decodedKey.cols : decodedKey.rows);
                                 }}
                                 startIcon={isProcessing ? <CircularProgress size={20} /> : <CloudDownload />}
-                                disabled={!imageLoaded || !keyValid || isProcessing}
+                                disabled={!imageLoaded || !keyValid}
                                 sx={{
-                                    backgroundColor: (!imageLoaded || !keyValid || isProcessing) ? '#666' : '#22d3ee',
-                                    color: (!imageLoaded || !keyValid || isProcessing) ? '#999' : '#001018',
+                                    backgroundColor: (!imageLoaded || !keyValid) ? '#666' : '#22d3ee',
+                                    color: (!imageLoaded || !keyValid) ? '#999' : '#001018',
                                     fontWeight: 'bold',
                                     minWidth: '200px'
                                 }}
                             >
                                 {isProcessing ? 'Processing...' : 'Unscramble on Server'}
+
                             </Button>
 
                             <Button
@@ -700,7 +701,7 @@ export default function PhotoUnscramblerPro() {
                 onClose={() => setShowCreditModal(false)}
                 onConfirm={handleCreditConfirm}
                 mediaType="photo"
-                
+
                 scrambleLevel={scrambleLevel}
                 currentCredits={userCredits}
                 fileName={selectedFile?.name || ''}
@@ -714,6 +715,7 @@ export default function PhotoUnscramblerPro() {
                     horizontal: imageRef.current?.naturalWidth || 0,
                     vertical: imageRef.current?.naturalHeight || 0
                 }}
+                // actionCost={actionCost}
                 actionType="unscramble-photo-pro"
                 actionDescription="pro level photo unscrambling"
                 height={400}

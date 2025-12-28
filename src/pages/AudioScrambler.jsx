@@ -34,6 +34,8 @@ import api from '../api/client';
 export default function AudioScrambler() {
   const { success, error } = useToast();
 
+  const API_URL = import.meta.env.VITE_API_SERVER_URL || 'http://localhost:3001';
+
   // =============================
   // STATE & REFS
   // =============================

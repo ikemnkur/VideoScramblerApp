@@ -184,6 +184,24 @@ const Notifications = () => {
     }
   };
 
+
+  // dekete notification function
+  const deleteNotifcation = async (id) => {
+    try {
+      const response = await fetch(`${API_URL}/api/notifications/delete/${id}`, {
+        method: 'DELETE'
+      });
+
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+
+      console.log(`Notification ${id} deleted successfully.`);
+    } catch (error) {
+      console.error('Error deleting notification:', error);
+    }
+  }
+
   // Initialize notifications
   useEffect(() => {
     fetchNotifications();
@@ -192,7 +210,7 @@ const Notifications = () => {
   // Handle dismiss notification
   const handleDismiss = (id) => {
     // todo: 
-    deleteNotifcation()
+    deleteNotifcation(id)
     setNotifications((prev) => prev.filter((notif) => notif.id !== id));
   };
 
