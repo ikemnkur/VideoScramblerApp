@@ -17,7 +17,8 @@ import {
   Grid,
   Paper,
   Chip,
-  Alert
+  Alert,
+  Grid2
 } from '@mui/material';
 import {
   PhotoCamera,
@@ -29,6 +30,8 @@ import {
 } from '@mui/icons-material';
 import { useToast } from '../contexts/ToastContext';
 import CreditConfirmationModal from '../components/CreditConfirmationModal';
+import { Navigate, useNavigate } from "react-router-dom";
+import { refundCredits } from '../utils/creditUtils';
 import api from '../api/client';
 
 
@@ -43,6 +46,9 @@ import api from '../api/client';
 
 export default function PhotoScrambler() {
 
+
+  const navigate = useNavigate();
+
   // export default function App() {
   const { success, error } = useToast();
 
@@ -51,7 +57,7 @@ export default function PhotoScrambler() {
   // =============================
   // SUBSCRIPTION HOOKS (mock)
   // =============================
-  const [user] = useState({ id: "demo-user-123", email: "demo@example.com", username: "photoartist" });
+  // const [user] = useState({ id: "demo-user-123", email: "demo@example.com", username: "photoartist" });
   const [isPro, setIsPro] = useState(false);
   const togglePro = () => setIsPro((p) => !p);
 
@@ -67,8 +73,17 @@ export default function PhotoScrambler() {
   const [selectedLevel, setSelectedLevel] = useState("med"); // low|med|high
   const [grid, setGrid] = useState({ n: 8, m: 8 }); // Increased grid values for photos
 
+  const [noiseIntensity, setNoiseIntensity] = useState(30); // Noise intensity for obscuring the image (0-127)
+
   const [seed, setSeed] = useState(() => genRandomSeed());
+  const [noiseSeed, setNoiseSeed] = useState(() => genRandomSeed());
   const [permDestToSrc0, setPermDestToSrc0] = useState([]);
+
+  const [shuffleParams, setShuffleParams] = useState(null);
+  const [noiseParams, setNoiseParams] = useState(null);
+  const [params, setParams] = useState(null);
+
+
   const [base64Key, setBase64Key] = useState("");
   const [jsonKey, setJsonKey] = useState("");
   const [imageLoaded, setImageLoaded] = useState(false);
@@ -199,6 +214,143 @@ export default function PhotoScrambler() {
     return rects;
   }
 
+  /* =========================
+    Noise Utilities
+  ========================= */
+  function gcd(a, b) {
+    a = Math.abs(a | 0); b = Math.abs(b | 0);
+    while (b !== 0) { const t = a % b; a = b; b = t; }
+    return a;
+  }
+
+  function mod(n, m) {
+    // true mathematical modulo for negatives
+    return ((n % m) + m) % m;
+  }
+
+  // Mulberry32 PRNG (seeded, fast, deterministic)
+  function mulberry32(seed) {
+    let t = seed >>> 0;
+    return function () {
+      t += 0x6D2B79F5;
+      let x = Math.imul(t ^ (t >>> 15), 1 | t);
+      x ^= x + Math.imul(x ^ (x >>> 7), 61 | x);
+      return ((x ^ (x >>> 14)) >>> 0) / 4294967296; // [0,1)
+    };
+  }
+
+  // async function fileToImage(file) {
+  //   const url = URL.createObjectURL(file);
+  //   try {
+  //     const img = new Image();
+  //     img.decoding = "async";
+  //     img.src = url;
+  //     await img.decode();
+  //     return img;
+  //   } finally {
+  //     // keep url alive until img is decoded; revoke after decode
+  //     // (done in finally because decode awaited above)
+  //     // revoke *after* decode by scheduling microtask
+  //     setTimeout(() => URL.revokeObjectURL(url), 0);
+  //   }
+  // }
+
+  function fitCanvasToImage(cv, w, h) {
+    cv.width = w;
+    cv.height = h;
+  }
+
+  function drawImageToCanvas(img, cv) {
+    fitCanvasToImage(cv, img.naturalWidth, img.naturalHeight);
+    const ctx = cv.getContext("2d", { willReadFrequently: true });
+    ctx.clearRect(0, 0, cv.width, cv.height);
+    ctx.drawImage(img, 0, 0);
+    return ctx;
+  }
+
+  /* =========================
+    Noise generation (tileable)
+    - offsets are integers in [-intensity, +intensity]
+    - tile is square: tile x tile
+    ========================= */
+  function generateNoiseTileOffsets(tileSize, seed, intensity) {
+    const rand = mulberry32(seed >>> 0);
+    const pxCount = tileSize * tileSize;
+
+    // store offsets per pixel per channel (RGB), Int16 is plenty
+    const offsets = new Int16Array(pxCount * 3);
+
+    for (let p = 0; p < pxCount; p++) {
+      const base = p * 3;
+      // Uniform integer in [-intensity, +intensity]
+      offsets[base + 0] = Math.round((rand() * 2 - 1) * intensity);
+      offsets[base + 1] = Math.round((rand() * 2 - 1) * intensity);
+      offsets[base + 2] = Math.round((rand() * 2 - 1) * intensity);
+    }
+    return offsets;
+  }
+
+  function applyNoiseAddMod256(imageData, tileOffsets, tileSize, intensity) {
+    // intensity is not used here directly (offsets already scaled), included for clarity
+    const w = imageData.width, h = imageData.height;
+    const src = imageData.data;
+    const out = new Uint8ClampedArray(src); // copy
+
+    for (let y = 0; y < h; y++) {
+      const ty = y % tileSize;
+      for (let x = 0; x < w; x++) {
+        const tx = x % tileSize;
+        const tileIndex = (ty * tileSize + tx) * 3;
+        const i = (y * w + x) * 4;
+
+        out[i + 0] = mod(src[i + 0] + tileOffsets[tileIndex + 0], 256);
+        out[i + 1] = mod(src[i + 1] + tileOffsets[tileIndex + 1], 256);
+        out[i + 2] = mod(src[i + 2] + tileOffsets[tileIndex + 2], 256);
+        // alpha unchanged
+      }
+    }
+    return new ImageData(out, w, h);
+  }
+
+  // Visualize offsets as RGB around 128 (so 0 offset = mid-gray)
+  function renderNoiseTilePreview(tileOffsets, tileSize, cvElement, zoom = 1) {
+    if (!cvElement) return;
+
+    const w = tileSize, h = tileSize;
+    cvElement.width = w * zoom;
+    cvElement.height = h * zoom;
+
+    const tmp = document.createElement("canvas");
+    tmp.width = w;
+    tmp.height = h;
+    const tctx = tmp.getContext("2d", { willReadFrequently: true });
+    const img = tctx.createImageData(w, h);
+
+    for (let y = 0; y < h; y++) {
+      for (let x = 0; x < w; x++) {
+        const p = (y * w + x);
+        const base3 = p * 3;
+        const i = p * 4;
+
+        const r = 128 + tileOffsets[base3 + 0];
+        const g = 128 + tileOffsets[base3 + 1];
+        const b = 128 + tileOffsets[base3 + 2];
+
+        img.data[i + 0] = clamp(r, 0, 255);
+        img.data[i + 1] = clamp(g, 0, 255);
+        img.data[i + 2] = clamp(b, 0, 255);
+        img.data[i + 3] = 255;
+      }
+    }
+    tctx.putImageData(img, 0, 0);
+
+    const ctx = cvElement.getContext("2d");
+    ctx.imageSmoothingEnabled = false;
+    ctx.clearRect(0, 0, cvElement.width, cvElement.height);
+    ctx.drawImage(tmp, 0, 0, cvElement.width, cvElement.height);
+  }
+
+
   function download(filename, blob) {
     const a = document.createElement("a");
     a.href = URL.createObjectURL(blob);
@@ -234,7 +386,7 @@ export default function PhotoScrambler() {
   // =============================
   // DRAW SCRAMBLED IMAGE
   // =============================
-  const drawScrambledImage = useCallback(() => {
+  const drawScrambledImage = useCallback((applyNoise = false) => {
     const image = imageRef.current;
     const canvas = canvasRef.current;
     if (!image || !canvas || !imageLoaded) return;
@@ -267,7 +419,7 @@ export default function PhotoScrambler() {
     const tempCanvas = document.createElement('canvas');
     tempCanvas.width = paddedWidth;
     tempCanvas.height = paddedHeight;
-    const tempCtx = tempCanvas.getContext('2d');
+    const tempCtx = tempCanvas.getContext('2d', { willReadFrequently: true });
 
     // Fill temp canvas with black (for padding areas)
     tempCtx.fillStyle = '#000000';
@@ -275,6 +427,45 @@ export default function PhotoScrambler() {
 
     // Draw original image (centered if there's padding)
     tempCtx.drawImage(image, 0, 0);
+
+    // Step 4.5: Apply noise to the original image BEFORE scrambling
+    if (applyNoise && noiseIntensity > 0) {
+      try {
+        const intensity = Math.round(noiseIntensity);
+        const tile = gcd(paddedWidth, paddedHeight);
+
+        if (tile > 0) {
+          const tileOffsets = generateNoiseTileOffsets(tile, noiseSeed, intensity);
+          const originalImageData = tempCtx.getImageData(0, 0, paddedWidth, paddedHeight);
+          const noisyImageData = applyNoiseAddMod256(originalImageData, tileOffsets, tile, intensity);
+          tempCtx.putImageData(noisyImageData, 0, 0);
+
+          console.log("Noise applied to original image before scrambling", { intensity, tile, seed: noiseSeed });
+
+          // Update noise tile preview
+          const cvNoiseTile = document.getElementById("cvNoiseTile2");
+          if (cvNoiseTile) {
+            renderNoiseTilePreview(tileOffsets, tile, cvNoiseTile, 1);
+          }
+
+          // Store noise params
+          const noiseParamsObj = {
+            v: 1,
+            mode: "add_mod256_tile",
+            prng: "mulberry32",
+            w: paddedWidth,
+            h: paddedHeight,
+            tile,
+            seed: noiseSeed,
+            intensity,
+            note: "Reversible noise applied to original image before scrambling"
+          };
+          setNoiseParams(noiseParamsObj);
+        }
+      } catch (err) {
+        console.error("Error applying noise:", err);
+      }
+    }
 
     // Step 5: Scramble the padded image into the center area
     const srcRects = cellRects(paddedWidth, paddedHeight, grid.n, grid.m);
@@ -312,7 +503,18 @@ export default function PhotoScrambler() {
     ctx.globalAlpha = 1.0;
     ctx.textAlign = 'left';
 
-  }, [grid, permDestToSrc0, imageLoaded, user.username, selectedLevel]);
+  }, [grid, permDestToSrc0, imageLoaded, userData.username, selectedLevel, noiseIntensity, noiseSeed]);
+
+
+  // =============================
+  // ADD NOISE TO IMAGE (now handled inside drawScrambledImage)
+  // =============================
+  const addNoiseToImage = useCallback(() => {
+    // Noise is now applied before scrambling inside drawScrambledImage
+    // This function is kept for compatibility but does nothing
+    console.log("addNoiseToImage called (noise already applied during scrambling)");
+  }, []);
+
 
   // =============================
   // EVENTS
@@ -359,49 +561,80 @@ export default function PhotoScrambler() {
     setShowCreditModal(false);
     setIsProcessing(true);
 
-    // Now you have access to the actual cost that was calculated and spent
     console.log('Credits spent:', actualCostSpent);
-
-    // You can use this value for logging, analytics, or displaying to user
     setActionCost(actualCostSpent);
-    // setAllowScrambling(true);
-
 
     setTimeout(() => {
-      const newSeed = genRandomSeed();
-      setSeed(newSeed);
+      try {
+        // Generate scrambling seed
+        const scrambSeed = genRandomSeed();
+        setSeed(scrambSeed);
 
-      const N = grid.n * grid.m;
-      const perm = seededPermutation(N, newSeed);
-      setPermDestToSrc0(perm);
+        // Generate noise seed
+        const nSeed = genRandomSeed();
+        setNoiseSeed(nSeed);
 
-      // create key JSON
-       const obj = paramsToJSON(newSeed, grid.n, grid.m, perm, userData.username || 'Anonymous', userData.userId || 'Unknown', new Date().toISOString());//, grid.n, grid.m, perm, userData.username || 'Anonymous', userData.userId || 'Unknown',  timestamp=new Date().toISOString());
-      const pretty = JSON.stringify(obj, null, 2);
-      setJsonKey(pretty);
-      setBase64Key(toBase64(pretty));
+        const N = grid.n * grid.m;
+        const perm = seededPermutation(N, scrambSeed);
+        setPermDestToSrc0(perm);
 
-      // Draw scrambled image
-      drawScrambledImage();
+        const shuffleParamsObj = {
+          version: 2,
+          seed: scrambSeed,
+          n: grid.n,
+          m: grid.m,
+          perm1based: oneBased(perm),
+          semantics: "Index = destination cell (1-based), value = source cell index (1-based)"
+        };
+        setShuffleParams(shuffleParamsObj);
 
-      setIsProcessing(false);
+        // Draw scrambled image with noise applied BEFORE scrambling
+        drawScrambledImage(true);
 
-      // Deduct credits
-      setUserCredits(prev => prev - actionCost);
+        // Combine params after drawing is complete
+        setTimeout(() => {
+          const combinedParams = {
+            scramble: shuffleParamsObj,
+            noise: {
+              seed: nSeed,
+              intensity: Math.round(noiseIntensity),
+              mode: "add_mod256_tile",
+              prng: "mulberry32"
+            },
+            metadata: {
+              username: userData.username || 'Anonymous',
+              userId: userData.userId || 'Unknown',
+              timestamp: new Date().toISOString()
+            }
+          };
 
-      // Show success message
-      success(`Image scrambled successfully! ${actionCost} credits used.`);
+          const pretty = JSON.stringify(combinedParams, null, 2);
+          setParams(pretty);
+          setJsonKey(pretty);
+          setBase64Key(toBase64(pretty));
+
+          setIsProcessing(false);
+
+          // Deduct credits
+          setUserCredits(prev => prev - actualCostSpent);
+
+          // Show success message
+          success(`Image scrambled successfully! ${actualCostSpent} credits used.`);
+        }, 100);
+      } catch (err) {
+        console.error('Scrambling error:', err);
+        error('Failed to scramble image: ' + err.message);
+        setIsProcessing(false);
+      }
     }, 500);
-  }, [grid, drawScrambledImage, success, actionCost]);
+  }, [grid, drawScrambledImage, addNoiseToImage, noiseIntensity, userData, success, error]);
 
-  // Redraw when image loads or parameters change
+  // Redraw when image loads or parameters change (without noise for preview)
   useEffect(() => {
     if (imageLoaded && permDestToSrc0.length > 0) {
-      drawScrambledImage();
+      drawScrambledImage(true); // apply noise for final display
     }
   }, [imageLoaded, drawScrambledImage, permDestToSrc0]);
-
-
 
 
   // =============================
@@ -437,49 +670,6 @@ export default function PhotoScrambler() {
       }
     }, "image/png", 1.0);
   }, [permDestToSrc0, imageLoaded, imageFile, isPro, error, success]);
-
-  // =============================
-  // AD MODAL - Updated for photo processing
-  // =============================
-  // const showAdModal = useCallback(() => {
-  //   if (isPro) {
-  //     return; // Pro users skip modal entirely
-  //   }
-
-  //   setModalReady(false);
-  //   setProcessingFinished(false);
-  //   setWaitTimeRemaining(10);
-  //   setModalShown(true);
-  //   setTimerText("Processing image...");
-
-  //   // Simulate processing time
-  //   setTimeout(() => {
-  //     setProcessingFinished(true);
-  //     setTimerText("Processing complete!");
-  //   }, 2000);
-
-  //   // Start countdown timer
-  //   const interval = setInterval(() => {
-  //     setWaitTimeRemaining((prev) => {
-  //       if (prev <= 1) {
-  //         setModalReady(true);
-  //         setTimerText("Ready! You can close this window.");
-  //         clearInterval(interval);
-  //         return 0;
-  //       }
-  //       setTimerText(`Please wait ${prev - 1} seconds...`);
-  //       return prev - 1;
-  //     });
-  //   }, 1000);
-  // }, [isPro]);
-
-  // const hideAdModal = useCallback(() => {
-  //   setModalShown(false);
-  // }, []);
-
-  // const onCloseModal = useCallback(() => {
-  //   if (isPro || modalReady) hideAdModal();
-  // }, [hideAdModal, isPro, modalReady]);
 
   // =============================
   // COPY & DOWNLOAD KEY
@@ -563,16 +753,58 @@ export default function PhotoScrambler() {
                   Choose Image File
                 </Button>
               </label>
+              {/* Original Image */}
+              {/* <Grid item xs={12} md={6}>
+                <Typography variant="h6" sx={{ mb: 1, color: '#e0e0e0' }}>
+                  Original Image
+                </Typography>
+
+                <Box sx={{
+                  minHeight: '200px',
+                  backgroundColor: '#0b1020',
+                  border: '1px dashed #666',
+                  borderRadius: '8px',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  overflow: 'hidden'
+                }}>
+                  {previewUrl ? (
+                    <img
+                      src={previewUrl}
+                      alt="Original"
+                      style={{
+                        maxWidth: '100%',
+                        maxHeight: '400px',
+                        borderRadius: '8px'
+                      }}
+                    />
+                  ) : (
+                    <Typography variant="body2" sx={{ color: '#666' }}>
+                      Select an image to preview
+                    </Typography>
+                  )}
+
+                </Box>
+                {imageLoaded && (
+                  <Typography variant="caption" sx={{ color: '#4caf50', mt: 1, display: 'block' }}>
+                    Image loaded: {imageRef.current?.naturalWidth}×{imageRef.current?.naturalHeight}px
+                  </Typography>
+                )}
+              </Grid> */}
               {imageFile && (
                 <Typography variant="body2" sx={{ color: '#4caf50' }}>
                   Selected: {imageFile.name}
                 </Typography>
               )}
+
             </Grid>
 
+
+            {/* < Grid container style={{display: "flex", flexDirection: "row"}} spacing={3} sx={{ mb: 3 }}> */}
             <Grid item xs={12} md={6}>
               <Typography variant="h6" sx={{ mb: 1, color: '#e0e0e0' }}>
-                Scramble Level
+                Shuffling Level
               </Typography>
               <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap', mb: 1 }}>
                 <Button
@@ -610,10 +842,69 @@ export default function PhotoScrambler() {
                 </Button>
               </Box>
               <Typography variant="caption" sx={{ color: '#bdbdbd' }}>
-                Choose how many pieces to split your image into
+                Choose how many pieces to split and shuffle your image into
+              </Typography>
+            </Grid>
+
+
+
+            <Grid item xs={12} md={6}>
+              <Typography variant="h6" sx={{ mb: 1, color: '#e0e0e0' }}>
+                Scramble Noise Intensity
+              </Typography>
+
+              <Box>
+                <Typography variant="body2" sx={{ mb: 1, color: '#bdbdbd' }}>
+                  Noise intensity (max abs per channel)
+                </Typography>
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                  <Button
+                    variant="outlined"
+                    onClick={() => setNoiseIntensity(Math.max(0, noiseIntensity - 1))}
+                    sx={{ minWidth: '40px', borderColor: '#666', color: '#e0e0e0' }}
+                  >
+                    −
+                  </Button>
+                  <input
+                    type="range"
+                    min="0"
+                    max="127"
+                    value={noiseIntensity}
+                    onChange={(e) => setNoiseIntensity(Number(e.target.value))}
+                    style={{ flex: 1 }}
+                  />
+                  <Button
+                    variant="outlined"
+                    onClick={() => setNoiseIntensity(Math.min(127, noiseIntensity + 1))}
+                    sx={{ minWidth: '40px', borderColor: '#666', color: '#e0e0e0' }}
+                  >
+                    +
+                  </Button>
+                  <TextField
+                    type="number"
+                    value={noiseIntensity}
+                    onChange={(e) => setNoiseIntensity(Number(e.target.value))}
+                    inputProps={{ min: 0, max: 127 }}
+                    sx={{
+                      width: '80px',
+                      '& .MuiInputBase-root': { backgroundColor: '#353535', color: 'white' }
+                    }}
+                  />
+                </Box>
+              </Box>
+              {/* Todo: fix noise preview */}
+              {/* <div class="canvRow">
+                <div>
+                  <label>Regenerated noise tile preview</label>
+                  <canvas id="cvNoiseTile2" style={{height: 128 , width: 128}}></canvas>
+                </div>
+              </div> */}
+              <Typography variant="body2" sx={{ color: '#bdbdbd', mt: 1 }}>
+                Higher levels create more pieces, making unscrambling more complex.
               </Typography>
             </Grid>
           </Grid>
+          {/* </Grid> */}
 
           {/* Action buttons */}
           <Box sx={{ display: 'flex', gap: 2, flexWrap: 'wrap', mb: 3 }}>
@@ -910,7 +1201,7 @@ export default function PhotoScrambler() {
             horizontal: imageRef.current?.naturalWidth || 0,
             vertical: imageRef.current?.naturalHeight || 0
           }}
-          
+
           user={userData}
           actionType="scramble-photo"
           actionDescription="basic photo scrambling"

@@ -32,6 +32,7 @@ import {
 import { useToast } from '../contexts/ToastContext';
 import CreditConfirmationModal from '../components/CreditConfirmationModal';
 import { refundCredits } from '../utils/creditUtils';
+import { fetchUserData } from '../utils/fetchUserData';
 import api from '../api/client';
 
 export default function PhotoUnscrambler() {
@@ -113,15 +114,185 @@ export default function PhotoUnscrambler() {
     return rects;
   };
 
-  // Parse JSON parameters
+  /* =========================
+   Utilities
+========================= */
+  function gcd(a, b) {
+    a = Math.abs(a | 0); b = Math.abs(b | 0);
+    while (b !== 0) { const t = a % b; a = b; b = t; }
+    return a;
+  }
+
+  function mod(n, m) {
+    // true mathematical modulo for negatives
+    return ((n % m) + m) % m;
+  }
+
+  // Mulberry32 PRNG (seeded, fast, deterministic)
+  function mulberry32(seed) {
+    let t = seed >>> 0;
+    return function () {
+      t += 0x6D2B79F5;
+      let x = Math.imul(t ^ (t >>> 15), 1 | t);
+      x ^= x + Math.imul(x ^ (x >>> 7), 61 | x);
+      return ((x ^ (x >>> 14)) >>> 0) / 4294967296; // [0,1)
+    };
+  }
+
+  function clampInt(n, lo, hi) {
+    n = Number(n);
+    if (!Number.isFinite(n)) n = lo;
+    return Math.max(lo, Math.min(hi, Math.round(n)));
+  }
+
+
+  /* =========================
+   Noise generation (tileable)
+   - offsets are integers in [-intensity, +intensity]
+   - tile is square: tile x tile
+  ========================= */
+  function generateNoiseTileOffsets(tileSize, seed, intensity) {
+    const rand = mulberry32(seed >>> 0);
+    const pxCount = tileSize * tileSize;
+
+    // store offsets per pixel per channel (RGB), Int16 is plenty
+    const offsets = new Int16Array(pxCount * 3);
+
+    for (let p = 0; p < pxCount; p++) {
+      const base = p * 3;
+      // Uniform integer in [-intensity, +intensity]
+      offsets[base + 0] = Math.round((rand() * 2 - 1) * intensity);
+      offsets[base + 1] = Math.round((rand() * 2 - 1) * intensity);
+      offsets[base + 2] = Math.round((rand() * 2 - 1) * intensity);
+    }
+    return offsets;
+  }
+
+  function applyNoiseSubMod256(imageData, tileOffsets, tileSize) {
+    const w = imageData.width, h = imageData.height;
+    const src = imageData.data;
+    const out = new Uint8ClampedArray(src); // copy
+
+    for (let y = 0; y < h; y++) {
+      const ty = y % tileSize;
+      for (let x = 0; x < w; x++) {
+        const tx = x % tileSize;
+        const tileIndex = (ty * tileSize + tx) * 3;
+        const i = (y * w + x) * 4;
+
+        out[i + 0] = mod(src[i + 0] - tileOffsets[tileIndex + 0], 256);
+        out[i + 1] = mod(src[i + 1] - tileOffsets[tileIndex + 1], 256);
+        out[i + 2] = mod(src[i + 2] - tileOffsets[tileIndex + 2], 256);
+      }
+    }
+    return new ImageData(out, w, h);
+  }
+
+  // Parse JSON parameters with noise support
+  // example: 
+  let exampleParams = {
+    "scramble": {
+      "version": 2,
+      "seed": 3268196138,
+      "n": 8,
+      "m": 8,
+      "perm1based": [
+        11,
+        63,
+        30,
+        46,
+        52,
+        58,
+        33,
+        8,
+        38,
+        28,
+        61,
+        49,
+        22,
+        5,
+        4,
+        7,
+        10,
+        64,
+        55,
+        14,
+        12,
+        18,
+        41,
+        35,
+        59,
+        20,
+        29,
+        51,
+        44,
+        48,
+        31,
+        54,
+        53,
+        56,
+        34,
+        13,
+        60,
+        16,
+        36,
+        19,
+        21,
+        6,
+        62,
+        43,
+        47,
+        1,
+        9,
+        15,
+        3,
+        26,
+        57,
+        45,
+        25,
+        23,
+        17,
+        37,
+        32,
+        50,
+        24,
+        27,
+        2,
+        40,
+        42,
+        39
+      ],
+      "semantics": "Index = destination cell (1-based), value = source cell index (1-based)"
+    },
+    "noise": {
+      "seed": 2004541210,
+      "intensity": 56,
+      "mode": "add_mod256_tile",
+      "prng": "mulberry32"
+    },
+    "metadata": {
+      "username": "ikemnkur",
+      "userId": "Unknown",
+      "timestamp": "2025-12-28T20:50:29.936Z"
+    }
+  }
+
   const jsonToParams = (obj) => {
-    const n = Number(obj.n), m = Number(obj.m);
+    // Handle nested structure (with "scramble" key) or flat structure
+    const scrambleData = obj.scramble || obj;
+    const noiseData = obj.noise || null;
+    const metadata = obj.metadata || null;
+
+    const n = Number(scrambleData.n);
+    const m = Number(scrambleData.m);
+    const seed = Number(scrambleData.seed);
+    const version = Number(scrambleData.version || 1);
     let perm = null;
 
     setScrambleLevel(n >= m ? n : m);
 
-    if (Array.isArray(obj.perm1based)) perm = zeroBased(obj.perm1based);
-    else if (Array.isArray(obj.perm0based)) perm = obj.perm0based.slice();
+    if (Array.isArray(scrambleData.perm1based)) perm = zeroBased(scrambleData.perm1based);
+    else if (Array.isArray(scrambleData.perm0based)) perm = scrambleData.perm0based.slice();
 
     if (!n || !m || !perm) throw new Error("Invalid params JSON: need n, m, and perm array");
     if (perm.length !== n * m) throw new Error("Permutation length doesn't match n*m");
@@ -129,7 +300,35 @@ export default function PhotoUnscrambler() {
     const seen = new Set(perm);
     if (seen.size !== perm.length || Math.min(...perm) !== 0 || Math.max(...perm) !== perm.length - 1)
       throw new Error("Permutation must contain each index 0..n*m-1 exactly once");
-    return { n, m, permDestToSrc0: perm };
+
+    const result = {
+      n,
+      m,
+      permDestToSrc0: perm,
+      seed,
+      version
+    };
+
+    // Add noise parameters if present
+    if (noiseData) {
+      result.noise = {
+        seed: Number(noiseData.seed),
+        intensity: Number(noiseData.intensity),
+        mode: noiseData.mode || 'add_mod256_tile',
+        prng: noiseData.prng || 'mulberry32'
+      };
+    }
+
+    // Add metadata if present
+    if (metadata) {
+      result.metadata = {
+        username: metadata.username || 'Unknown',
+        userId: metadata.userId || 'Unknown',
+        timestamp: metadata.timestamp || new Date().toISOString()
+      };
+    }
+
+    return result;
   };
 
   // ========== EVENT HANDLERS ==========
@@ -307,12 +506,16 @@ export default function PhotoUnscrambler() {
 
     try {
       const obj = JSON.parse(decodedParams);
-      const { n, m, permDestToSrc0 } = jsonToParams(obj);
+      const params = jsonToParams(obj);
+      const { n, m, permDestToSrc0, noise, metadata } = params;
 
       setActionCost(n * m >= 100 ? 15 : n * m >= 64 ? 10 : 5); // Adjust cost based on grid size
 
-      setUnscrambleParams({ n, m, permDestToSrc0 });
-      success(`Parameters applied: ${n}×${m} grid`);
+      // Store complete params including noise data
+      setUnscrambleParams(params);
+      
+      const noiseInfo = noise ? `, noise intensity: ${noise.intensity}` : '';
+      success(`Parameters applied: ${n}×${m} grid${noiseInfo}`);
 
       // Build rectangles and draw preview
       if (imageLoaded) {
@@ -339,6 +542,7 @@ export default function PhotoUnscrambler() {
 
     // Draw the unscrambled preview
     drawUnscrambledImage(img, canvas, destRects, srcRects, inversePerm, n, m);
+    removeNoiseFromUnscrambledImage();
     setUnscrambledReady(true);
   };
 
@@ -397,38 +601,70 @@ export default function PhotoUnscrambler() {
 
   }, [srcToDest, rectsSrcFromShuffled, rectsDest, unscrambleParams]);
 
-  const showFullImage = () => {
-    const img = scrambledImageRef.current;
-    if (!img) {
-      error('Please select a scrambled image first');
-      return;
-    }
-    if (!srcToDest.length) {
-      error('Please apply scramble parameters first (Step 2)');
-      return;
-    }
-    if (!unscrambledReady) {
-      error('Please wait for the image to be unscrambled');
-      return;
-    }
+  const removeNoiseFromUnscrambledImage = useCallback(() => {
+    try {
+      const canvas = unscrambleCanvasRef.current;
+      if (!canvas) {
+        console.warn("Canvas not available for noise removal");
+        return;
+      }
 
-    // Show ad modal first
-    setShowAdModal(true);
-    setAdProgress(0);
-    setAdCanClose(false);
+      // Get noise parameters from decoded params
+      const noiseData = unscrambleParams.noise;
+      if (!noiseData || !noiseData.seed || noiseData.intensity === undefined) {
+        console.log("No noise parameters found, skipping noise removal");
+        return;
+      }
 
-    // Simulate ad progress
-    const progressInterval = setInterval(() => {
-      setAdProgress(prev => {
-        if (prev >= 100) {
-          clearInterval(progressInterval);
-          setAdCanClose(true);
-          return 100;
-        }
-        return prev + 5;
-      });
-    }, 300);
-  };
+      const intensity = clampInt(noiseData.intensity, 0, 127);
+      if (intensity === 0) {
+        console.log("Noise intensity is 0, skipping noise removal");
+        return;
+      }
+
+      const noiseSeed = Number(noiseData.seed) >>> 0;
+      const border = 64;
+
+      console.log("Removing noise with parameters:", { seed: noiseSeed, intensity });
+
+      const ctx = canvas.getContext('2d', { willReadFrequently: true });
+      
+      // Get only the center area (excluding 64px border)
+      const centerWidth = canvas.width - (border * 2);
+      const centerHeight = canvas.height - (border * 2);
+      
+      if (centerWidth <= 0 || centerHeight <= 0) {
+        console.warn("Invalid center dimensions after border removal");
+        return;
+      }
+
+      // Get image data from center area only
+      const centerImageData = ctx.getImageData(border, border, centerWidth, centerHeight);
+
+      // Calculate tile size based on center dimensions
+      const tile = gcd(centerWidth, centerHeight);
+      if (tile <= 0) {
+        throw new Error("Invalid tile size computed");
+      }
+
+      console.log("Tile size for noise removal:", tile);
+
+      // Regenerate the same tile offsets used during scrambling
+      const tileOffsets = generateNoiseTileOffsets(tile, noiseSeed, intensity);
+
+      // Apply reverse noise (subtract mod 256)
+      const restoredImageData = applyNoiseSubMod256(centerImageData, tileOffsets, tile);
+
+      // Put the restored (denoise) image data back to center area
+      ctx.putImageData(restoredImageData, border, border);
+
+      console.log("Noise removed successfully from center area");
+      success("Noise removed from unscrambled image");
+    } catch (err) {
+      console.error("Error removing noise:", err);
+      error("Failed to remove noise: " + err.message);
+    }
+  }, [unscrambleParams, success, error]);
 
   const closeAdModal = () => {
     if (!adCanClose) return;

@@ -34,7 +34,7 @@ export const FingerprintProvider = ({ children }) => {
     if (fp){
       localStorage.setItem('device_fingerprint', JSON.stringify(fp));
       console.log('✅ Fingerprint saved to localStorage');
-      console.log('Saving Generated Fingerprint:', fp);
+      // console.log('Saving Generated Fingerprint:', fp);
       // return
     };
     // try {

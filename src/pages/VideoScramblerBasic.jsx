@@ -34,6 +34,7 @@ import { useToast } from '../contexts/ToastContext';
 import CreditConfirmationModal from '../components/CreditConfirmationModal';
 import api from '../api/client';
 import { Navigate, useNavigate } from "react-router-dom";
+import { fetchUserData } from "../utils/fetchUserData";
 import { refundCredits } from '../utils/creditUtils';
 
 export default function VideoScramblerBasic() {
@@ -57,7 +58,7 @@ export default function VideoScramblerBasic() {
   // =============================
   // STATE
   // =============================
-  const [user] = useState({ id: "demo-user-123", email: "demo@example.com" });
+  
   const [userData] = useState(JSON.parse(localStorage.getItem("userdata")));
   // const [isPro, setIsPro] = useState(false);
 
@@ -65,7 +66,12 @@ export default function VideoScramblerBasic() {
   const [selectedLevel, setSelectedLevel] = useState("med"); // low|med|high
   const [grid, setGrid] = useState({ n: 5, m: 5 });
   const [seed, setSeed] = useState(() => genRandomSeed());
+  const [noiseIntensity, setNoiseIntensity] = useState(30); // Noise intensity (0-127)
+  const [noiseSeed, setNoiseSeed] = useState(() => genRandomSeed());
+
   const [permDestToSrc0, setPermDestToSrc0] = useState([]);
+  const [shuffleParams, setShuffleParams] = useState(null);
+  const [noiseParams, setNoiseParams] = useState(null);
   const [base64Key, setBase64Key] = useState("");
   const [jsonKey, setJsonKey] = useState("");
   const [params, setParams] = useState("");
@@ -90,6 +96,7 @@ export default function VideoScramblerBasic() {
   // Credit modal state
   const [showCreditModal, setShowCreditModal] = useState(false);
   // const [allowScrambling, setAllowScrambling] = useState(false);
+
   const [userCredits, setUserCredits] = useState(100); // Mock credits, replace with actual user data
   const [videoDuration, setVideoDuration] = useState(0);
   const [actionCost, setActionCost] = useState(10); // Cost to scramble a video
@@ -162,6 +169,53 @@ export default function VideoScramblerBasic() {
     setTimeout(() => URL.revokeObjectURL(a.href), 2500);
   }
 
+  // =============================
+  // NOISE UTILITY FUNCTIONS
+  // =============================
+  function gcd(a, b) {
+    a = Math.abs(a | 0); b = Math.abs(b | 0);
+    while (b !== 0) { const t = a % b; a = b; b = t; }
+    return a;
+  }
+
+  function mod(n, m) {
+    return ((n % m) + m) % m;
+  }
+
+  function generateNoiseTileOffsets(tileSize, seed, intensity) {
+    const rand = mulberry32(seed >>> 0);
+    const pxCount = tileSize * tileSize;
+    const offsets = new Int16Array(pxCount * 3);
+
+    for (let p = 0; p < pxCount; p++) {
+      const base = p * 3;
+      offsets[base + 0] = Math.round((rand() * 2 - 1) * intensity);
+      offsets[base + 1] = Math.round((rand() * 2 - 1) * intensity);
+      offsets[base + 2] = Math.round((rand() * 2 - 1) * intensity);
+    }
+    return offsets;
+  }
+
+  function applyNoiseAddMod256(imageData, tileOffsets, tileSize) {
+    const w = imageData.width, h = imageData.height;
+    const src = imageData.data;
+    const out = new Uint8ClampedArray(src);
+
+    for (let y = 0; y < h; y++) {
+      const ty = y % tileSize;
+      for (let x = 0; x < w; x++) {
+        const tx = x % tileSize;
+        const tileIndex = (ty * tileSize + tx) * 3;
+        const i = (y * w + x) * 4;
+
+        out[i + 0] = mod(src[i + 0] + tileOffsets[tileIndex + 0], 256);
+        out[i + 1] = mod(src[i + 1] + tileOffsets[tileIndex + 1], 256);
+        out[i + 2] = mod(src[i + 2] + tileOffsets[tileIndex + 2], 256);
+      }
+    }
+    return new ImageData(out, w, h);
+  }
+
 
   // =============================
   // DRAW SCRAMBLED FRAME
@@ -170,7 +224,7 @@ export default function VideoScramblerBasic() {
     const video = videoRef.current;
     const canvas = canvasRef.current;
     if (!video || !canvas || !video.videoWidth) return;
-    const ctx = canvas.getContext("2d");
+    const ctx = canvas.getContext("2d", { willReadFrequently: true });
     const N = grid.n * grid.m;
     if (!permDestToSrc0 || permDestToSrc0.length !== N) return;
 
@@ -201,6 +255,33 @@ export default function VideoScramblerBasic() {
     canvas.height = finalHeight;
 
     ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+    // Create temp canvas to apply noise before scrambling
+    const tempCanvas = document.createElement('canvas');
+    tempCanvas.width = paddedWidth;
+    tempCanvas.height = paddedHeight;
+    const tempCtx = tempCanvas.getContext('2d', { willReadFrequently: true });
+
+    // Draw video frame to temp canvas
+    tempCtx.drawImage(video, 0, 0, paddedWidth, paddedHeight);
+
+    // Apply noise to the frame BEFORE scrambling
+    if (noiseIntensity > 0) {
+      try {
+        const intensity = Math.round(noiseIntensity);
+        const tile = gcd(paddedWidth, paddedHeight);
+        
+        if (tile > 0) {
+          const tileOffsets = generateNoiseTileOffsets(tile, noiseSeed, intensity);
+          const frameImageData = tempCtx.getImageData(0, 0, paddedWidth, paddedHeight);
+          const noisyImageData = applyNoiseAddMod256(frameImageData, tileOffsets, tile);
+          tempCtx.putImageData(noisyImageData, 0, 0);
+        }
+      } catch (err) {
+        console.error("Error applying noise to frame:", err);
+      }
+    }
+
     const srcRects = cellRects(paddedWidth, paddedHeight, grid.n, grid.m);
     const destRects = cellRects(canvas.width, canvas.height, grid.n, grid.m);
 
@@ -209,7 +290,8 @@ export default function VideoScramblerBasic() {
       const sR = srcRects[srcIdx];
       const dR = destRects[destIdx];
       if (!sR || !dR) continue;
-      ctx.drawImage(video, sR.x, sR.y, sR.w, sR.h, dR.x, dR.y, dR.w, dR.h);
+      // Draw from temp canvas (which has noise applied) instead of video
+      ctx.drawImage(tempCanvas, sR.x, sR.y, sR.w, sR.h, dR.x, dR.y, dR.w, dR.h);
     }
 
     let voffset = 32
@@ -225,7 +307,7 @@ export default function VideoScramblerBasic() {
     // ctx.fillText(`Scrambled by: ${userData.username}`, 10, canvas.height - 10);
     // ctx.fillText(`VideoScrambler🔓`, canvas.width - 180, canvas.height - 10);
 
-  }, [grid, permDestToSrc0]);
+  }, [grid, permDestToSrc0, noiseIntensity, noiseSeed]);
 
 
   // =============================
@@ -406,8 +488,38 @@ export default function VideoScramblerBasic() {
       const perm = seededPermutation(N, newSeed);
       setPermDestToSrc0(perm);
 
-      const obj = paramsToJSON(newSeed, grid.n, grid.m, perm, userData.username || 'Anonymous', userData.userId || 'Unknown', new Date().toISOString());
-      const pretty = JSON.stringify(obj, null, 2);
+      // Generate noise seed
+      const nSeed = genRandomSeed();
+      setNoiseSeed(nSeed);
+
+      // Create shuffle params
+      const shuffleParamsObj = {
+        version: 2,
+        seed: newSeed,
+        n: grid.n,
+        m: grid.m,
+        perm1based: oneBased(perm),
+        semantics: "Index = destination cell (1-based), value = source cell index (1-based)"
+      };
+      setShuffleParams(shuffleParamsObj);
+
+      // Create combined params with noise
+      const combinedParams = {
+        scramble: shuffleParamsObj,
+        noise: {
+          seed: nSeed,
+          intensity: Math.round(noiseIntensity),
+          mode: "add_mod256_tile",
+          prng: "mulberry32"
+        },
+        metadata: {
+          username: userData.username || 'Anonymous',
+          userId: userData.userId || 'Unknown',
+          timestamp: new Date().toISOString()
+        }
+      };
+
+      const pretty = JSON.stringify(combinedParams, null, 2);
       setParams(pretty);
       setJsonKey(pretty);
       setBase64Key(toBase64(pretty));
@@ -707,6 +819,62 @@ export default function VideoScramblerBasic() {
             <Alert severity="info" sx={{ mt: 2, backgroundColor: '#1976d2', color: 'white' }}>
               <strong>Grid Size: {grid.n} × {grid.m}</strong> - Your video will be split into {grid.n * grid.m} tiles
             </Alert>
+          </Box>
+
+          {/* Noise Intensity Control */}
+          <Box sx={{ mb: 3 }}>
+            <Typography variant="h6" sx={{ mb: 1, color: '#e0e0e0' }}>
+              Noise Intensity
+            </Typography>
+            <Typography variant="body2" sx={{ mb: 2, color: '#bdbdbd' }}>
+              Additional scrambling layer applied to each frame (0-127)
+            </Typography>
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+              <Button
+                variant="outlined"
+                onClick={() => setNoiseIntensity(Math.max(0, noiseIntensity - 5))}
+                sx={{ minWidth: '40px', borderColor: '#666', color: '#e0e0e0' }}
+              >
+                −
+              </Button>
+              <Slider
+                value={noiseIntensity}
+                onChange={(e, value) => setNoiseIntensity(value)}
+                min={0}
+                max={127}
+                sx={{
+                  flex: 1,
+                  color: '#22d3ee',
+                  '& .MuiSlider-thumb': {
+                    backgroundColor: '#22d3ee'
+                  },
+                  '& .MuiSlider-track': {
+                    backgroundColor: '#22d3ee'
+                  }
+                }}
+              />
+              <Button
+                variant="outlined"
+                onClick={() => setNoiseIntensity(Math.min(127, noiseIntensity + 5))}
+                sx={{ minWidth: '40px', borderColor: '#666', color: '#e0e0e0' }}
+              >
+                +
+              </Button>
+              <TextField
+                type="number"
+                value={noiseIntensity}
+                onChange={(e) => setNoiseIntensity(Math.min(127, Math.max(0, Number(e.target.value))))}
+                inputProps={{ min: 0, max: 127 }}
+                sx={{
+                  width: '80px',
+                  '& .MuiInputBase-root': { backgroundColor: '#353535', color: 'white' },
+                  '& .MuiOutlinedInput-notchedOutline': { borderColor: '#666' }
+                }}
+              />
+            </Box>
+            <Typography variant="caption" sx={{ color: '#bdbdbd', mt: 1, display: 'block' }}>
+              Current: {noiseIntensity} (0 = no noise, 127 = maximum)
+            </Typography>
           </Box>
 
           {/* Action Buttons */}

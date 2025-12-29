@@ -27,8 +27,10 @@ import {
   Key,
   Settings
 } from '@mui/icons-material';
-import { useNavigate } from 'react-router-dom'; 
+import { useNavigate } from 'react-router-dom';
 import { useToast } from '../contexts/ToastContext';
+import { refundCredits } from "../utils/creditUtils";
+
 import CreditConfirmationModal from '../components/CreditConfirmationModal';
 import api from '../api/client';
 
@@ -54,6 +56,8 @@ export default function PhotoScrambler() {
   // SUBSCRIPTION HOOKS (mock)
   // =============================
   const [user] = useState({ id: "demo-user-123", email: "demo@example.com", username: "photoartist" });
+  
+  
   const [isPro, setIsPro] = useState(false);
   const togglePro = () => setIsPro((p) => !p);
 
@@ -68,6 +72,9 @@ export default function PhotoScrambler() {
 
   const [selectedLevel, setSelectedLevel] = useState("med"); // low|med|high
   const [grid, setGrid] = useState({ n: 8, m: 8 }); // Increased grid values for photos
+
+  const [scrambleLevel, setScrambleLevel] = useState(8); // New state for scramble level
+  const [noiseIntensity, setNoiseIntensity] = useState(0.05); // Noise intensity for obscuring the image
 
   const [seed, setSeed] = useState(() => genRandomSeed());
   const [permDestToSrc0, setPermDestToSrc0] = useState([]);
@@ -91,7 +98,7 @@ export default function PhotoScrambler() {
   const [showCreditModal, setShowCreditModal] = useState(false);
   const [userCredits, setUserCredits] = useState(0); // Mock credits, replace with actual user data
   const [actionCost, setActionCost] = useState(5); // Cost to scramble a photo (less than video)
-  const [scrambleLevel, setScrambleLevel] = useState(8); // New state for scramble level
+  
 
   const [selectedFile, setSelectedFile] = useState(null);
   // const [scrambledFilename, setScrambledFilename] = useState('');
@@ -207,6 +214,32 @@ export default function PhotoScrambler() {
     a.download = filename;
     a.click();
     setTimeout(() => URL.revokeObjectURL(a.href), 2500);
+  }
+
+
+  /* =========================
+   Utilities
+========================= */
+  function gcd(a, b) {
+    a = Math.abs(a | 0); b = Math.abs(b | 0);
+    while (b !== 0) { const t = a % b; a = b; b = t; }
+    return a;
+  }
+
+  function mod(n, m) {
+    // true mathematical modulo for negatives
+    return ((n % m) + m) % m;
+  }
+
+  // Mulberry32 PRNG (seeded, fast, deterministic)
+  function mulberry32(seed) {
+    let t = seed >>> 0;
+    return function () {
+      t += 0x6D2B79F5;
+      let x = Math.imul(t ^ (t >>> 15), 1 | t);
+      x ^= x + Math.imul(x ^ (x >>> 7), 61 | x);
+      return ((x ^ (x >>> 14)) >>> 0) / 4294967296; // [0,1)
+    };
   }
 
   // =============================
@@ -378,7 +411,7 @@ export default function PhotoScrambler() {
       setPermDestToSrc0(perm);
 
       // create key JSON
-       const obj = paramsToJSON(newSeed, grid.n, grid.m, perm, userData.username || 'Anonymous', userData.userId || 'Unknown', new Date().toISOString());//, grid.n, grid.m, perm, userData.username ||'Anonymous', userData.userId || 'Unknown',   timestamp=new Date().toISOString());
+      const obj = paramsToJSON(newSeed, grid.n, grid.m, perm, userData.username || 'Anonymous', userData.userId || 'Unknown', new Date().toISOString());//, grid.n, grid.m, perm, userData.username ||'Anonymous', userData.userId || 'Unknown',   timestamp=new Date().toISOString());
       const pretty = JSON.stringify(obj, null, 2);
       setJsonKey(pretty);
       setBase64Key(toBase64(pretty));
@@ -587,7 +620,7 @@ export default function PhotoScrambler() {
 
             <Grid item xs={12} md={6}>
               <Typography variant="h6" sx={{ mb: 1, color: '#e0e0e0' }}>
-                Scramble Level
+                Shuffle Level
               </Typography>
               <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap', mb: 1 }}>
                 <Button
@@ -626,6 +659,79 @@ export default function PhotoScrambler() {
               </Box>
               <Typography variant="caption" sx={{ color: '#bdbdbd' }}>
                 Choose how many pieces to split your image into
+              </Typography>
+            </Grid>
+
+            <Grid item xs={12} md={6}>
+              <Typography variant="h6" sx={{ mb: 1, color: '#e0e0e0' }}>
+                Scramble Intensity
+              </Typography>
+              {/* <Box sx={{ mb: 2 }}>
+                <Typography variant="body2" sx={{ mb: 1, color: '#bdbdbd' }}>
+                  Seed (32-bit integer)
+                </Typography>
+                <Box sx={{ display: 'flex', gap: 1, mb: 2 }}>
+                  <TextField
+                    type="number"
+                    value={seed}
+                    onChange={(e) => setSeed(Number(e.target.value))}
+                    inputProps={{ step: 1 }}
+                    sx={{
+                      width: '220px',
+                      '& .MuiInputBase-root': { backgroundColor: '#353535', color: 'white' }
+                    }}
+                  />
+                  <Button
+                    variant="outlined"
+                    onClick={() => setSeed(genRandomSeed())}
+                    sx={{ borderColor: '#666', color: '#e0e0e0' }}
+                  >
+                    Random seed
+                  </Button>
+                </Box>
+              </Box> */}
+
+              <Box>
+                <Typography variant="body2" sx={{ mb: 1, color: '#bdbdbd' }}>
+                  Noise intensity (max abs per channel)
+                </Typography>
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                  <Button
+                    variant="outlined"
+                    onClick={() => setNoiseIntensity(Math.max(0, noiseIntensity - 1))}
+                    sx={{ minWidth: '40px', borderColor: '#666', color: '#e0e0e0' }}
+                  >
+                    −
+                  </Button>
+                  <input
+                    type="range"
+                    min="0"
+                    max="127"
+                    value={noiseIntensity}
+                    onChange={(e) => setNoiseIntensity(Number(e.target.value))}
+                    style={{ flex: 1 }}
+                  />
+                  <Button
+                    variant="outlined"
+                    onClick={() => setNoiseIntensity(Math.min(127, noiseIntensity + 1))}
+                    sx={{ minWidth: '40px', borderColor: '#666', color: '#e0e0e0' }}
+                  >
+                    +
+                  </Button>
+                  <TextField
+                    type="number"
+                    value={noiseIntensity}
+                    onChange={(e) => setNoiseIntensity(Number(e.target.value))}
+                    inputProps={{ min: 0, max: 127 }}
+                    sx={{
+                      width: '80px',
+                      '& .MuiInputBase-root': { backgroundColor: '#353535', color: 'white' }
+                    }}
+                  />
+                </Box>
+              </Box>
+              <Typography variant="body2" sx={{ color: '#bdbdbd', mt: 1 }}>
+                Higher levels create more pieces, making unscrambling more complex.
               </Typography>
             </Grid>
           </Grid>
@@ -916,7 +1022,7 @@ export default function PhotoScrambler() {
           onConfirm={handleCreditConfirm}
           mediaType="photo"
           description="scramble photo (lite)"
-          
+
           scrambleLevel={scrambleLevel}
           currentCredits={userCredits}
           fileName={selectedFile?.name || ''}
