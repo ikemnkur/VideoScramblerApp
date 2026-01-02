@@ -219,6 +219,13 @@ export default function VideoUnscramblerBasic() {
           success('🔑 Key file loaded and decoded successfully!');
         }
       }
+
+      if (decodedParams.type == "video") {
+        error('The loaded key file is not a valid video scramble key.');
+      } else if (decodedParams.version !== "Basic") {
+        error('Use the ' + decodedParams.version + ' ' + decodedParams.type + ' scrambler to unscramble this file.');
+        alert('The loaded key file will not work with this scrambler version, you must use the ' + decodedParams.version + ' ' + decodedParams.type + ' scrambler to unscramble this file.');
+      }
     } catch (err) {
       console.error("Error loading key:", err);
       error('Invalid or corrupted key file. Please check the file format.');
@@ -308,8 +315,8 @@ export default function VideoUnscramblerBasic() {
       canvas.width = Math.floor(video.videoWidth / unscrambleParams.m) * unscrambleParams.m;
       canvas.height = Math.floor(video.videoHeight / unscrambleParams.n) * unscrambleParams.n;
 
-      
-      
+
+
 
 
       // if (!permDestToSrc0 || permDestToSrc0.length !== n * m) {
@@ -582,7 +589,7 @@ export default function VideoUnscramblerBasic() {
       {/* Header */}
       <Box sx={{ mb: 4, textAlign: 'center' }}>
         <Typography variant="h3" color="primary.main" sx={{ mb: 2, fontWeight: 'bold', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 1 }}>
-          <LockOpen />
+          {/* <LockOpen /> */}
           🔓 Video Unscrambler
         </Typography>
         <Typography variant="h6" color="text.secondary" sx={{ mb: 2 }}>
@@ -889,57 +896,7 @@ export default function VideoUnscramblerBasic() {
         </Typography>
       </Paper>
 
-      {/* Ad Modal */}
-      {/* <Modal open={showAdModal}>
-        <Box sx={{
-          position: 'absolute',
-          top: '50%',
-          left: '50%',
-          transform: 'translate(-50%, -50%)',
-          width: { xs: '90vw', md: '640px' },
-          height: { xs: '70vh', md: '480px' },
-          bgcolor: '#424242',
-          border: '2px solid #666',
-          borderRadius: 2,
-          p: 3,
-          display: 'flex',
-          flexDirection: 'column'
-        }}>
-          <Typography variant="h5" sx={{ mb: 2, color: 'white' }}>
-            🎥 Processing Your Video...
-          </Typography>
-          <Typography variant="body1" sx={{ mb: 3, color: '#e0e0e0' }}>
-            Your unscrambled video is being generated. Please wait while we prepare your preview.
-          </Typography>
 
-          <Box sx={{ flexGrow: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', mb: 3 }}>
-            <Box sx={{ width: '100%', maxWidth: 400 }}>
-              <LinearProgress
-                variant="determinate"
-                value={adProgress}
-                sx={{ height: 10, borderRadius: 5 }}
-              />
-              <Typography variant="body2" sx={{ mt: 1, textAlign: 'center', color: '#e0e0e0' }}>
-                {adProgress < 100 ? `Processing... ${adProgress}%` : 'Ready!'}
-              </Typography>
-            </Box>
-          </Box>
-
-          <Box sx={{ display: 'flex', justifyContent: 'flex-end' }}>
-            <Button
-              variant="contained"
-              onClick={closeAdModal}
-              disabled={!adCanClose}
-              sx={{
-                backgroundColor: adCanClose ? '#22d3ee' : '#666',
-                color: adCanClose ? '#001018' : '#999'
-              }}
-            >
-              {adCanClose ? 'Continue' : 'Please wait...'}
-            </Button>
-          </Box>
-        </Box>
-      </Modal> */}
 
       {/* Watch Video Modal */}
       <Modal open={showModal} onClose={() => setShowModal(false)}>

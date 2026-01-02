@@ -160,7 +160,7 @@ export default function CreditConfirmationModal({
     // Calculate cost based on fileDetails
     let calculatedCost = 0;
 
-    if (!fileDetails || (!fileDetails.horizontal && !fileDetails.vertical)) {
+    if (!fileDetails || !fileDetails.size) {
       console.log('No file details available for cost calculation');
       return;
     }
@@ -218,7 +218,7 @@ export default function CreditConfirmationModal({
 
       calculatedCost = Math.ceil((sampleRate / 24000) * duration + (numberOfChannels * fileDetails.size / (1000 * 1000 * 1))); // scale by size in MB over 1MB
 
-      // console.log('Calculated Audio Cost:', calculatedCost);
+      console.log('Calculated Audio Cost:', calculatedCost);
 
     } else if (mediaType === 'video') {
       // Calculate cost based on video resolution and duration from fileDetails

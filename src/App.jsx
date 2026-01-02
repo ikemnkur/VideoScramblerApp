@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import React from 'react';
 import { CssBaseline, ThemeProvider } from '@mui/material';
 import theme from './theme';
@@ -41,7 +41,10 @@ import PhotoUnscrambler from './pages/PhotoUnscrambler';
 import PhotoUnscramblerBasic from './pages/PhotoUnscramblerBasic';
 
 import AudioScrambler from './pages/AudioScrambler';
+import AudioScramblerPro from './pages/AudioScramblerPro';
 import AudioUnscrambler from './pages/AudioUnscrambler';
+import AudioUnscramblerPro from './pages/AudioUnscramblerPro';
+import AudioTagging from './pages/AudioTagging';
 
 
 import PhotoScramblerPro from './pages/PhotoScramblerPro';
@@ -79,6 +82,7 @@ import './styles.css';
 import { ToastProvider } from './contexts/ToastContext';
 import { FingerprintProvider } from './contexts/FingerprintContext';
 import ErrorBoundary from './components/ErrorBoundary';
+import { fetchUserData } from './utils/fetchUserData';
 
 // import { BrowserRouter as Router, Routes, Route, useLocation } from 'react-router-dom';
 import { GA_TRACKING_ID, pageview } from './utils/gtag';
@@ -95,8 +99,52 @@ function TrackPageViews() {
   return null;
 }
 
-export default function App() {
 
+
+export default function App() {
+  // Initialize with localStorage data synchronously
+  const getInitialUserData = () => {
+    try {
+      const userDataStr = localStorage.getItem('userdata');
+      return userDataStr ? JSON.parse(userDataStr) : null;
+    } catch (err) {
+      console.error("Error parsing user data from localStorage:", err);
+      return null;
+    }
+  };
+
+  const [userData, setUserData] = useState(getInitialUserData());
+  const [dayPassExpiry, setDayPassExpiry] = useState("");
+  const [dayPassMode, setDayPassMode] = useState("free");
+  const [accountType, setAccountType] = useState("free");
+  const [subscriptionExpiry, setSubscriptionExpiry] = useState("");
+
+  // Helper function to check if user has access to a given tier
+  const hasAccessToTier = (requiredTier) => {
+    const hierarchy = { 'free': 0, 'basic': 1, 'standard': 2, 'premium': 3 };
+    return hierarchy[serviceMode] >= hierarchy[requiredTier];
+  };
+
+  // Fetch fresh user data on mount
+  useEffect(() => {
+    const loadUserData = async () => {
+      const freshUserData = await fetchUserData();
+      if (freshUserData) {
+        setUserData(freshUserData);
+      }
+    };
+
+    loadUserData();
+  }, []);
+
+  // Update derived state when userData changes
+  useEffect(() => {
+    console.log("App.jsx - User Data:", userData);
+    setDayPassExpiry(userData?.dayPassExpiry || "");
+    setDayPassMode(userData?.dayPassMode || "free");
+    setAccountType(userData?.accountType || "free");
+    setSubscriptionExpiry(userData?.planExpiry || "");
+  }, [userData]);
 
   return (
     <ThemeProvider theme={theme}>
@@ -107,124 +155,158 @@ export default function App() {
             <BrowserRouter>
               <TrackPageViews />
               <NavBar />
-            <Routes>
+              <Routes>
 
-            {/* Public Routes */}
-         
-            <>
-              <Route path="/login" element={<Auth isLogin={true} />} />
-              <Route path="/register" element={<Auth isLogin={false} />} />
-            </>
-        
-            <Route path="/help" element={<HelpPage />} />
-            <Route path="/info" element={<Info />} />
-          
+                {/* Public Routes */}
 
-            {/* Purchase Credits Routes */}
-          
-            <>
-              <Route path="/purchase-crypto" element={<PurchaseCrypto />} />
-              <Route path="/purchase-stripe" element={<PurchaseStripe />} />
-              <Route path="/purchase-paypal" element={<PurchasePaypal />} />
-              <Route path="/purchase-cashapp" element={<PurchaseCashApp />} />
-              <Route path="/purchase-history" element={<PurchaseHistory />} />
-              <Route path="/account" element={<Account />} />
-            </>
-       
-            {/* Main Route */}
-            {/* not logged in */}
-            {!(localStorage.getItem('userdata') ? JSON.parse(localStorage.getItem('userdata')).loginStatus : false) && (
-              <>
-                <Route path="/" element={<Info />} />
-              </>
-            )}
+                <>
+                  <Route path="/login" element={<Auth isLogin={true} />} />
+                  <Route path="/register" element={<Auth isLogin={false} />} />
+                </>
 
-            {/* logged in */}
-            {(localStorage.getItem('userdata') ? JSON.parse(localStorage.getItem('userdata')).loginStatus : false) && (
-              <Route path="/" element={<Main />} />
-            )}
+                <Route path="/help" element={<HelpPage />} />
+                <Route path="/info" element={<Info />} />
 
 
-            <Route path="/main" element={<Main />} />
+                {/* Purchase Credits Routes */}
 
-            <Route path="/wallet" element={<Wallet />} />
+                <>
+                  <Route path="/purchase-crypto" element={<PurchaseCrypto />} />
+                  <Route path="/purchase-stripe" element={<PurchaseStripe />} />
+                  <Route path="/purchase-paypal" element={<PurchasePaypal />} />
+                  <Route path="/purchase-cashapp" element={<PurchaseCashApp />} />
+                  <Route path="/purchase-history" element={<PurchaseHistory />} />
+                  <Route path="/account" element={<Account />} />
+                </>
 
-            <Route path="/plans" element={<Plans />} />
+                {/* Main Route */}
+                {/* not logged in */}
+                {!(localStorage.getItem('userdata') ? JSON.parse(localStorage.getItem('userdata')).loginStatus : false) && (
+                  <>
+                    <Route path="/" element={<Info />} />
+                  </>
+                )}
 
-            <Route path="/subscribe" element={<Subscribe />} />
+                {/* logged in */}
+                {(localStorage.getItem('userdata') ? JSON.parse(localStorage.getItem('userdata')).loginStatus : false) && (
+                  <Route path="/" element={<Main />} />
+                )}
 
-            <Route path="/subscribe-confirmation" element={<SubscribeConfirmation />} />
 
-            <Route path="/stripe-checkout" element={
-              <ProtectedRoute> <StripeCheckoutForm /> </ProtectedRoute>} />
-            {/* <Route path="/stripe-checkout" element={
+                <Route path="/main" element={<Main />} />
+
+                <Route path="/wallet" element={<Wallet />} />
+
+                <Route path="/plans" element={<Plans />} />
+
+                <Route path="/subscribe" element={<Subscribe />} />
+
+                <Route path="/subscribe-confirmation" element={<SubscribeConfirmation />} />
+
+                <Route path="/stripe-checkout" element={
+                  <ProtectedRoute> <StripeCheckoutForm /> </ProtectedRoute>} />
+                {/* <Route path="/stripe-checkout" element={
               <ProtectedRoute> <StripeCheckoutForm credits={5000} amount={5000} currency="usd" description="Purchase of 5000 credits" metadata={{}} priceId="price_1J2Yw2L2g2g2g2" /> </ProtectedRoute>} /> */}
-            <Route path="/return" element={
-              <ProtectedRoute> <Return /> </ProtectedRoute>} />
+                <Route path="/return" element={
+                  <ProtectedRoute> <Return /> </ProtectedRoute>} />
 
-            {/* <Route path="/intro" element={<Intro />} /> */}
+                {/* <Route path="/intro" element={<Intro />} /> */}
 
-            {/* Video Editor */}
+                {/* Video Editor */}
 
-            <Route path="/video-scrambler" element={<VideoScrambler />} />
+                {/* Free Services */}
+                {/* {accountType === 'free' ? ( */}
+                  <>
 
-            <Route path="/video-scrambler-basic" element={<VideoScramblerBasic />} />
+                    <Route path="/photo-scrambler" element={<PhotoScrambler />} />
+                    <Route path="/photo-unscrambler" element={<PhotoUnscrambler />} />
+                    <Route path="/video-unscrambler" element={<VideoUnscrambler />} />
+                    <Route path="/video-scrambler" element={<VideoScrambler />} />
 
-            <Route path="/video-unscrambler" element={<VideoUnscrambler />} />
+                  </>
+                {/* ) : null} */}
 
-            <Route path="/video-unscrambler-basic" element={<VideoUnscramblerBasic />} />
+                {/* Basic Services Rules */}
+                {accountType === "basic" || accountType === "standard" || accountType === "premium" || ((dayPassMode === 'basic' || dayPassMode === 'standard' || dayPassMode === 'premium') && new Date(dayPassExpiry) > new Date()) ? (
+                  <>
+                    {/* Video Editor */}
 
-            {/* Photo Editor */}
+                    <Route path="/video-scrambler-basic" element={<VideoScramblerBasic />} />
 
-            <Route path="/photo-scrambler" element={<PhotoScrambler />} />
+                    <Route path="/video-unscrambler-basic" element={<VideoUnscramblerBasic />} />
 
-            <Route path="/photo-scrambler-basic" element={<PhotoScramblerBasic />} />
+                    {/* Photo Editor */}
 
-            <Route path="/photo-unscrambler" element={<PhotoUnscrambler />} />
+                    <Route path="/photo-scrambler-basic" element={<PhotoScramblerBasic />} />
 
-            <Route path="/photo-unscrambler-basic" element={<PhotoUnscramblerBasic />} />
+                    <Route path="/photo-unscrambler-basic" element={<PhotoUnscramblerBasic />} />
 
-            {/* Audio Editor Routes (in future) */}
+                    {/* Audio Editor Routes (in future) */}
 
-            <Route path="/audio-scrambler" element={<AudioScrambler />} />
+                    <Route path="/audio-scrambler" element={<AudioScrambler />} />
 
-            <Route path="/audio-unscrambler" element={<AudioUnscrambler />} />
+                    <Route path="/audio-unscrambler" element={<AudioUnscrambler />} />
 
-            {/* Pro services */}
+                    <Route path="/audio-tagging" element={<AudioTagging />} />
+                  </>
+                ) : null}
 
-            <Route path="/photo-scrambler-pro" element={<PhotoScramblerPro />} />
+                {/* Standard Services */}
+                {accountType === "standard" || accountType === 'premium' || ((dayPassMode === 'standard' || dayPassMode === 'premium') && new Date(dayPassExpiry) > new Date()) ? (
+                  <>
 
-            <Route path="/photo-unscrambler-pro" element={<PhotoUnscramblerPro />} />
+                    <Route path="/photo-scrambler-pro" element={<PhotoScramblerPro />} />
 
-
-            <Route path="/video-scrambler-pro" element={<VideoScramblerPro />} />
-
-            <Route path="/video-unscrambler-pro" element={<VideoUnscramblerPro />} />
-
-            {/* Leak Checkers */}
-            <Route path="/photo-leak-checker" element={<PhotoLeakChecker />} />
-
-            <Route path="/video-leak-checker" element={<VideoLeakChecker />} />
-
-            <Route path="/audio-leak-checker" element={<AudioLeakChecker />} />
-
-            {/* Subscription Plans */}
-            <Route path="/subscription/plans" element={<SubscriptionPlans />} />
-
-            <Route path="/subscription/success" element={<SubscriptionSuccess />} />
-
-            <Route path="/bonus-credits" element={<BonusCredits />} />
-
-            <Route path="/stripe/success/*" element={<PurchaseStripeSuccessful />} />
-
-            {/* need a redirect or fallback route if not logged in and the user tries to visit a protected route */}
-            <Route path="*" element={<LoadingPage />} />
+                    <Route path="/photo-unscrambler-pro" element={<PhotoUnscramblerPro />} />
 
 
-          </Routes>
-        </BrowserRouter>
-        </FingerprintProvider>
-      </ToastProvider>
+                    <Route path="/video-scrambler-pro" element={<VideoScramblerPro />} />
+
+                    <Route path="/video-unscrambler-pro" element={<VideoUnscramblerPro />} />
+
+                    {/* Audio Editor Routes (in future) */}
+
+                    <Route path="/audio-scrambler-pro" element={<AudioScramblerPro />} />
+
+                    <Route path="/audio-unscrambler-pro" element={<AudioUnscramblerPro />} />
+
+                    <Route path="/audio-tagging" element={<AudioTagging />} />
+
+                  </>
+                ) : null}
+
+                {/* Premium Services */}
+                {accountType === 'premium' || (dayPassMode === 'premium' && new Date(dayPassExpiry) > new Date()) ? (
+                  <>
+
+                    {/* Leak Checkers - premium feature */}
+                    <Route path="/photo-leak-checker" element={<PhotoLeakChecker />} />
+
+                    <Route path="/video-leak-checker" element={<VideoLeakChecker />} />
+
+                    <Route path="/audio-leak-checker" element={<AudioLeakChecker />} />
+                  </>
+                ) : null}
+
+                <Route path="/audio-tagging" element={<AudioTagging />} />
+
+                {/* Subscription Plans */}
+                <Route path="/subscription/plans" element={<SubscriptionPlans />} />
+
+                <Route path="/subscription/success" element={<SubscriptionSuccess />} />
+
+                <Route path="/bonus-credits" element={<BonusCredits />} />
+
+                <Route path="/stripe/success/*" element={<PurchaseStripeSuccessful />} />
+
+                {/* need a redirect or fallback route if not logged in and the user tries to visit a protected route */}
+                <Route path="*" element={<LoadingPage />} />
+
+
+              </Routes>
+            </BrowserRouter>
+          </FingerprintProvider>
+        </ToastProvider>
       </ErrorBoundary>
     </ThemeProvider>
   );

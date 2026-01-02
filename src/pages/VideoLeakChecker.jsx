@@ -1,9 +1,10 @@
 // VideoLeakChecker.jsx - Steganography-based leak detection for videos
 import React, { useState, useRef, useEffect, useCallback } from 'react';
-import { Container, Typography, Card, CardContent, Button, Box, Grid, Paper, Alert, CircularProgress, Chip, List, ListItem, ListItemText } from '@mui/material';
-import { Videocam, Search, CheckCircle, Warning, Upload, Person, Movie } from '@mui/icons-material';
+import { Container, Typography, Card, CardContent, Button, Box, Grid, Paper, Alert, CircularProgress, Chip, List, ListItem, ListItemText, Divider, TextField } from '@mui/material';
+import { Videocam, Search, CheckCircle, Warning, Upload, Person, Movie, VpnKey } from '@mui/icons-material';
 import { useToast } from '../contexts/ToastContext';
 import CreditConfirmationModal from '../components/CreditConfirmationModal';
+
 import api from '../api/client';
 
 const API_URL = import.meta.env.VITE_API_SERVER_URL || 'http://localhost:3001'; // = import.meta.env.VITE_API_URL || 'http://localhost:3001';
@@ -12,42 +13,88 @@ export default function VideoLeakChecker() {
 
   const API_URL = import.meta.env.VITE_API_SERVER_URL || 'http://localhost:3001'; // = 'http://localhost:3001/api';
 
-  const { success, error: showError } = useToast();
-  const [selectedFile, setSelectedFile] = useState(null);
-  const [previewUrl, setPreviewUrl] = useState(null);
+  const { success, error, info } = useToast();
+
+  // Original and leaked video files
+  const [originalVideoFile, setOriginalVideoFile] = useState(null);
+  const [leakedVideoFile, setLeakedVideoFile] = useState(null);
+  const [originalPreviewUrl, setOriginalPreviewUrl] = useState(null);
+  const [leakedPreviewUrl, setLeakedPreviewUrl] = useState(null);
+  
   const [isChecking, setIsChecking] = useState(false);
   const [checkStatus, setCheckStatus] = useState('idle');
   const [leakData, setLeakData] = useState(null);
   const [extractedCode, setExtractedCode] = useState('');
-  const fileInputRef = useRef(null);
-  const videoRef = useRef(null);
+  
+  const originalVideoFileInputRef = useRef(null);
+  const leakedVideoFileInputRef = useRef(null);
+  const keyFileInputRef = useRef(null);
 
   const [userData, setUserData] = useState(JSON.parse(localStorage.getItem("userdata")));
 
   const [showCreditModal, setShowCreditModal] = useState(false);
   const [allowLeakChecking, setAllowLeakChecking] = useState(false);
-  const [userCredits, setUserCredits] = useState(0); // Mock credits, replace with actual user data
-  const actionCost = 10; // Cost to scramble a photo (less than video)
+  const [userCredits, setUserCredits] = useState(0);
+  const [actionCost, setActionCost] = useState(10);
+  const [loadedKeyData, setLoadedKeyData] = useState(null);
+  const [keyCode, setKeyCode] = useState('');
+  
+  // XOR decryption function
+  const xorEncrypt = (text, key) => {
+    let result = '';
+    for (let i = 0; i < text.length; i++) {
+      result += String.fromCharCode(text.charCodeAt(i) ^ key.charCodeAt(i % key.length));
+    }
+    return result;
+  };
+
+  const decryptKeyData = (encodedData) => {
+    try {
+      const encrypted = atob(encodedData);
+      const encryptionKey = "VideoProtectionKey2025";
+      const jsonStr = xorEncrypt(encrypted, encryptionKey);
+      return JSON.parse(jsonStr);
+    } catch (err) {
+      console.error('Decryption error:', err);
+      throw new Error('Invalid or corrupted key file');
+    }
+  };
 
 
 
 
-  const handleFileSelect = (event) => {
+  const handleOriginalFileSelect = (event) => {
     const file = event.target.files?.[0];
     if (!file || !file.type.startsWith('video/')) {
-      showError("Please select a valid video file");
+      error("Please select a valid video file");
       return;
     }
     if (file.size > 50 * 1024 * 1024) {
-      showError("File size must be less than 50MB");
+      error("File size must be less than 50MB");
       return;
     }
-    setSelectedFile(file);
-    console.log("Selected file:", file);
-    setPreviewUrl(URL.createObjectURL(file));
+
+    setOriginalVideoFile(file);
+    setOriginalPreviewUrl(URL.createObjectURL(file));
+    success(`Original video selected: ${file.name}`);
+  };
+
+  const handleLeakedFileSelect = (event) => {
+    const file = event.target.files?.[0];
+    if (!file || !file.type.startsWith('video/')) {
+      error("Please select a valid video file");
+      return;
+    }
+    if (file.size > 50 * 1024 * 1024) {
+      error("File size must be less than 50MB");
+      return;
+    }
+
+    setLeakedVideoFile(file);
+    setLeakedPreviewUrl(URL.createObjectURL(file));
     setCheckStatus('idle');
     setLeakData(null);
-    success(`Selected: ${file.name}`);
+    success(`Leaked video selected: ${file.name}`);
   };
 
   const handleCreditConfirm = useCallback(() => {
@@ -58,6 +105,51 @@ export default function VideoLeakChecker() {
     handleCheckForLeak();
 
   }, []);
+
+  const handleKeyFileSelect = async (event) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    try {
+      const text = await file.text();
+
+      // Try to decrypt the key file (if it's encrypted)
+      try {
+        const keyData = decryptKeyData(text);
+        // Set the decoded parameters directly
+        setDecodedParams(keyData);
+        setKeyCode(text); // Store the encrypted key in the text box
+        success('🔑 Key file loaded and decoded successfully!');
+      } catch (decryptErr) {
+        // If decryption fails, try to parse as plain JSON or base64
+        try {
+          // Check if it's base64 encoded
+          const decoded = fromBase64(text.trim());
+          const keyData = JSON.parse(decoded);
+          setDecodedParams(keyData);
+          setKeyCode(text.trim());
+          console.log("Decoded key data from base64:", keyData);
+          success('🔑 Key file loaded and decoded successfully!');
+        } catch (base64Err) {
+          // Try direct JSON parse
+          const keyData = JSON.parse(text);
+          setDecodedParams(keyData);
+          setKeyCode(btoa(text)); // Convert to base64 for consistency
+          success('🔑 Key file loaded and decoded successfully!');
+        }
+      }
+
+      if (decodedParams.type == "video") {
+        error('The loaded key file is not a valid video scramble key.');
+      } else if (decodedParams.version !== "free") {
+        error('Use the ' + decodedParams.version + ' ' + decodedParams.type + ' scrambler to unscramble this file.');
+        alert('The loaded key file will not work with this scrambler version, you must use the ' + decodedParams.version + ' ' + decodedParams.type + ' scrambler to unscramble this file.');
+      }
+    } catch (err) {
+      console.error("Error loading key:", err);
+      error('Invalid or corrupted key file. Please check the file format.');
+    }
+  };
 
   useEffect(() => {
     const fetchUserCredits = async () => {
@@ -82,13 +174,13 @@ export default function VideoLeakChecker() {
   }, [userData]);
 
   const handleCheckForLeak = async () => {
-    if (!selectedFile) {
-      showError("Please select a video file first");
+    if (!originalVideoFile || !leakedVideoFile) {
+      error("Please select both original and leaked video files");
       return;
     }
 
     if (!allowLeakChecking) {
-      error('You need to confirm credit usage before applying parameters.');
+      error('You need to confirm credit usage before checking for leaks.');
       return;
     }
 
@@ -97,7 +189,16 @@ export default function VideoLeakChecker() {
 
     try {
       const formData = new FormData();
-      formData.append('file', selectedFile);
+      formData.append('originalVideo', originalVideoFile);
+      formData.append('leakedVideo', leakedVideoFile);
+      
+      // Add key data if available
+      if (loadedKeyData) {
+        formData.append('keyData', JSON.stringify(loadedKeyData));
+      } else if (keyCode) {
+        formData.append('keyCode', keyCode);
+      }
+
       const response = await fetch(`${API_URL}/api/check-video-leak`, {
         method: 'POST',
         body: formData,
@@ -110,37 +211,39 @@ export default function VideoLeakChecker() {
         setCheckStatus('found');
         setLeakData(data.leakData);
         setExtractedCode(data.extractedCode);
-        showError(`🚨 LEAK DETECTED! Code: ${data.extractedCode}`);
+        error(`🚨 LEAK DETECTED! Code: ${data.extractedCode}`);
       } else {
         setCheckStatus('not-found');
         setExtractedCode(data.extractedCode || 'No code found');
         success('✅ No leak detected. This video is clean.');
       }
 
-      // SHOW MESSAGE DIALOG SAYTHING THAT THE USER HAS SPENT CREDITS TO CHECK THE IMAGE
-      try {
-        setTimeout(() => {
-          info(`Image checked successfully. ${data.creditsUsed} credits spent.`);
-        }, timeout);
-      } catch (error) {
-        console.error('Error showing credit spent info:', error);
-      }
+      // Show credit spent message
+      setTimeout(() => {
+        info(`Video checked successfully. ${data.creditsUsed || actionCost} credits spent.`);
+      }, 1500);
 
     } catch (err) {
       setCheckStatus('error');
-      showError(`Failed to check video: ${err.message}`);
+      error(`Failed to check video: ${err.message}`);
     } finally {
       setIsChecking(false);
     }
   };
 
   const handleReset = () => {
-    setSelectedFile(null);
-    setPreviewUrl(null);
+    setOriginalVideoFile(null);
+    setLeakedVideoFile(null);
+    setOriginalPreviewUrl(null);
+    setLeakedPreviewUrl(null);
     setCheckStatus('idle');
     setLeakData(null);
     setExtractedCode('');
-    if (fileInputRef.current) fileInputRef.current.value = '';
+    setLoadedKeyData(null);
+    setKeyCode('');
+    if (originalVideoFileInputRef.current) originalVideoFileInputRef.current.value = '';
+    if (leakedVideoFileInputRef.current) leakedVideoFileInputRef.current.value = '';
+    if (keyFileInputRef.current) keyFileInputRef.current.value = '';
   };
 
   return (
@@ -169,41 +272,224 @@ export default function VideoLeakChecker() {
       <Card elevation={3} sx={{ backgroundColor: '#424242', color: 'white', mb: 4 }}>
         <CardContent sx={{ p: 4 }}>
           <Typography variant="h4" sx={{ mb: 3, display: 'flex', alignItems: 'center', gap: 1 }}>
-            <Videocam /> Upload Video for Leak Detection
+            <Videocam /> Upload Videos for Leak Detection
           </Typography>
 
-          <Box sx={{ mb: 3 }}>
-            <input type="file" accept="video/*" onChange={handleFileSelect} style={{ display: 'none' }} id="video-leak-upload" ref={fileInputRef} />
-            <label htmlFor="video-leak-upload">
-              <Button variant="contained" component="span" startIcon={<Upload />} sx={{ backgroundColor: '#2196f3', color: 'white', mb: 2 }}>
-                Choose Video File
-              </Button>
-            </label>
-            {selectedFile && (
-              <Box>
-                <Typography variant="body2" sx={{ color: '#4caf50', mb: 1 }}>✓ Selected: {selectedFile.name}</Typography>
-                <Typography variant="caption" sx={{ color: '#bdbdbd' }}>Size: {(selectedFile.size / (1024 * 1024)).toFixed(2)} MB | Type: {selectedFile.type}</Typography>
+          <Grid container spacing={3} sx={{ mb: 3 }}>
+            {/* Original Video File */}
+            <Grid item xs={12} md={6}>
+              <Box sx={{ p: 2, backgroundColor: '#353535', borderRadius: 2 }}>
+                <Typography variant="h6" sx={{ color: '#4caf50', mb: 2 }}>
+                  Original Video File
+                </Typography>
+                <Typography variant="body2" sx={{ color: '#bdbdbd', mb: 2 }}>
+                  Upload the original unscrambled video file
+                </Typography>
+
+                <input 
+                  type="file" 
+                  accept="video/*" 
+                  onChange={handleOriginalFileSelect} 
+                  style={{ display: 'none' }} 
+                  id="original-video-upload" 
+                  ref={originalVideoFileInputRef} 
+                />
+                <label htmlFor="original-video-upload">
+                  <Button 
+                    variant="contained" 
+                    component="span" 
+                    startIcon={<Upload />} 
+                    sx={{ backgroundColor: '#4caf50', color: 'white', mb: 2 }}
+                  >
+                    Choose Original Video
+                  </Button>
+                </label>
+
+                {originalVideoFile && (
+                  <Box sx={{ mt: 2 }}>
+                    <Typography variant="body2" sx={{ color: '#4caf50', mb: 1 }}>
+                      ✓ Selected: {originalVideoFile.name}
+                    </Typography>
+                    <Typography variant="caption" sx={{ color: '#bdbdbd' }}>
+                      Size: {(originalVideoFile.size / (1024 * 1024)).toFixed(2)} MB
+                    </Typography>
+                  </Box>
+                )}
               </Box>
-            )}
+            </Grid>
+
+            {/* Leaked/Suspected Video File */}
+            <Grid item xs={12} md={6}>
+              <Box sx={{ p: 2, backgroundColor: '#353535', borderRadius: 2 }}>
+                <Typography variant="h6" sx={{ color: '#ff9800', mb: 2 }}>
+                  Leaked/Suspected Video File
+                </Typography>
+                <Typography variant="body2" sx={{ color: '#bdbdbd', mb: 2 }}>
+                  Upload the video file you want to check for leaks
+                </Typography>
+
+                <input 
+                  type="file" 
+                  accept="video/*" 
+                  onChange={handleLeakedFileSelect} 
+                  style={{ display: 'none' }} 
+                  id="leaked-video-upload" 
+                  ref={leakedVideoFileInputRef} 
+                />
+                <label htmlFor="leaked-video-upload">
+                  <Button 
+                    variant="contained" 
+                    component="span" 
+                    startIcon={<Upload />} 
+                    sx={{ backgroundColor: '#ff9800', color: 'white', mb: 2 }}
+                  >
+                    Choose Leaked Video
+                  </Button>
+                </label>
+
+                {leakedVideoFile && (
+                  <Box sx={{ mt: 2 }}>
+                    <Typography variant="body2" sx={{ color: '#ff9800', mb: 1 }}>
+                      ✓ Selected: {leakedVideoFile.name}
+                    </Typography>
+                    <Typography variant="caption" sx={{ color: '#bdbdbd' }}>
+                      Size: {(leakedVideoFile.size / (1024 * 1024)).toFixed(2)} MB
+                    </Typography>
+                  </Box>
+                )}
+              </Box>
+            </Grid>
+          </Grid>
+
+          {/* Optional Key File or Code */}
+          <Box sx={{ mb: 3, p: 2, backgroundColor: '#353535', borderRadius: 2 }}>
+            <Typography variant="h6" sx={{ color: '#e0e0e0', mb: 2 }}>
+              Optional: Scramble Key (for enhanced detection)
+            </Typography>
+            
+            <Grid container spacing={2} alignItems="center">
+              <Grid item xs={12} md={5}>
+                <Typography variant="body2" sx={{ color: '#bdbdbd', mb: 1 }}>
+                  Upload Key File
+                </Typography>
+                <input
+                  type="file"
+                  accept=".key,.json,.txt"
+                  onChange={handleKeyFileSelect}
+                  style={{ display: 'none' }}
+                  id="key-file-upload"
+                  ref={keyFileInputRef}
+                />
+                <label htmlFor="key-file-upload">
+                  <Button 
+                    variant="outlined" 
+                    component="span" 
+                    startIcon={<Upload />} 
+                    sx={{ borderColor: '#2196f3', color: '#2196f3' }}
+                  >
+                    Choose Key File
+                  </Button>
+                </label>
+                {loadedKeyData && (
+                  <Typography variant="body2" sx={{ color: '#4caf50', mt: 1 }}>
+                    ✓ Key loaded
+                  </Typography>
+                )}
+              </Grid>
+
+              <Grid item xs={12} md={2} sx={{ textAlign: 'center' }}>
+                <Typography variant="h6" sx={{ color: '#bdbdbd' }}>OR</Typography>
+              </Grid>
+
+              <Grid item xs={12} md={5}>
+                <Typography variant="body2" sx={{ color: '#bdbdbd', mb: 1 }}>
+                  Enter Key Code
+                </Typography>
+                <TextField
+                  fullWidth
+                  value={keyCode}
+                  onChange={(e) => setKeyCode(e.target.value)}
+                  placeholder="Enter key code..."
+                  sx={{
+                    '& .MuiInputBase-root': {
+                      backgroundColor: '#1e1e1e',
+                      color: 'white',
+                      fontFamily: 'monospace',
+                      fontSize: '0.9rem'
+                    }
+                  }}
+                />
+              </Grid>
+            </Grid>
           </Box>
+
+          <Divider sx={{ my: 3, backgroundColor: '#666' }} />
 
           <Box sx={{ display: 'flex', gap: 2, flexWrap: 'wrap', mb: 3 }}>
-            <Button variant="contained" onClick={() => setShowCreditModal(true)} startIcon={isChecking ? <CircularProgress size={20} color="inherit" /> : <Search />} disabled={!selectedFile || isChecking}
-              sx={{ backgroundColor: (!selectedFile || isChecking) ? '#666' : '#22d3ee', color: (!selectedFile || isChecking) ? '#999' : '#001018', fontWeight: 'bold', minWidth: 200 }}>
+            <Button 
+              variant="contained" 
+              onClick={() => setShowCreditModal(true)} 
+              startIcon={isChecking ? <CircularProgress size={20} color="inherit" /> : <Search />} 
+              disabled={!originalVideoFile || !leakedVideoFile || isChecking}
+              sx={{ 
+                backgroundColor: (!originalVideoFile || !leakedVideoFile || isChecking) ? '#666' : '#22d3ee', 
+                color: (!originalVideoFile || !leakedVideoFile || isChecking) ? '#999' : '#001018', 
+                fontWeight: 'bold', 
+                minWidth: 200 
+              }}
+            >
               {isChecking ? 'Checking for Leaks...' : 'Check for Leak'}
             </Button>
-            <Button variant="outlined" onClick={handleReset} disabled={isChecking} sx={{ borderColor: '#666', color: '#e0e0e0' }}>Reset</Button>
+            <Button 
+              variant="outlined" 
+              onClick={handleReset} 
+              disabled={isChecking} 
+              sx={{ borderColor: '#666', color: '#e0e0e0' }}
+            >
+              Reset
+            </Button>
           </Box>
 
-          {previewUrl && (
+          {/* Video Previews */}
+          {(originalPreviewUrl || leakedPreviewUrl) && (
             <Box sx={{ borderTop: '1px solid #666', pt: 3, mb: 3 }}>
-              <Typography variant="h6" sx={{ mb: 2, color: '#e0e0e0' }}>Video Preview</Typography>
-              <Box sx={{ backgroundColor: '#0b1020', border: '1px dashed #666', borderRadius: '8px', padding: 2, display: 'flex', justifyContent: 'center', alignItems: 'center' }}>
-                <video ref={videoRef} controls style={{ maxWidth: '100%', maxHeight: '400px', borderRadius: '8px' }}>
-                  <source src={previewUrl} type={selectedFile?.type} />
-                  Your browser does not support the video tag.
-                </video>
-              </Box>
+              <Typography variant="h6" sx={{ mb: 2, color: '#e0e0e0' }}>Video Previews</Typography>
+              <Grid container spacing={2}>
+                {originalPreviewUrl && (
+                  <Grid item xs={12} md={6}>
+                    <Typography variant="subtitle2" sx={{ color: '#4caf50', mb: 1 }}>
+                      Original Video
+                    </Typography>
+                    <Box sx={{ backgroundColor: '#0b1020', border: '1px solid #4caf50', borderRadius: '8px', padding: 2 }}>
+                      <video 
+                        ref={originalVideoRef} 
+                        controls 
+                        style={{ width: '100%', maxHeight: '300px', borderRadius: '8px' }}
+                      >
+                        <source src={originalPreviewUrl} type={originalVideoFile?.type} />
+                        Your browser does not support the video tag.
+                      </video>
+                    </Box>
+                  </Grid>
+                )}
+                {leakedPreviewUrl && (
+                  <Grid item xs={12} md={6}>
+                    <Typography variant="subtitle2" sx={{ color: '#ff9800', mb: 1 }}>
+                      Leaked/Suspected Video
+                    </Typography>
+                    <Box sx={{ backgroundColor: '#0b1020', border: '1px solid #ff9800', borderRadius: '8px', padding: 2 }}>
+                      <video 
+                        ref={leakedVideoRef} 
+                        controls 
+                        style={{ width: '100%', maxHeight: '300px', borderRadius: '8px' }}
+                      >
+                        <source src={leakedPreviewUrl} type={leakedVideoFile?.type} />
+                        Your browser does not support the video tag.
+                      </video>
+                    </Box>
+                  </Grid>
+                )}
+              </Grid>
             </Box>
           )}
 
@@ -266,22 +552,19 @@ export default function VideoLeakChecker() {
         onClose={() => setShowCreditModal(false)}
         onConfirm={handleCreditConfirm}
         mediaType="video"
-        
         currentCredits={userCredits}
-        fileName={selectedFile?.name || ''}
-        file={selectedFile}
+        fileName={`${originalVideoFile?.name || ''} vs ${leakedVideoFile?.name || ''}`}
+        file={leakedVideoFile}
         user={userData}
         isProcessing={false}
         fileDetails={{
-          type: 'video',
-          size: selectedFile?.size || 0,
-          name: selectedFile?.name || '',
-          duration: videoRef.current?.duration || 0,
-          horizontal: videoRef.current?.videoWidth || 0,
-          vertical: videoRef.current?.videoHeight || 0
+          type: 'video-leak-check',
+          size: (originalVideoFile?.size || 0) + (leakedVideoFile?.size || 0),
+          originalFile: originalVideoFile?.name || '',
+          leakedFile: leakedVideoFile?.name || '',
+          originalSize: originalVideoFile?.size || 0,
+          leakedSize: leakedVideoFile?.size || 0
         }}
-
-
         actionType="video-leak-check"
         actionDescription="video leak detection"
       />

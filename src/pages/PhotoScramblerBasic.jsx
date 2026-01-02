@@ -191,16 +191,27 @@ export default function PhotoScrambler() {
     return srcs; // dest index i will take from source srcs[i]
   }
   function oneBased(a) { return a.map((x) => x + 1); }
-  function paramsToJSON(seed, n, m, perm) {
-    return {
-      version: 2,
-      seed: Number(seed),
-      n: Number(n),
-      m: Number(m),
-      perm1based: oneBased(perm),
-      semantics: "Index = destination cell (1-based), value = source cell index (1-based)",
-    };
-  }
+
+  // Added in noise parameter so it is no longer needered here
+  // function paramsToJSON(seed, n, m, perm) {
+
+  //   return {
+  //     version: 2,
+  //     seed: Number(seed),
+  //     n: Number(n),
+  //     m: Number(m),
+  //     perm1based: oneBased(perm),
+  //     semantics: "Index = destination cell (1-based), value = source cell index (1-based)",
+  //     user: {
+  //       username: userData?.username || 'Anonymous',
+  //       userId: userData?.userId || 'Unknown',
+  //     },
+  //     timestamp: new Date().toISOString(),
+  //     type: "photo",
+  //     version: "basic"
+  //   };
+  // }
+
   function toBase64(str) { return btoa(unescape(encodeURIComponent(str))); }
 
   function cellRects(w, h, n, m) {
@@ -605,7 +616,10 @@ export default function PhotoScrambler() {
               username: userData.username || 'Anonymous',
               userId: userData.userId || 'Unknown',
               timestamp: new Date().toISOString()
-            }
+            },
+            type: "photo",
+            version: "basic"
+
           };
 
           const pretty = JSON.stringify(combinedParams, null, 2);
@@ -665,7 +679,8 @@ export default function PhotoScrambler() {
     // Convert canvas to blob and download
     canvas.toBlob((blob) => {
       if (blob) {
-        download(selectedFile.name + "-scrambled-image.png", blob);
+        let tempname = selectedFile.name.replace(/\.[^/.]+$/, ""); // remove extension
+        download(tempname + "-scrambled-image.png", blob);
         success("Scrambled image downloaded successfully!");
       }
     }, "image/png", 1.0);
@@ -693,7 +708,10 @@ export default function PhotoScrambler() {
       return;
     }
     const blob = new Blob([base64Key], { type: "text/plain" });
-    download(selectedFile.name + "unscramble_key.txt", blob);
+    let tempname = selectedFile?.name
+      ? selectedFile.name.replace(/\.[^/.]+$/, '').replace(/[^\w\-. ]+/g, '').replace(/\s+/g, '_')
+      : 'video' + timestamp();//selectedFile.name.replace (/\.[^/.]+$/, ""); // remove extension
+    download(tempname + "-unscramble_key.txt", blob);
     success("Key file downloaded successfully!");
   }, [base64Key, error, success]);
 
@@ -705,7 +723,7 @@ export default function PhotoScrambler() {
       {/* Header */}
       <Box sx={{ mb: 4, textAlign: 'center' }}>
         <Typography variant="h3" color="primary.main" sx={{ mb: 2, fontWeight: 'bold', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 1 }}>
-          <PhotoCamera />
+          {/* <PhotoCamera /> */}
           🖼️ Photo Scrambler
         </Typography>
         <Typography variant="h6" color="text.secondary" sx={{ mb: 2 }}>
@@ -753,45 +771,7 @@ export default function PhotoScrambler() {
                   Choose Image File
                 </Button>
               </label>
-              {/* Original Image */}
-              {/* <Grid item xs={12} md={6}>
-                <Typography variant="h6" sx={{ mb: 1, color: '#e0e0e0' }}>
-                  Original Image
-                </Typography>
 
-                <Box sx={{
-                  minHeight: '200px',
-                  backgroundColor: '#0b1020',
-                  border: '1px dashed #666',
-                  borderRadius: '8px',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  overflow: 'hidden'
-                }}>
-                  {previewUrl ? (
-                    <img
-                      src={previewUrl}
-                      alt="Original"
-                      style={{
-                        maxWidth: '100%',
-                        maxHeight: '400px',
-                        borderRadius: '8px'
-                      }}
-                    />
-                  ) : (
-                    <Typography variant="body2" sx={{ color: '#666' }}>
-                      Select an image to preview
-                    </Typography>
-                  )}
-
-                </Box>
-                {imageLoaded && (
-                  <Typography variant="caption" sx={{ color: '#4caf50', mt: 1, display: 'block' }}>
-                    Image loaded: {imageRef.current?.naturalWidth}×{imageRef.current?.naturalHeight}px
-                  </Typography>
-                )}
-              </Grid> */}
               {imageFile && (
                 <Typography variant="body2" sx={{ color: '#4caf50' }}>
                   Selected: {imageFile.name}

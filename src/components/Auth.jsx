@@ -256,7 +256,7 @@ const Auth = ({ isLogin, onLoginSuccess }) => {
         try {
           //  const fingerprintResult = await refreshFingerprint(user.id);
           const fingerprintResult = await submitFingerprint(user.id);
-          alert('Fingerprint Result: ' + JSON.stringify(fingerprintResult));
+          // alert('Fingerprint Result: ' + JSON.stringify(fingerprintResult));
           localStorage.setItem('fingerprintData', JSON.stringify(fingerprintResult));
           if (fingerprintResult.success) {
             console.log('✅ Device fingerprint recorded');

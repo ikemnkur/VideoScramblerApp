@@ -56,8 +56,8 @@ export default function PhotoScrambler() {
   // SUBSCRIPTION HOOKS (mock)
   // =============================
   const [user] = useState({ id: "demo-user-123", email: "demo@example.com", username: "photoartist" });
-  
-  
+
+
   const [isPro, setIsPro] = useState(false);
   const togglePro = () => setIsPro((p) => !p);
 
@@ -90,7 +90,7 @@ export default function PhotoScrambler() {
   // Ad modal state
   const [modalShown, setModalShown] = useState(false);
   const [modalReady, setModalReady] = useState(false);
-  const [timerText, setTimerText] = useState("Please wait...");
+  const [timerText, setTimerText] = useState("Please wait..."); // for ad modal
   const [processingFinished, setProcessingFinished] = useState(false);
   const [waitTimeRemaining, setWaitTimeRemaining] = useState(10);
 
@@ -98,15 +98,15 @@ export default function PhotoScrambler() {
   const [showCreditModal, setShowCreditModal] = useState(false);
   const [userCredits, setUserCredits] = useState(0); // Mock credits, replace with actual user data
   const [actionCost, setActionCost] = useState(5); // Cost to scramble a photo (less than video)
-  
+
 
   const [selectedFile, setSelectedFile] = useState(null);
-  // const [scrambledFilename, setScrambledFilename] = useState('');
+
   const [keyCode, setKeyCode] = useState('');
 
   const [previewUrl, setPreviewUrl] = useState(null);
   const [imageError, setImageError] = useState(null);
-  // const [imageLoaded, setImageLoaded] = useState(false);
+
 
 
   // =============================
@@ -185,7 +185,7 @@ export default function PhotoScrambler() {
     return srcs; // dest index i will take from source srcs[i]
   }
   function oneBased(a) { return a.map((x) => x + 1); }
-  function paramsToJSON(seed, n, m, perm) {
+  function paramsToJSON(seed, n, m, perm, username, userId, timestamp) {
     return {
       version: 2,
       seed: Number(seed),
@@ -193,6 +193,13 @@ export default function PhotoScrambler() {
       m: Number(m),
       perm1based: oneBased(perm),
       semantics: "Index = destination cell (1-based), value = source cell index (1-based)",
+      username: username,
+      userId: userId,
+      timestamp: timestamp,
+      type: "photo",
+      version: "free",
+      
+
     };
   }
   function toBase64(str) { return btoa(unescape(encodeURIComponent(str))); }
@@ -522,7 +529,9 @@ export default function PhotoScrambler() {
     // Convert canvas to blob and download
     canvas.toBlob((blob) => {
       if (blob) {
-        download(selectedFile.name + "-scrambled-image.png", blob);
+
+        let tempname = selectedFile.name.replace(/\.[^/.]+$/, ""); // remove extension
+        download(tempname + "-scrambled-image.png", blob);
         success("Scrambled image downloaded successfully!");
       }
     }, "image/png", 1.0);
@@ -551,7 +560,10 @@ export default function PhotoScrambler() {
       return;
     }
     const blob = new Blob([base64Key], { type: "text/plain" });
-    download(selectedFile.name + "unscramble_key.txt", blob);
+    let tempname = selectedFile?.name
+      ? selectedFile.name.replace(/\.[^/.]+$/, '').replace(/[^\w\-. ]+/g, '').replace(/\s+/g, '_')
+      : 'video' + timestamp();//selectedFile.name.replace (/\.[^/.]+$/, ""); // remove extension
+    download(tempname + "-unscramble_key.txt", blob);
     success("Key file downloaded successfully!");
   }, [base64Key, error, success]);
 
@@ -563,7 +575,7 @@ export default function PhotoScrambler() {
       {/* Header */}
       <Box sx={{ mb: 4, textAlign: 'center' }}>
         <Typography variant="h3" color="primary.main" sx={{ mb: 2, fontWeight: 'bold', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 1 }}>
-          <PhotoCamera />
+          {/* <PhotoCamera /> */}
           🖼️ Photo Scrambler
         </Typography>
         <Typography variant="h6" color="text.secondary" sx={{ mb: 2 }}>
@@ -662,78 +674,7 @@ export default function PhotoScrambler() {
               </Typography>
             </Grid>
 
-            <Grid item xs={12} md={6}>
-              <Typography variant="h6" sx={{ mb: 1, color: '#e0e0e0' }}>
-                Scramble Intensity
-              </Typography>
-              {/* <Box sx={{ mb: 2 }}>
-                <Typography variant="body2" sx={{ mb: 1, color: '#bdbdbd' }}>
-                  Seed (32-bit integer)
-                </Typography>
-                <Box sx={{ display: 'flex', gap: 1, mb: 2 }}>
-                  <TextField
-                    type="number"
-                    value={seed}
-                    onChange={(e) => setSeed(Number(e.target.value))}
-                    inputProps={{ step: 1 }}
-                    sx={{
-                      width: '220px',
-                      '& .MuiInputBase-root': { backgroundColor: '#353535', color: 'white' }
-                    }}
-                  />
-                  <Button
-                    variant="outlined"
-                    onClick={() => setSeed(genRandomSeed())}
-                    sx={{ borderColor: '#666', color: '#e0e0e0' }}
-                  >
-                    Random seed
-                  </Button>
-                </Box>
-              </Box> */}
 
-              <Box>
-                <Typography variant="body2" sx={{ mb: 1, color: '#bdbdbd' }}>
-                  Noise intensity (max abs per channel)
-                </Typography>
-                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                  <Button
-                    variant="outlined"
-                    onClick={() => setNoiseIntensity(Math.max(0, noiseIntensity - 1))}
-                    sx={{ minWidth: '40px', borderColor: '#666', color: '#e0e0e0' }}
-                  >
-                    −
-                  </Button>
-                  <input
-                    type="range"
-                    min="0"
-                    max="127"
-                    value={noiseIntensity}
-                    onChange={(e) => setNoiseIntensity(Number(e.target.value))}
-                    style={{ flex: 1 }}
-                  />
-                  <Button
-                    variant="outlined"
-                    onClick={() => setNoiseIntensity(Math.min(127, noiseIntensity + 1))}
-                    sx={{ minWidth: '40px', borderColor: '#666', color: '#e0e0e0' }}
-                  >
-                    +
-                  </Button>
-                  <TextField
-                    type="number"
-                    value={noiseIntensity}
-                    onChange={(e) => setNoiseIntensity(Number(e.target.value))}
-                    inputProps={{ min: 0, max: 127 }}
-                    sx={{
-                      width: '80px',
-                      '& .MuiInputBase-root': { backgroundColor: '#353535', color: 'white' }
-                    }}
-                  />
-                </Box>
-              </Box>
-              <Typography variant="body2" sx={{ color: '#bdbdbd', mt: 1 }}>
-                Higher levels create more pieces, making unscrambling more complex.
-              </Typography>
-            </Grid>
           </Grid>
 
           {/* Action buttons */}

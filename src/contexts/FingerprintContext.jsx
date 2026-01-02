@@ -108,7 +108,7 @@ export const FingerprintProvider = ({ children }) => {
   const submitFingerprint = async (userId, maxRetries = 5, retryDelay = 500) => {
     console.log('🚀 Submitting fingerprint for user:', userId);
 
-    const {fp, cfp} = refreshFingerprint();
+    // const {fp, cfp} = refreshFingerprint();
 
     if (!userId) {
       console.error('User ID is required to submit fingerprint');

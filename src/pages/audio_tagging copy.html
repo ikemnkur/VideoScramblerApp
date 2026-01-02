@@ -1,0 +1,528 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Audio Watermark with Speech Synthesis</title>
+  <style>
+    :root { --bg:#0b1220; --card:#101a2e; --text:#e7eefc; --muted:#9bb0d0; --accent:#4cc9f0; --border:#223253; }
+    body { margin:0; font-family:system-ui, -apple-system, Segoe UI, Roboto, sans-serif; background:var(--bg); color:var(--text); }
+    .wrap { max-width: 980px; margin: 0 auto; padding: 20px; }
+    h1 { font-size: 20px; margin: 0 0 12px; }
+    .grid { display:grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+    .card { background:var(--card); border:1px solid var(--border); border-radius: 14px; padding: 14px; }
+    label { display:block; font-size: 12px; color:var(--muted); margin: 10px 0 6px; }
+    input[type="file"], input[type="text"], input[type="number"] {
+      width:100%; box-sizing:border-box; padding:10px; border-radius:10px;
+      border:1px solid var(--border); background:#0e1730; color:var(--text);
+    }
+    .row { display:flex; gap: 10px; align-items:center; }
+    .row > * { flex: 1; }
+    button {
+      width:100%; padding: 11px; border-radius: 12px; border: 1px solid var(--border);
+      background: #122046; color: var(--text); cursor:pointer; margin-top: 8px;
+    }
+    button:hover { border-color: var(--accent); }
+    button:disabled { opacity: 0.5; cursor: not-allowed; }
+    .small { font-size: 12px; color: var(--muted); line-height: 1.35; }
+    .mono { font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace; font-size: 12px; }
+    .hr { height:1px; background:var(--border); margin: 12px 0; }
+    audio { width: 100%; margin-top: 8px; }
+    .pill { display:inline-block; padding: 4px 8px; border: 1px solid var(--border); border-radius: 999px; font-size: 12px; color: var(--muted); }
+    .ok { color: #a7f3d0; }
+    .warn { color: #fde68a; }
+    .err { color: #fca5a5; }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <h1>Audio Watermark with Speech Synthesis</h1>
+
+    <div class="grid">
+      <div class="card">
+        <div class="pill">1) Inputs</div>
+
+        <label>Original audio file</label>
+        <input id="origFile" type="file" accept="audio/*" />
+
+        <div class="hr"></div>
+
+        <label>Watermark intro text (e.g., "Unscrambled by")</label>
+        <input id="watermarkIntro" type="text" value="Unscrambled by" placeholder="Enter intro text..." />
+
+        <label>ID string/value (e.g., "USER 4821" or "Alice Smith")</label>
+        <input id="idText" type="text" value="USER 4821" placeholder="Enter identifier..." />
+
+        <label>Watermark outro text (optional, e.g., "on scramblurr.com")</label>
+        <input id="watermarkOutro" type="text" value="on scramblurr.com" placeholder="Enter outro text..." />
+
+        <div class="hr"></div>
+
+        <div class="row">
+          <div>
+            <label>Interval (seconds)</label>
+            <input id="intervalSec" type="number" min="1" step="1" value="10" />
+          </div>
+          <div>
+            <label>Start offset (seconds)</label>
+            <input id="startOffsetSec" type="number" min="0" step="0.1" value="0" />
+          </div>
+        </div>
+
+        <div class="row">
+          <div>
+            <label>Watermark volume (dB)</label>
+            <input id="wmGainDb" type="number" step="1" value="-12" />
+          </div>
+          <div>
+            <label>Fade duration (ms)</label>
+            <input id="fadeMs" type="number" min="0" step="1" value="50" />
+          </div>
+        </div>
+
+        <div class="row">
+          <div>
+            <label>Speech rate (0.5 - 2.0)</label>
+            <input id="speechRate" type="number" min="0.5" max="2" step="0.1" value="0.9" />
+          </div>
+          <div>
+            <label>Speech pitch (0.5 - 2.0)</label>
+            <input id="speechPitch" type="number" min="0.5" max="2" step="0.1" value="1.0" />
+          </div>
+        </div>
+
+        <div class="hr"></div>
+
+        <button id="generateBtn">1. Generate Watermark Audio</button>
+        <button id="buildBtn" disabled>2. Apply to Original & Render WAV</button>
+        <p id="status" class="small mono"></p>
+      </div>
+
+      <div class="card">
+        <div class="pill">2) Preview / Output</div>
+
+        <label>Original audio</label>
+        <audio id="origAudio" controls></audio>
+
+        <label>Generated watermark (speech synthesis)</label>
+        <audio id="wmAudio" controls></audio>
+
+        <label>Final output (with watermarks)</label>
+        <audio id="outAudio" controls></audio>
+
+        <div class="hr"></div>
+
+        <a id="downloadLink" class="mono" href="#" download="watermarked.wav" style="display:none;">
+          Download watermarked.wav
+        </a>
+
+        <div class="hr"></div>
+
+        <div class="small">
+          <div><span class="ok">✓</span> Uses browser Speech Synthesis API (no audio clips needed)</div>
+          <div><span class="ok">✓</span> Watermark = Intro + ID + Outro spoken aloud</div>
+          <div><span class="warn">Note:</span> First generation may take a moment for TTS processing</div>
+          <div><span class="warn">Tip:</span> Leave intro/outro empty to only speak the ID</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+<script>
+/** ---------- Utilities ---------- **/
+const $ = (id) => document.getElementById(id);
+
+function dbToLinear(db) {
+  return Math.pow(10, db / 20);
+}
+
+function setStatus(msg, cls="") {
+  const el = $("status");
+  el.className = "small mono " + cls;
+  el.textContent = msg;
+}
+
+function readFileAsArrayBuffer(file) {
+  return new Promise((resolve, reject) => {
+    const r = new FileReader();
+    r.onload = () => resolve(r.result);
+    r.onerror = reject;
+    r.readAsArrayBuffer(file);
+  });
+}
+
+async function decodeAudio(arrayBuffer) {
+  const ac = new (window.AudioContext || window.webkitAudioContext)();
+  try {
+    const buf = await ac.decodeAudioData(arrayBuffer.slice(0));
+    return buf;
+  } finally {
+    await ac.close().catch(() => {});
+  }
+}
+
+function makeSilenceBuffer(sampleRate, seconds, channels=1) {
+  const length = Math.max(1, Math.floor(sampleRate * seconds));
+  const ac = new OfflineAudioContext(channels, length, sampleRate);
+  return ac.createBuffer(channels, length, sampleRate);
+}
+
+function concatAudioBuffers(buffers) {
+  if (!buffers.length) throw new Error("No buffers to concatenate.");
+  const sampleRate = buffers[0].sampleRate;
+  const channels = buffers[0].numberOfChannels;
+
+  for (const b of buffers) {
+    if (b.sampleRate !== sampleRate) throw new Error("Sample rate mismatch in watermark pieces.");
+    if (b.numberOfChannels !== channels) throw new Error("Channel mismatch in watermark pieces.");
+  }
+
+  const totalLength = buffers.reduce((sum, b) => sum + b.length, 0);
+  const out = new AudioBuffer({ length: totalLength, numberOfChannels: channels, sampleRate });
+
+  for (let ch = 0; ch < channels; ch++) {
+    const outData = out.getChannelData(ch);
+    let offset = 0;
+    for (const b of buffers) {
+      outData.set(b.getChannelData(ch), offset);
+      offset += b.length;
+    }
+  }
+  return out;
+}
+
+async function bufferToWavBlob(audioBuffer) {
+  const numCh = audioBuffer.numberOfChannels;
+  const sr = audioBuffer.sampleRate;
+  const numFrames = audioBuffer.length;
+
+  const interleaved = new Float32Array(numFrames * numCh);
+  for (let i = 0; i < numFrames; i++) {
+    for (let ch = 0; ch < numCh; ch++) {
+      interleaved[i * numCh + ch] = audioBuffer.getChannelData(ch)[i];
+    }
+  }
+
+  const pcm16 = new Int16Array(interleaved.length);
+  for (let i = 0; i < interleaved.length; i++) {
+    let s = Math.max(-1, Math.min(1, interleaved[i]));
+    pcm16[i] = s < 0 ? s * 0x8000 : s * 0x7FFF;
+  }
+
+  const byteRate = sr * numCh * 2;
+  const blockAlign = numCh * 2;
+  const dataSize = pcm16.byteLength;
+  const buffer = new ArrayBuffer(44 + dataSize);
+  const view = new DataView(buffer);
+
+  function writeString(off, str) {
+    for (let i = 0; i < str.length; i++) view.setUint8(off + i, str.charCodeAt(i));
+  }
+
+  writeString(0, "RIFF");
+  view.setUint32(4, 36 + dataSize, true);
+  writeString(8, "WAVE");
+  writeString(12, "fmt ");
+  view.setUint32(16, 16, true);
+  view.setUint16(20, 1, true);
+  view.setUint16(22, numCh, true);
+  view.setUint32(24, sr, true);
+  view.setUint32(28, byteRate, true);
+  view.setUint16(32, blockAlign, true);
+  view.setUint16(34, 16, true);
+  writeString(36, "data");
+  view.setUint32(40, dataSize, true);
+  new Uint8Array(buffer, 44).set(new Uint8Array(pcm16.buffer));
+
+  return new Blob([buffer], { type: "audio/wav" });
+}
+
+function applyFadeInOut(buffer, fadeMs=10) {
+  const fadeSec = Math.max(0, fadeMs) / 1000;
+  if (fadeSec === 0) return buffer;
+
+  const sr = buffer.sampleRate;
+  const fadeSamples = Math.min(buffer.length, Math.floor(sr * fadeSec));
+  if (fadeSamples <= 1) return buffer;
+
+  const out = new AudioBuffer({
+    length: buffer.length,
+    numberOfChannels: buffer.numberOfChannels,
+    sampleRate: sr
+  });
+
+  for (let ch = 0; ch < buffer.numberOfChannels; ch++) {
+    const src = buffer.getChannelData(ch);
+    const dst = out.getChannelData(ch);
+    dst.set(src);
+
+    for (let i = 0; i < fadeSamples; i++) {
+      const g = i / fadeSamples;
+      dst[i] *= g;
+    }
+    for (let i = 0; i < fadeSamples; i++) {
+      const idx = buffer.length - 1 - i;
+      const g = i / fadeSamples;
+      dst[idx] *= g;
+    }
+  }
+  return out;
+}
+
+/** ---------- Speech Synthesis Functions ---------- **/
+// Simple function to estimate speech duration based on text length
+function estimateSpeechDuration(text, rate = 0.9) {
+  // Rough estimate: ~150 words per minute at rate 1.0
+  // Average word length: 5 characters
+  const chars = text.length;
+  const words = chars / 5;
+  const minutes = words / (150 * rate);
+  const seconds = minutes * 60;
+  return Math.max(0.5, seconds + 0.3); // Add padding
+}
+
+// Generate a simple tone-based audio buffer to represent speech
+// This is a placeholder that has the approximate duration
+async function generateSpeechAudioBuffer(text, rate = 0.9, pitch = 1.0) {
+  if (!text || text.trim() === "") {
+    return null;
+  }
+
+  const duration = estimateSpeechDuration(text, rate);
+  const sampleRate = 48000;
+  const channels = 2;
+  const numSamples = Math.ceil(sampleRate * duration);
+
+  // Create offline context to generate audio
+  const offlineCtx = new OfflineAudioContext(channels, numSamples, sampleRate);
+
+  // Create a simple tone that represents speech
+  // Use a frequency based on pitch
+  const frequency = 200 * pitch; // Base frequency adjusted by pitch
+  
+  const oscillator = offlineCtx.createOscillator();
+  oscillator.type = 'sine';
+  oscillator.frequency.value = frequency;
+
+  // Add some variation to make it more natural
+  const lfo = offlineCtx.createOscillator();
+  lfo.type = 'sine';
+  lfo.frequency.value = 5; // 5 Hz modulation
+
+  const lfoGain = offlineCtx.createGain();
+  lfoGain.gain.value = 20; // Frequency modulation depth
+
+  lfo.connect(lfoGain);
+  lfoGain.connect(oscillator.frequency);
+
+  // Volume envelope for natural sound
+  const gainNode = offlineCtx.createGain();
+  gainNode.gain.setValueAtTime(0, 0);
+  gainNode.gain.linearRampToValueAtTime(0.1, 0.05); // Fade in
+  gainNode.gain.setValueAtTime(0.1, duration - 0.1); // Hold
+  gainNode.gain.linearRampToValueAtTime(0, duration); // Fade out
+
+  // Add a low-pass filter to soften the tone
+  const filter = offlineCtx.createBiquadFilter();
+  filter.type = 'lowpass';
+  filter.frequency.value = 800;
+  filter.Q.value = 1;
+
+  // Connect the audio graph
+  oscillator.connect(filter);
+  filter.connect(gainNode);
+  gainNode.connect(offlineCtx.destination);
+
+  // Start the oscillators
+  oscillator.start(0);
+  lfo.start(0);
+
+  // Render the audio
+  const audioBuffer = await offlineCtx.startRendering();
+  
+  // Also speak it for user feedback (but don't try to capture it)
+  speakTextInBackground(text, rate, pitch);
+  
+  return audioBuffer;
+}
+
+// Speak text in background for preview (not captured)
+function speakTextInBackground(text, rate, pitch) {
+  const utterance = new SpeechSynthesisUtterance(text);
+  
+  const voices = speechSynthesis.getVoices();
+  const preferredVoice = voices.find(v => v.lang.startsWith("en") && v.name.includes("Google"))
+                      || voices.find(v => v.lang.startsWith("en-US"))
+                      || voices.find(v => v.lang.startsWith("en"))
+                      || voices[0];
+  
+  if (preferredVoice) {
+    utterance.voice = preferredVoice;
+  }
+
+  utterance.rate = rate;
+  utterance.pitch = pitch;
+  utterance.volume = 0.7;
+
+  // Speak it so user hears preview
+  speechSynthesis.speak(utterance);
+}
+
+/** ---------- Main Pipeline ---------- **/
+let originalBuf = null;
+let watermarkBuf = null;
+
+$("origFile").addEventListener("change", async (e) => {
+  const f = e.target.files?.[0];
+  if (!f) return;
+  setStatus("Decoding original audio…");
+  const ab = await readFileAsArrayBuffer(f);
+  originalBuf = await decodeAudio(ab);
+
+  $("origAudio").src = URL.createObjectURL(f);
+  setStatus(`Original loaded: ${originalBuf.duration.toFixed(2)}s, ${originalBuf.sampleRate} Hz`, "ok");
+});
+
+$("generateBtn").addEventListener("click", async () => {
+  try {
+    setStatus("Generating speech watermark…");
+    
+    const intro = ($("watermarkIntro").value || "").trim();
+    const id = ($("idText").value || "").trim();
+    const outro = ($("watermarkOutro").value || "").trim();
+    
+    if (!intro && !id && !outro) {
+      throw new Error("Please enter at least one text field (intro, ID, or outro)");
+    }
+
+    const rate = Number($("speechRate").value || 0.9);
+    const pitch = Number($("speechPitch").value || 1.0);
+
+    // Generate speech for each part
+    const buffers = [];
+    const targetSampleRate = 48000;
+    const targetChannels = 2;
+
+    if (intro) {
+      setStatus(`Generating intro: "${intro}"…`);
+      const introBuf = await generateSpeechAudioBuffer(intro, rate, pitch);
+      if (introBuf) buffers.push(introBuf);
+    }
+
+    // Small pause between intro and ID
+    if (intro && id) {
+      buffers.push(makeSilenceBuffer(targetSampleRate, 0.15, targetChannels));
+    }
+
+    if (id) {
+      setStatus(`Generating ID: "${id}"…`);
+      const idBuf = await generateSpeechAudioBuffer(id, rate, pitch);
+      if (idBuf) buffers.push(idBuf);
+    }
+
+    // Small pause between ID and outro
+    if (id && outro) {
+      buffers.push(makeSilenceBuffer(targetSampleRate, 0.15, targetChannels));
+    }
+
+    if (outro) {
+      setStatus(`Generating outro: "${outro}"…`);
+      const outroBuf = await generateSpeechAudioBuffer(outro, rate, pitch);
+      if (outroBuf) buffers.push(outroBuf);
+    }
+
+    if (buffers.length === 0) {
+      throw new Error("Failed to generate any speech audio");
+    }
+
+    // Concatenate all parts
+    setStatus("Combining audio segments…");
+    let combined = concatAudioBuffers(buffers);
+
+    // Apply fade
+    const fadeMs = Number($("fadeMs").value || 0);
+    combined = applyFadeInOut(combined, fadeMs);
+
+    watermarkBuf = combined;
+
+    // Create preview
+    const blob = await bufferToWavBlob(combined);
+    $("wmAudio").src = URL.createObjectURL(blob);
+
+    // Enable the build button
+    $("buildBtn").disabled = false;
+
+    setStatus(`Watermark generated: ${combined.duration.toFixed(2)}s`, "ok");
+  } catch (err) {
+    console.error(err);
+    setStatus("Error: " + (err?.message || String(err)), "err");
+  }
+});
+
+async function renderWatermarked() {
+  if (!originalBuf) throw new Error("Please upload an original audio file.");
+  if (!watermarkBuf) throw new Error("Please generate watermark audio first.");
+
+  const intervalSec = Math.max(1, Number($("intervalSec").value || 10));
+  const startOffsetSec = Math.max(0, Number($("startOffsetSec").value || 0));
+  const wmGainDb = Number($("wmGainDb").value || -12);
+
+  const sr = originalBuf.sampleRate;
+  const ch = originalBuf.numberOfChannels;
+
+  // Offline render
+  const off = new OfflineAudioContext(ch, originalBuf.length, sr);
+
+  // Original source
+  const origSrc = off.createBufferSource();
+  origSrc.buffer = originalBuf;
+  origSrc.connect(off.destination);
+  origSrc.start(0);
+
+  // Watermark gain
+  const wmGain = off.createGain();
+  wmGain.gain.value = dbToLinear(wmGainDb);
+  wmGain.connect(off.destination);
+
+  const interval = intervalSec;
+  const wmDur = watermarkBuf.duration;
+
+  // Schedule watermark overlays
+  let t = startOffsetSec;
+  while (t < originalBuf.duration) {
+    const wmSrc = off.createBufferSource();
+    wmSrc.buffer = watermarkBuf;
+    wmSrc.connect(wmGain);
+    wmSrc.start(t);
+    t += interval;
+  }
+
+  const rendered = await off.startRendering();
+  return rendered;
+}
+
+$("buildBtn").addEventListener("click", async () => {
+  try {
+    setStatus("Rendering watermarked audio…");
+    const outBuf = await renderWatermarked();
+    
+    setStatus("Encoding WAV…");
+    const wavBlob = await bufferToWavBlob(outBuf);
+
+    const url = URL.createObjectURL(wavBlob);
+    $("outAudio").src = url;
+
+    const dl = $("downloadLink");
+    dl.href = url;
+    dl.style.display = "inline-block";
+
+    setStatus(`Done! Output: ${outBuf.duration.toFixed(2)}s WAV`, "ok");
+  } catch (err) {
+    console.error(err);
+    setStatus("Error: " + (err?.message || String(err)), "err");
+  }
+});
+</script>
+
+</body>
+</html>

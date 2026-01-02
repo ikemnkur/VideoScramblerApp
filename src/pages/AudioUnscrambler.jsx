@@ -26,20 +26,27 @@ import {
   Key,
   Lock,
   LockOpen,
-  VolumeUp
+  VolumeUp,
+  VpnKey
 } from '@mui/icons-material';
 import { useToast } from '../contexts/ToastContext';
 import CreditConfirmationModal from '../components/CreditConfirmationModal';
 import { refundCredits } from '../utils/creditUtils';
 import api from '../api/client';
+import { 
+  generateWatermark, 
+  loadAudioFromUrl, 
+  overlayWatermarkAtIntervals,
+  checkTTSServerHealth 
+} from '../utils/ttsWatermarkService';
 
 export default function AudioUnscrambler() {
-  const { success, error } = useToast();
+  const { success, error, info } = useToast();
 
   // =============================
   // STATE & REFS
   // =============================
-  const audioFileInput = useRef(null);
+  const audioFileInputRef = useRef(null);
   const audioPlayerRef = useRef(null);
   const canvasRef = useRef(null);
 
@@ -60,6 +67,7 @@ export default function AudioUnscrambler() {
 
   const [generatedNoise, setGeneratedNoise] = useState(null);
   const [scramblingParameters, setScramblingParameters] = useState(null);
+  const [decodedParams, setDecodedParams] = useState(null);
   const [loadedKeyData, setLoadedKeyData] = useState(null);
   const [keyCode, setKeyCode] = useState('');
 
@@ -70,6 +78,7 @@ export default function AudioUnscrambler() {
   const [noiseLevel, setNoiseLevel] = useState('0.3');
 
   const [filename, setFilename] = useState('');
+  const [selectedFile, setSelectedFile] = useState(null);
   const [audioDuration, setAudioDuration] = useState(0);
   const [sampleRate, setSampleRate] = useState(48000);
   const [numberOfChannels, setNumberOfChannels] = useState(2);
@@ -80,10 +89,23 @@ export default function AudioUnscrambler() {
   // const actionCost = 3;
   const [actionCost, setActionCost] = useState(3);
   const [scrambleLevel, setScrambleLevel] = useState(1);
+  const [ttsAvailable, setTtsAvailable] = useState(false);
 
   const [userData] = useState(JSON.parse(localStorage.getItem("userdata")));
 
   const API_URL = import.meta.env.VITE_API_SERVER_URL || 'http://localhost:3001';
+
+  // =============================
+  // CHECK TTS SERVER ON MOUNT
+  // =============================
+  useEffect(() => {
+    checkTTSServerHealth().then(available => {
+      setTtsAvailable(available);
+      if (!available) {
+        console.warn('TTS server not available - watermarks will be skipped');
+      }
+    });
+  }, []);
 
   // =============================
   // FETCH USER CREDITS
@@ -170,18 +192,19 @@ export default function AudioUnscrambler() {
     return result;
   };
 
-  const encryptKeyData = (keyObject) => {
-    const jsonStr = JSON.stringify(keyObject);
-    const encryptionKey = "AudioProtectionKey2025";
-    const encrypted = xorEncrypt(jsonStr, encryptionKey);
-    return btoa(encrypted);
-  };
+  // const encryptKeyData = (keyObject) => {
+  //   const jsonStr = JSON.stringify(keyObject);
+  //   const encryptionKey = "AudioProtectionKey2025";
+  //   const encrypted = xorEncrypt(jsonStr, encryptionKey);
+  //   return btoa(encrypted);
+  // };
 
   const decryptKeyData = (encodedData) => {
     try {
       const encrypted = atob(encodedData);
       const encryptionKey = "AudioProtectionKey2025";
       const jsonStr = xorEncrypt(encrypted, encryptionKey);
+      console.log("Decrypted key data:", jsonStr);
       return JSON.parse(jsonStr);
     } catch (err) {
       console.error('Decryption error:', err);
@@ -222,16 +245,191 @@ export default function AudioUnscrambler() {
     return buffer;
   };
 
-  const applyNoise = (originalBuffer, noiseData) => {
-    const originalData = originalBuffer.getChannelData(0);
-    const combinedData = new Float32Array(originalData.length);
-
-    for (let i = 0; i < originalData.length; i++) {
-      const noiseIndex = i % noiseData.length;
-      combinedData[i] = Math.max(-1, Math.min(1, originalData[i] + noiseData[noiseIndex]));
+   // Apply watermark to original audio
+  const applyWatermark = async () => {
+    if (!watermarkBuffer) {
+      setError('Please generate a watermark first');
+      return;
     }
 
-    return createAudioBufferFromData(combinedData, originalBuffer.sampleRate, originalBuffer.numberOfChannels);
+    // if (!originalBuffer) {
+    //   setError('Please upload an audio file first');
+    //   return;
+    // }
+
+    // setLoading(true);
+    setError('');
+
+    try {
+      const watermarked = await renderWatermarkedAudio(
+        originalBuffer,
+        watermarkBuffer,
+        interval,
+        fade,
+        volume
+      );
+
+      setWatermarkedBuffer(watermarked);
+
+      if (watermarkedCanvasRef.current) {
+        drawWaveform(watermarked, watermarkedCanvasRef.current);
+      }
+
+      success('Watermark applied successfully!');
+    } catch (err) {
+      setError(`Error applying watermark: ${err.message}`);
+    } finally {
+      // setLoading(false);
+    }
+  };
+
+
+   // Render watermarked audio using OfflineAudioContext
+  const renderWatermarkedAudio = async (originalBuffer, watermarkBuffer, intervalSeconds, fadeDuration, watermarkVolume) => {
+    const sampleRate = originalBuffer.sampleRate;
+    const numChannels = originalBuffer.numberOfChannels;
+    const duration = originalBuffer.duration;
+    
+    const offlineContext = new OfflineAudioContext(
+      numChannels,
+      Math.ceil(duration * sampleRate),
+      sampleRate
+    );
+
+    // Create source for original audio
+    const originalSource = offlineContext.createBufferSource();
+    originalSource.buffer = originalBuffer;
+    originalSource.connect(offlineContext.destination);
+    originalSource.start(0);
+
+    // Add watermark at intervals
+    const watermarkDuration = watermarkBuffer.duration;
+    let currentTime = 0;
+
+    while (currentTime < duration) {
+      const watermarkSource = offlineContext.createBufferSource();
+      watermarkSource.buffer = watermarkBuffer;
+
+      const gainNode = offlineContext.createGain();
+      watermarkSource.connect(gainNode);
+      gainNode.connect(offlineContext.destination);
+
+      // Set initial volume
+      gainNode.gain.setValueAtTime(0, currentTime);
+      
+      // Fade in
+      gainNode.gain.linearRampToValueAtTime(
+        watermarkVolume,
+        currentTime + fadeDuration
+      );
+
+      // Fade out
+      const fadeOutStart = currentTime + watermarkDuration - fadeDuration;
+      if (fadeOutStart > currentTime + fadeDuration) {
+        gainNode.gain.setValueAtTime(watermarkVolume, fadeOutStart);
+        gainNode.gain.linearRampToValueAtTime(0, currentTime + watermarkDuration);
+      }
+
+      watermarkSource.start(currentTime);
+
+      currentTime += intervalSeconds;
+    }
+
+    return await offlineContext.startRendering();
+  };
+
+
+  // Generate watermark from TTS server
+  const generateWatermarkFromServer = async () => {
+    if (!intro && !id && !outro) {
+      setError('Please enter at least one text field (intro, ID, or outro)');
+      return;
+    }
+
+    // setLoading(true);
+    setError('');
+    success('');
+
+    try {
+      const response = await fetch(`${TTS_SERVER_URL}/generate-watermark`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          intro: intro,
+          id: id,
+          outro: outro,
+          voice: voice,
+          rate: `${rate > 0 ? '+' : ''}${rate}%`,
+          pitch: '+0Hz',
+          silence_between: 150
+        })
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to generate watermark from server');
+      }
+
+      const data = await response.json();
+      
+      if (!data.success) {
+        throw new Error(data.error || 'Failed to generate watermark');
+      }
+
+      // Fetch the audio file from the URL
+      const audioUrl = `${TTS_SERVER_URL}${data.url}`;
+      const audioResponse = await fetch(audioUrl);
+      
+      if (!audioResponse.ok) {
+        throw new Error('Failed to fetch generated audio file');
+      }
+
+      const arrayBuffer = await audioResponse.arrayBuffer();
+      const audioBuffer = await audioContextRef.current.decodeAudioData(arrayBuffer);
+      setWatermarkBuffer(audioBuffer);
+      
+      // Draw waveform
+      if (watermarkCanvasRef.current) {
+        drawWaveform(audioBuffer, watermarkCanvasRef.current);
+      }
+
+      success(`Watermark generated successfully! Duration: ${data.duration.toFixed(2)}s`);
+    } catch (err) {
+      setError(`Error generating watermark: ${err.message}`);
+      console.error('Watermark generation error:', err);
+    } finally {
+      // setLoading(false);
+    }
+  };
+
+   // Fetch available voices from server
+  const fetchAvailableVoices = async () => {
+    // Default voices
+    const defaultVoices = [
+      'en-US-AndrewNeural',
+      'en-US-AriaNeural',
+      'en-US-GuyNeural',
+      'en-US-JennyNeural',
+      'en-GB-RyanNeural',
+      'en-GB-SoniaNeural'
+    ];
+
+    try {
+      const response = await fetch(`${TTS_SERVER_URL}/voices`);
+      if (response.ok) {
+        const data = await response.json();
+        // Ensure voices is an array
+        if (Array.isArray(data.voices)) {
+          setAvailableVoices(data.voices);
+        } else {
+          setAvailableVoices(defaultVoices);
+        }
+      } else {
+        setAvailableVoices(defaultVoices);
+      }
+    } catch (err) {
+      console.error('Failed to fetch voices:', err);
+      setAvailableVoices(defaultVoices);
+    }
   };
 
   const reverseNoise = (noisyBuffer, noiseData) => {
@@ -247,32 +445,25 @@ export default function AudioUnscrambler() {
   };
 
   const renderShuffledAudioWithPadding = async (originalAudioBuffer, segments, paddingDuration, mode) => {
-    const totalDuration = segments.reduce((total, segment) =>
-      total + segment.duration + paddingDuration, 0);
+    // Calculate total duration: all segments without padding
+    const totalDuration = segments.length * segments[0].duration;
 
-    let offlineCtx;
-    if (mode === "shuffleAudio") {
-      offlineCtx = new OfflineAudioContext(
-        originalAudioBuffer.numberOfChannels,
-        Math.ceil(totalDuration * originalAudioBuffer.sampleRate),
-        originalAudioBuffer.sampleRate
-      );
-    } else if (mode === "unshuffleAudio") {
-      offlineCtx = new OfflineAudioContext(
-        numberOfChannels,
-        Math.ceil(audioDuration * sampleRate),
-        sampleRate
-      );
-    }
+    const offlineCtx = new OfflineAudioContext(
+      originalAudioBuffer.numberOfChannels,
+      Math.ceil(totalDuration * originalAudioBuffer.sampleRate),
+      originalAudioBuffer.sampleRate
+    );
 
-    let currentTime = 0.0;
+    let outputTime = 0;
 
-    segments.forEach((segment, idx) => {
+    // For each segment, extract audio and place it in output (skipping padding)
+    segments.forEach((segment) => {
       const source = offlineCtx.createBufferSource();
       source.buffer = originalAudioBuffer;
-      source.start(currentTime, segment.start, segment.duration);
+      // Start at outputTime, read from segment.start, for segment.duration
+      source.start(outputTime, segment.start, segment.duration);
       source.connect(offlineCtx.destination);
-      currentTime += segment.duration + paddingDuration;
+      outputTime += segment.duration;
     });
 
     const renderedBuffer = await offlineCtx.startRendering();
@@ -282,8 +473,8 @@ export default function AudioUnscrambler() {
   const applyAudioShuffling = async (sourceBuffer, segSize, pad, seed) => {
     if (!sourceBuffer) return null;
 
-    const numSegments = Math.floor(sourceBuffer.duration / segSize);
-    const remainder = sourceBuffer.duration - (numSegments * segSize);
+    const numSegments = Math.ceil(sourceBuffer.duration / segSize);
+    // const remainder = sourceBuffer.duration - (numSegments * segSize);
 
     const newSegments = [];
     for (let i = 0; i < numSegments; i++) {
@@ -294,13 +485,13 @@ export default function AudioUnscrambler() {
       });
     }
 
-    if (remainder > 0) {
-      newSegments.push({
-        start: numSegments * segSize,
-        duration: remainder,
-        originalIndex: numSegments
-      });
-    }
+    // if (remainder > 0) {
+    //   newSegments.push({
+    //     start: numSegments * segSize,
+    //     duration: remainder,
+    //     originalIndex: numSegments
+    //   });
+    // }
 
     const originalOrder = newSegments.map(s => s.originalIndex);
     const shuffleOrder = seededShuffle(originalOrder, seed);
@@ -332,24 +523,38 @@ export default function AudioUnscrambler() {
       shuffleOrder = getShuffleOrder(numSegments, shuffleOrderOrSeed);
     }
 
+    console.log("Shuffled order:", shuffleOrder);
+
     const numSegments = shuffleOrder.length;
+
+    // Create inverse mapping: if shuffleOrder[i] = j, then segment at position j in shuffled 
+    // should go to position i in unshuffled
+    const inverseOrder = new Array(numSegments);
+    for (let i = 0; i < numSegments; i++) {
+      inverseOrder[shuffleOrder[i]] = i;
+    }
+
+    console.log("Inverse order:", inverseOrder);
+
     const unshuffledSegments = [];
 
-    for (let originalPos = 0; originalPos < numSegments; originalPos++) {
-      const shuffledPos = shuffleOrder[originalPos];
+    // Build segments to extract from shuffled buffer in the order they should appear in final output
+    for (let finalPos = 0; finalPos < numSegments; finalPos++) {
+      // Find which position in shuffled buffer contains the segment for finalPos
+      const shuffledPos = inverseOrder[finalPos];
       const startTime = shuffledPos * (segSize + pad);
 
-      let duration = segSize;
-      if (originalPos === numSegments - 1) {
-        duration = originalDuration - (originalPos * segSize);
-      }
+      // All segments are equal length now (no remainder handling)
+      const duration = segSize;
 
       unshuffledSegments.push({
         start: startTime,
         duration: duration,
-        originalIndex: originalPos
+        originalIndex: finalPos
       });
     }
+
+    console.log("Unshuffling segments:", unshuffledSegments);
 
     const unshuffledBuffer = await renderShuffledAudioWithPadding(shuffledBuffer, unshuffledSegments, 0, "unshuffleAudio");
     return unshuffledBuffer;
@@ -401,6 +606,25 @@ export default function AudioUnscrambler() {
 
     const blob = new Blob([view], { type: 'audio/wav' });
     return URL.createObjectURL(blob);
+  };
+
+  const decodeKeyCode = () => {
+    try {
+      const json = fromBase64(keyCode);
+      const params = JSON.parse(json);
+      setDecodedParams(params);
+      success('Key code decoded successfully!');
+      console.log("Decoded (XOR Decrypt) key parameters:", params);
+    } catch (e) {
+      try {
+        const keyData = decryptKeyData(keyCode);
+        setDecodedParams(keyData);
+        console.log("Decoded (Base64) key data from code:", keyData);
+      } catch (err) {
+        console.error("Error decoding key code:", err);
+      }
+      error('Invalid key code: ' + e.message);
+    }
   };
 
   // =============================
@@ -487,7 +711,7 @@ export default function AudioUnscrambler() {
   // =============================
   // EVENT HANDLERS
   // =============================
-  const handleFileSelect = async (event) => {
+  const handleScrambledFileSelect = async (event) => {
     const file = event.target.files?.[0];
     if (!file) return;
 
@@ -506,17 +730,43 @@ export default function AudioUnscrambler() {
       setAudioDuration(buffer.duration);
       setSampleRate(buffer.sampleRate);
       setNumberOfChannels(buffer.numberOfChannels);
+      setSelectedFile(file);
+      setScrambledAudioBuffer(buffer);
 
       const objectUrl = URL.createObjectURL(file);
       if (audioPlayerRef.current) {
         audioPlayerRef.current.src = objectUrl;
       }
 
+      console.log(`Audio loaded: ${buffer.duration.toFixed(2)}s`);
+
       success(`Audio loaded: ${buffer.duration.toFixed(2)}s`);
     } catch (err) {
       console.error("Error processing audio file:", err);
       error('Error loading audio file');
     }
+  };
+
+  const applyParametersFromKey = (keyData) => {
+
+    let x = {
+      "timestamp": "2025-12-29T22:38:39.117Z",
+      "audio": {
+        "duration": 54.04470833333333,
+        "sampleRate": 48000, "channels": 2
+      },
+      "shuffle": { "enabled": true, "seed": 12345, "segmentSize": 5, "padding": 0.5, "shuffleOrder": [5, 2, 10, 9, 8, 6, 7, 1, 3, 0, 4] },
+      "noise": { "enabled": true, "seed": 54321, "level": 1, "multiFrequency": true },
+      "user": { "username": "ikemnkur", "userId": "Unknown", "timestamp": "2025-12-29T22:38:39.117Z" },
+      "type": "audio", "version": "basic"
+    }
+
+    setSegmentSize(keyData.shuffle?.segmentSize);
+    setPadding(keyData.shuffle?.padding)
+    setNoiseLevel(keyData.noise?.level)
+    setShuffleSeed(keyData.shuffle?.seed)
+    setNoiseSeed(keyData.noise?.seed)
+
   };
 
   const handleCreditConfirm = useCallback(async (actualCostSpent) => {
@@ -546,26 +796,11 @@ export default function AudioUnscrambler() {
       setIsProcessing(false);
 
       handleRefundCredits();
-      
+
     }
   }, [audioBuffer, segmentSize, padding, shuffleSeed, noiseLevel, noiseSeed, actionCost, setUserCredits, success, error]);
 
 
-
-  const handleScrambledFileSelect = async (event) => {
-    const file = event.target.files?.[0];
-    if (!file) return;
-
-    try {
-      const arrayBuffer = await file.arrayBuffer();
-      const buffer = await audioContext.decodeAudioData(arrayBuffer);
-      setScrambledAudioBuffer(buffer);
-      success('Scrambled audio loaded');
-    } catch (err) {
-      console.error("Error loading scrambled audio:", err);
-      error('Error loading scrambled audio');
-    }
-  };
 
   const handleKeyFileSelect = async (event) => {
     const file = event.target.files?.[0];
@@ -574,7 +809,16 @@ export default function AudioUnscrambler() {
     try {
       const text = await file.text();
       const keyData = decryptKeyData(text);
+      if (keyData.type !== "audio") {
+        error('The loaded key file is not a valid video scramble key.');
+        throw new Error('Invalid key file type');
+      } else if (keyData.version !== "basic") {
+        error('Use the ' + keyData.version + ' ' + keyData.type + ' scrambler to unscramble this file.');
+        alert('The loaded key file will not work with this scrambler version, you must use the ' + keyData.version + ' ' + keyData.type + ' scrambler to unscramble this file.');
+        throw new Error('Incompatible key file version');
+      }
       setLoadedKeyData(keyData);
+      applyParametersFromKey(keyData);
       success('🔑 Key loaded!');
     } catch (err) {
       console.error("Error loading key:", err);
@@ -621,6 +865,32 @@ export default function AudioUnscrambler() {
         );
       }
 
+      // Generate and apply TTS watermark at intervals (non-blocking)
+      if (ttsAvailable && userData?.username) {
+        try {
+          info('Generating watermark tags...');
+          const watermarkText = `unscrambled by user ${userData.username} on scrambler dot com`;
+          const watermarkUrl = await generateWatermark(userData.username, 'unscrambler', {
+            voice: 'en-US-GuyNeural',
+            rate: '+15%',
+            pitch: '+0Hz'
+          });
+          const watermarkBuffer = await loadAudioFromUrl(watermarkUrl, audioContext);
+          
+          // Overlay watermark at intervals throughout the audio
+          recoveredBuffer = overlayWatermarkAtIntervals(recoveredBuffer, watermarkBuffer, audioContext, {
+            intervalSeconds: null, // Auto-calculate based on duration
+            volume: 0.5, // 50% volume for watermark
+            fadeMs: 250 // 250ms fade in/out
+          });
+          
+          console.log('Watermark overlays applied successfully');
+        } catch (err) {
+          console.error('Watermark application failed:', err);
+          // Continue without watermark
+        }
+      }
+
       setRecoveredAudioBuffer(recoveredBuffer);
 
       const url = bufferToWavUrl(recoveredBuffer, loadedKeyData.audio.channels, loadedKeyData.audio.sampleRate);
@@ -634,27 +904,6 @@ export default function AudioUnscrambler() {
       console.error('Unscramble error:', err);
       error('Error: ' + err.message);
       setIsProcessing(false);
-
-
-      // try {
-      // TODO: Refund credits if applicable
-      const response = await fetch(`${API_URL}/api/refund-credits`, {
-        method: 'POST',
-        // headers: {
-        //   'Content-Type': 'application/json'
-        // },
-
-        body: {
-          userId: userData.id,
-          username: userData.username,
-          email: userData.email,
-          password: localStorage.getItem('passwordtxt'),
-          credits: actionCost,
-          params: params,
-        }
-      });
-
-      console.log("Refund response:", response);
     }
   };
 
@@ -768,6 +1017,15 @@ export default function AudioUnscrambler() {
 
           <Grid container spacing={3} sx={{ mb: 3 }}>
             <Grid item xs={12} md={6}>
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 2 }}>
+                <Typography variant="h5" sx={{ color: '#22d3ee', fontWeight: 'bold' }}>
+                  Step 1
+                </Typography>
+                <Typography variant="h6" sx={{ color: '#e0e0e0' }}>
+                  Select Scramble Audio
+                </Typography>
+              </Box>
+
               <Typography variant="body2" sx={{ color: '#bdbdbd', mb: 1 }}>
                 Scrambled Audio File
               </Typography>
@@ -775,9 +1033,11 @@ export default function AudioUnscrambler() {
                 type="file"
                 accept="audio/*"
                 onChange={handleScrambledFileSelect}
+                ref={audioFileInputRef}
+                id="audio-file-upload"
                 style={{ display: 'none' }}
               />
-              <label htmlFor="video-upload">
+              <label htmlFor="audio-file-upload">
                 <Button
                   variant="contained"
                   component="span"
@@ -787,10 +1047,116 @@ export default function AudioUnscrambler() {
                   Choose Audio File
                 </Button>
               </label>
+              {selectedFile && (
+                <Typography variant="body2" sx={{ color: '#4caf50', mt: 1 }}>
+                  Selected: {selectedFile.name}
+                </Typography>
+              )}
             </Grid>
           </Grid>
 
-          {/* Key Code Input */}
+          {/* Step 2: Paste and Decode Key */}
+          <Box sx={{ mb: 4 }}>
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 2 }}>
+              <Typography variant="h5" sx={{ color: '#22d3ee', fontWeight: 'bold' }}>
+                Step 2
+              </Typography>
+              <Typography variant="h6" sx={{ color: '#e0e0e0' }}>
+                Paste Your Unscramble Key
+              </Typography>
+            </Box>
+
+            <Grid item xs={12} md={6}>
+              <Typography variant="body2" sx={{ color: '#bdbdbd', mb: 1 }}>
+                Scramble Key File
+              </Typography>
+              <input
+                type="file"
+                accept=".key,.json,.txt"
+                onChange={handleKeyFileSelect}
+                style={{ display: 'none' }}
+                id="key-file-upload"
+                ref={keyFileInputRef}
+              />
+              <label htmlFor="key-file-upload">
+                <Button variant="contained" component="span" sx={{ backgroundColor: '#2196f3', color: 'white', mb: 2 }}>
+                  Choose Key File
+                </Button>
+              </label>
+
+            </Grid>
+            <strong style={{ fontSize: 24, margin: '0 16px' }}> OR </strong>
+            <Typography variant="h6" sx={{ mb: 1, color: '#e0e0e0' }}>
+              Enter Key Code
+            </Typography>
+            <TextField
+              fullWidth
+              multiline
+              rows={3}
+              value={keyCode}
+              onChange={(e) => setKeyCode(e.target.value)}
+              placeholder="eyJzZWVkIjoxMjM0NSwibiI6MywibSI6MywicGVybTFiYXNlZCI6WzMsMiw1LDEsNyw2LDksNCw4XX0="
+              sx={{
+                mb: 2,
+                '& .MuiInputBase-root': {
+                  backgroundColor: '#353535',
+                  color: 'white',
+                  fontFamily: 'monospace'
+                }
+              }}
+            />
+
+            <Box sx={{ display: 'flex', gap: 2, alignItems: 'center', flexWrap: 'wrap', mb: 2 }}>
+
+              <Button
+                variant="contained"
+                onClick={decodeKeyCode}
+                startIcon={<VpnKey />}
+                disabled={!keyCode.trim()}
+                sx={{ backgroundColor: '#ff9800', color: 'white' }}
+              >
+                Decode Key
+              </Button>
+
+              {decodedParams && (
+                <Chip
+                  icon={<CheckCircle />}
+                  label="Valid Key Decoded"
+                  color="success"
+                  sx={{ fontWeight: 'bold' }}
+                />
+              )}
+            </Box>
+
+            {/* Display Decoded Key Info */}
+            {decodedParams && (() => {
+              try {
+                const obj = JSON.parse(decodedParams);
+                const n = Number(obj.n);
+                const m = Number(obj.m);
+                return (
+                  <Alert severity="success" sx={{ mt: 2, backgroundColor: '#2e7d32', color: 'white' }}>
+                    <Typography variant="body2" sx={{ fontWeight: 'bold', mb: 1 }}>
+                      Key Information:
+                    </Typography>
+                    <Typography variant="body2">
+                      • Grid Size: <strong>{n} × {m}</strong>
+                    </Typography>
+                    <Typography variant="body2">
+                      • Total Cells: <strong>{n * m}</strong>
+                    </Typography>
+                    <Typography variant="body2" sx={{ mt: 1 }}>
+                      ✓ Key validated and ready to apply
+                    </Typography>
+                  </Alert>
+                );
+              } catch (e) {
+                return null;
+              }
+            })()}
+          </Box>
+
+          {/* Key Code Input
           <Box sx={{ mb: 3 }}>
 
             <Grid item xs={12} md={6}>
@@ -832,15 +1198,27 @@ export default function AudioUnscrambler() {
                 }
               }}
             />
-          </Box>
+          </Box> */}
 
           {/* Unnscramble Action Button */}
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 2 }}>
+            <Typography variant="h5" sx={{ color: '#22d3ee', fontWeight: 'bold' }}>
+              Step 3
+            </Typography>
+            <Typography variant="h6" sx={{ color: '#e0e0e0' }}>
+              Paste Your Unscramble Key
+            </Typography>
+          </Box>
+          {/* <Box sx={{ display: 'flex', gap: 2, alignItems: 'center', flexWrap: 'wrap', mb: 2 }}> */}
+
+
 
           <Button
             variant="contained"
             onClick={() => {
-              setShowCreditModal(true);
               setScrambleLevel(2 + audioDuration / segmentSize);
+              setShowCreditModal(true);
+
             }}
             startIcon={<LockOpen />}
             disabled={!scrambledAudioBuffer || !loadedKeyData || isProcessing}
@@ -859,8 +1237,8 @@ export default function AudioUnscrambler() {
               <Typography variant="h6" sx={{ mb: 2, color: '#e0e0e0' }}>
                 Recovered Audio
               </Typography>
-              <canvas ref={unscrambledCanvasRef} width="600" height="150" style={{ width: '100%', height: 'auto', border: '1px solid #666', borderRadius: '4px', marginBottom: '10px' }} />
-              <audio ref={unscrambledAudioPlayerRef} controls style={{ width: '100%', marginBottom: '15px' }} />
+              <canvas ref={unscrambledCanvasRef} width="600" height="150" style={{ display: 'none', width: '100%', height: 'auto', border: '1px solid #666', borderRadius: '4px', marginBottom: '10px' }} />
+              <audio ref={unscrambledAudioPlayerRef} controls style={{ display: 'none', width: '100%', marginBottom: '15px' }} />
 
               <Button
                 variant="contained"
@@ -884,31 +1262,36 @@ export default function AudioUnscrambler() {
         </Typography>
       </Paper>
 
+
       {/* Credit Confirmation Modal */}
-      <CreditConfirmationModal
-        open={showCreditModal}
-        onClose={() => setShowCreditModal(false)}
-        onConfirm={handleCreditConfirm}
-        mediaType="audio"
+      {showCreditModal &&
 
 
-        isProcessing={isProcessing}
-        scrambleLevel={scrambleLevel}
-        currentCredits={userCredits}
-        fileName={filename}
-        file={audioBuffer}
-        fileDetails={{
-          type: 'audio',
-          duration: audioDuration,
-          sampleRate: sampleRate,
-          channels: numberOfChannels,
-          name: filename,
-          size: audioBuffer ? (audioBuffer.length * numberOfChannels * 4) / (1024 * 1024) : 0
-        }}
-        user={userData}
-        actionType="unscramble-audio"
-        actionDescription="Unscrambling audio"
-      />
+        <CreditConfirmationModal
+          open={showCreditModal}
+          onClose={() => setShowCreditModal(false)}
+          onConfirm={handleCreditConfirm}
+          mediaType="audio"
+
+
+          isProcessing={isProcessing}
+          scrambleLevel={scrambleLevel}
+          currentCredits={userCredits}
+          fileName={filename}
+          file={audioBuffer}
+          fileDetails={{
+            type: 'audio',
+            duration: audioDuration,
+            sampleRate: sampleRate,
+            channels: numberOfChannels,
+            name: filename,
+            size: audioBuffer ? (audioBuffer.length * numberOfChannels * 4) / (1024 * 1024) : 0
+          }}
+          user={userData}
+          actionType="unscramble-audio"
+          actionDescription="Unscrambling audio"
+        />
+      }
     </Container>
   );
 }

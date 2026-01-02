@@ -1,7 +1,7 @@
 // PhotoLeakChecker.jsx - Steganography-based leak detection for photos
 import React, { useState, useEffect, useRef, useCallback } from 'react';
-import { Container, Typography, Card, CardContent, Button, Box, Grid, Paper, Alert, CircularProgress, Chip, List, ListItem, ListItemText } from '@mui/material';
-import { PhotoCamera, Search, CheckCircle, Warning, Upload, Fingerprint, Person } from '@mui/icons-material';
+import { Container, Typography, Card, CardContent, Button, Box, Grid, Paper, Alert, CircularProgress, Chip, List, ListItem, ListItemText, TextField, Divider } from '@mui/material';
+import { PhotoCamera, Search, CheckCircle, Warning, Upload, Fingerprint, Person, VpnKey } from '@mui/icons-material';
 import { useToast } from '../contexts/ToastContext';
 import CreditConfirmationModal from '../components/CreditConfirmationModal';
 import api from '../api/client';
@@ -12,41 +12,104 @@ export default function PhotoLeakChecker() {
 
   const API_URL = import.meta.env.VITE_API_SERVER_URL || 'http://localhost:3001'; // = 'http://localhost:3001/api';
 
-  const { success, error: showError, info: showInfo } = useToast();
-  const [selectedFile, setSelectedFile] = useState(null);
-  const [previewUrl, setPreviewUrl] = useState(null);
+  const { success, error, info } = useToast();
+  
+  // Original and leaked image files
+  const [originalImageFile, setOriginalImageFile] = useState(null);
+  const [leakedImageFile, setLeakedImageFile] = useState(null);
+  const [originalPreviewUrl, setOriginalPreviewUrl] = useState(null);
+  const [leakedPreviewUrl, setLeakedPreviewUrl] = useState(null);
+  
   const [isChecking, setIsChecking] = useState(false);
   const [checkStatus, setCheckStatus] = useState('idle');
   const [leakData, setLeakData] = useState(null);
   const [extractedCode, setExtractedCode] = useState('');
-  const fileInputRef = useRef(null);
-  const imageRef = useRef(null);
-
+  
+  const originalImageFileInputRef = useRef(null);
+  const leakedImageFileInputRef = useRef(null);
+  const keyFileInputRef = useRef(null);
 
   const [userData, setUserData] = useState(JSON.parse(localStorage.getItem("userdata")));
 
   const [showCreditModal, setShowCreditModal] = useState(false);
   const [allowLeakChecking, setAllowLeakChecking] = useState(false);
-  const [userCredits, setUserCredits] = useState(0); // Mock credits, replace with actual user data
-  const actionCost = 10; // Cost to scramble a photo (less than video)
+  const [userCredits, setUserCredits] = useState(0);
+  const [actionCost, setActionCost] = useState(10);
+  const [loadedKeyData, setLoadedKeyData] = useState(null);
+  const [keyCode, setKeyCode] = useState('');
+  
+  // XOR decryption function
+  const xorEncrypt = (text, key) => {
+    let result = '';
+    for (let i = 0; i < text.length; i++) {
+      result += String.fromCharCode(text.charCodeAt(i) ^ key.charCodeAt(i % key.length));
+    }
+    return result;
+  };
+
+  const decryptKeyData = (encodedData) => {
+    try {
+      const encrypted = atob(encodedData);
+      const encryptionKey = "PhotoProtectionKey2025";
+      const jsonStr = xorEncrypt(encrypted, encryptionKey);
+      return JSON.parse(jsonStr);
+    } catch (err) {
+      console.error('Decryption error:', err);
+      throw new Error('Invalid or corrupted key file');
+    }
+  };
 
 
-  const handleFileSelect = (event) => {
+
+  const handleOriginalFileSelect = (event) => {
     const file = event.target.files?.[0];
     if (!file || !file.type.startsWith('image/')) {
-      showError("Please select a valid image file");
+      error("Please select a valid image file");
       return;
     }
     if (file.size > 10 * 1024 * 1024) {
-      showError("File size must be less than 10MB");
+      error("File size must be less than 10MB");
       return;
     }
-    setSelectedFile(file);
-    setPreviewUrl(URL.createObjectURL(file));
+
+    setOriginalImageFile(file);
+    setOriginalPreviewUrl(URL.createObjectURL(file));
+    success(`Original image selected: ${file.name}`);
+  };
+
+  const handleLeakedFileSelect = (event) => {
+    const file = event.target.files?.[0];
+    if (!file || !file.type.startsWith('image/')) {
+      error("Please select a valid image file");
+      return;
+    }
+    if (file.size > 10 * 1024 * 1024) {
+      error("File size must be less than 10MB");
+      return;
+    }
+
+    setLeakedImageFile(file);
+    setLeakedPreviewUrl(URL.createObjectURL(file));
     setCheckStatus('idle');
     setLeakData(null);
-    success(`Selected: ${file.name}`);
+    success(`Leaked image selected: ${file.name}`);
   };
+
+  const handleKeyFileSelect = async (event) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    try {
+      const text = await file.text();
+      const keyData = decryptKeyData(text);
+      setLoadedKeyData(keyData);
+      success('🔑 Key loaded!');
+    } catch (err) {
+      console.error("Error loading key:", err);
+      error('Invalid or corrupted key file');
+    }
+  };
+  // };
 
   const handleCreditConfirm = useCallback(() => {
     setShowCreditModal(false);
@@ -58,22 +121,31 @@ export default function PhotoLeakChecker() {
   }, []);
 
   const handleCheckForLeak = async () => {
-    if (!selectedFile) {
-      showError("Please select an image file first");
+    if (!originalImageFile || !leakedImageFile) {
+      error("Please select both original and leaked image files");
       return;
     }
+
+    if (!allowLeakChecking) {
+      error('You need to confirm credit usage before checking for leaks.');
+      return;
+    }
+
     setIsChecking(true);
     setCheckStatus('checking');
 
-    if (!allowLeakChecking) {
-      error('You need to confirm credit usage before applying parameters.');
-      return;
-    }
-
-
     try {
       const formData = new FormData();
-      formData.append('file', selectedFile);
+      formData.append('originalImage', originalImageFile);
+      formData.append('leakedImage', leakedImageFile);
+      
+      // Add key data if available
+      if (loadedKeyData) {
+        formData.append('keyData', JSON.stringify(loadedKeyData));
+      } else if (keyCode) {
+        formData.append('keyCode', keyCode);
+      }
+
       const response = await fetch(`${API_URL}/api/check-photo-leak`, {
         method: 'POST',
         body: formData,
@@ -86,27 +158,21 @@ export default function PhotoLeakChecker() {
         setCheckStatus('found');
         setLeakData(data.leakData);
         setExtractedCode(data.extractedCode);
-        showError(`🚨 LEAK DETECTED! Code: ${data.extractedCode}`);
+        error(`🚨 LEAK DETECTED! Code: ${data.extractedCode}`);
       } else {
         setCheckStatus('not-found');
         setExtractedCode(data.extractedCode || 'No code found');
         success('✅ No leak detected. This image is clean.');
       }
 
-      // SHOW MESSAGE DIALOG SAYTHING THAT THE USER HAS SPENT CREDITS TO CHECK THE IMAGE
-      try {
-        setTimeout(() => {
-          info(`Image checked successfully. ${data.creditsUsed} credits spent.`);
-        }, timeout);
-      } catch (error) {
-        console.error('Error showing credit spent info:', error);
-      }
-
-
+      // Show credit spent message
+      setTimeout(() => {
+        info(`Image checked successfully. ${data.creditsUsed || actionCost} credits spent.`);
+      }, 1500);
 
     } catch (err) {
       setCheckStatus('error');
-      showError(`Failed to check image: ${err.message}`);
+      error(`Failed to check image: ${err.message}`);
     } finally {
       setIsChecking(false);
     }
@@ -129,12 +195,18 @@ export default function PhotoLeakChecker() {
   }, []);
 
   const handleReset = () => {
-    setSelectedFile(null);
-    setPreviewUrl(null);
+    setOriginalImageFile(null);
+    setLeakedImageFile(null);
+    setOriginalPreviewUrl(null);
+    setLeakedPreviewUrl(null);
     setCheckStatus('idle');
     setLeakData(null);
     setExtractedCode('');
-    if (fileInputRef.current) fileInputRef.current.value = '';
+    setLoadedKeyData(null);
+    setKeyCode('');
+    if (originalImageFileInputRef.current) originalImageFileInputRef.current.value = '';
+    if (leakedImageFileInputRef.current) leakedImageFileInputRef.current.value = '';
+    if (keyFileInputRef.current) keyFileInputRef.current.value = '';
   };
 
   return (
@@ -160,42 +232,230 @@ export default function PhotoLeakChecker() {
         </Typography>
       </Paper>
 
-
       <Card elevation={3} sx={{ backgroundColor: '#424242', color: 'white', mb: 4 }}>
         <CardContent sx={{ p: 4 }}>
           <Typography variant="h4" sx={{ mb: 3, display: 'flex', alignItems: 'center', gap: 1 }}>
-            <PhotoCamera /> Upload Image for Leak Detection
+            <PhotoCamera /> Upload Images for Leak Detection
           </Typography>
 
-          <Box sx={{ mb: 3 }}>
-            <input type="file" accept="image/*" onChange={handleFileSelect} style={{ display: 'none' }} id="photo-leak-upload" ref={fileInputRef} />
-            <label htmlFor="photo-leak-upload">
-              <Button variant="contained" component="span" startIcon={<Upload />} sx={{ backgroundColor: '#2196f3', color: 'white', mb: 2 }}>
-                Choose Image File
-              </Button>
-            </label>
-            {selectedFile && (
-              <Box>
-                <Typography variant="body2" sx={{ color: '#4caf50', mb: 1 }}>✓ Selected: {selectedFile.name}</Typography>
-                <Typography variant="caption" sx={{ color: '#bdbdbd' }}>Size: {(selectedFile.size / 1024).toFixed(2)} KB | Type: {selectedFile.type}</Typography>
+          <Grid container spacing={3} sx={{ mb: 3 }}>
+            {/* Original Image File */}
+            <Grid item xs={12} md={6}>
+              <Box sx={{ p: 2, backgroundColor: '#353535', borderRadius: 2 }}>
+                <Typography variant="h6" sx={{ color: '#4caf50', mb: 2 }}>
+                  Original Image File
+                </Typography>
+                <Typography variant="body2" sx={{ color: '#bdbdbd', mb: 2 }}>
+                  Upload the original unscrambled image file
+                </Typography>
+
+                <input 
+                  type="file" 
+                  accept="image/*" 
+                  onChange={handleOriginalFileSelect} 
+                  style={{ display: 'none' }} 
+                  id="original-image-upload" 
+                  ref={originalImageFileInputRef} 
+                />
+                <label htmlFor="original-image-upload">
+                  <Button 
+                    variant="contained" 
+                    component="span" 
+                    startIcon={<Upload />} 
+                    sx={{ backgroundColor: '#4caf50', color: 'white', mb: 2 }}
+                  >
+                    Choose Original Image
+                  </Button>
+                </label>
+
+                {originalImageFile && (
+                  <Box sx={{ mt: 2 }}>
+                    <Typography variant="body2" sx={{ color: '#4caf50', mb: 1 }}>
+                      ✓ Selected: {originalImageFile.name}
+                    </Typography>
+                    <Typography variant="caption" sx={{ color: '#bdbdbd' }}>
+                      Size: {(originalImageFile.size / 1024).toFixed(2)} KB
+                    </Typography>
+                  </Box>
+                )}
               </Box>
-            )}
+            </Grid>
+
+            {/* Leaked/Suspected Image File */}
+            <Grid item xs={12} md={6}>
+              <Box sx={{ p: 2, backgroundColor: '#353535', borderRadius: 2 }}>
+                <Typography variant="h6" sx={{ color: '#ff9800', mb: 2 }}>
+                  Leaked/Suspected Image File
+                </Typography>
+                <Typography variant="body2" sx={{ color: '#bdbdbd', mb: 2 }}>
+                  Upload the image file you want to check for leaks
+                </Typography>
+
+                <input 
+                  type="file" 
+                  accept="image/*" 
+                  onChange={handleLeakedFileSelect} 
+                  style={{ display: 'none' }} 
+                  id="leaked-image-upload" 
+                  ref={leakedImageFileInputRef} 
+                />
+                <label htmlFor="leaked-image-upload">
+                  <Button 
+                    variant="contained" 
+                    component="span" 
+                    startIcon={<Upload />} 
+                    sx={{ backgroundColor: '#ff9800', color: 'white', mb: 2 }}
+                  >
+                    Choose Leaked Image
+                  </Button>
+                </label>
+
+                {leakedImageFile && (
+                  <Box sx={{ mt: 2 }}>
+                    <Typography variant="body2" sx={{ color: '#ff9800', mb: 1 }}>
+                      ✓ Selected: {leakedImageFile.name}
+                    </Typography>
+                    <Typography variant="caption" sx={{ color: '#bdbdbd' }}>
+                      Size: {(leakedImageFile.size / 1024).toFixed(2)} KB
+                    </Typography>
+                  </Box>
+                )}
+              </Box>
+            </Grid>
+          </Grid>
+
+          {/* Optional Key File or Code */}
+          <Box sx={{ mb: 3, p: 2, backgroundColor: '#353535', borderRadius: 2 }}>
+            <Typography variant="h6" sx={{ color: '#e0e0e0', mb: 2 }}>
+              Optional: Scramble Key (for enhanced detection)
+            </Typography>
+            
+            <Grid container spacing={2} alignItems="center">
+              <Grid item xs={12} md={5}>
+                <Typography variant="body2" sx={{ color: '#bdbdbd', mb: 1 }}>
+                  Upload Key File
+                </Typography>
+                <input
+                  type="file"
+                  accept=".key,.json,.txt"
+                  onChange={handleKeyFileSelect}
+                  style={{ display: 'none' }}
+                  id="key-file-upload"
+                  ref={keyFileInputRef}
+                />
+                <label htmlFor="key-file-upload">
+                  <Button 
+                    variant="outlined" 
+                    component="span" 
+                    startIcon={<Upload />} 
+                    sx={{ borderColor: '#2196f3', color: '#2196f3' }}
+                  >
+                    Choose Key File
+                  </Button>
+                </label>
+                {loadedKeyData && (
+                  <Typography variant="body2" sx={{ color: '#4caf50', mt: 1 }}>
+                    ✓ Key loaded
+                  </Typography>
+                )}
+              </Grid>
+
+              <Grid item xs={12} md={2} sx={{ textAlign: 'center' }}>
+                <Typography variant="h6" sx={{ color: '#666' }}>OR</Typography>
+              </Grid>
+
+              <Grid item xs={12} md={5}>
+                <Typography variant="body2" sx={{ color: '#bdbdbd', mb: 1 }}>
+                  Enter Key Code
+                </Typography>
+                <TextField
+                  fullWidth
+                  multiline
+                  rows={2}
+                  value={keyCode}
+                  onChange={(e) => setKeyCode(e.target.value)}
+                  placeholder="Paste key code here..."
+                  sx={{
+                    '& .MuiInputBase-root': {
+                      backgroundColor: '#2a2a2a',
+                      color: 'white',
+                      fontFamily: 'monospace',
+                      fontSize: '0.85rem'
+                    }
+                  }}
+                />
+              </Grid>
+            </Grid>
           </Box>
 
+          {/* Action Buttons */}
           <Box sx={{ display: 'flex', gap: 2, flexWrap: 'wrap', mb: 3 }}>
-            <Button variant="contained" onClick={() => setShowCreditModal(true)} startIcon={isChecking ? <CircularProgress size={20} color="inherit" /> : <Search />} disabled={!selectedFile || isChecking}
-              sx={{ backgroundColor: (!selectedFile || isChecking) ? '#666' : '#22d3ee', color: (!selectedFile || isChecking) ? '#999' : '#001018', fontWeight: 'bold', minWidth: 200 }}>
+            <Button 
+              variant="contained" 
+              onClick={() => setShowCreditModal(true)} 
+              startIcon={isChecking ? <CircularProgress size={20} color="inherit" /> : <Search />} 
+              disabled={!originalImageFile || !leakedImageFile || isChecking}
+              sx={{ 
+                backgroundColor: (!originalImageFile || !leakedImageFile || isChecking) ? '#666' : '#22d3ee', 
+                color: (!originalImageFile || !leakedImageFile || isChecking) ? '#999' : '#001018', 
+                fontWeight: 'bold', 
+                minWidth: 200 
+              }}
+            >
               {isChecking ? 'Checking for Leaks...' : 'Check for Leak'}
             </Button>
-            <Button variant="outlined" onClick={handleReset} disabled={isChecking} sx={{ borderColor: '#666', color: '#e0e0e0' }}>Reset</Button>
+            <Button 
+              variant="outlined" 
+              onClick={handleReset} 
+              disabled={isChecking} 
+              sx={{ borderColor: '#666', color: '#e0e0e0' }}
+            >
+              Reset
+            </Button>
           </Box>
 
-          {previewUrl && (
-            <Box sx={{ borderTop: '1px solid #666', pt: 3, mb: 3 }}>
-              <Typography variant="h6" sx={{ mb: 2, color: '#e0e0e0' }}>Image Preview</Typography>
-              <Box sx={{ backgroundColor: '#0b1020', border: '1px dashed #666', borderRadius: '8px', padding: 2, display: 'flex', justifyContent: 'center', alignItems: 'center' }}>
-                <img ref={imageRef} src={previewUrl} alt="Preview" style={{ maxWidth: '100%', maxHeight: '400px', borderRadius: '8px' }} />
-              </Box>
+          {/* Image Previews */}
+          {(originalPreviewUrl || leakedPreviewUrl) && (
+            <Box sx={{ borderTop: '1px solid #666', pt: 3 }}>
+              <Typography variant="h6" sx={{ mb: 2, color: '#e0e0e0' }}>Image Previews</Typography>
+              
+              <Grid container spacing={3}>
+                {/* Original Image Preview */}
+                {originalPreviewUrl && (
+                  <Grid item xs={12} md={6}>
+                    <Box sx={{ p: 2, backgroundColor: '#2a2a2a', borderRadius: 2 }}>
+                      <Typography variant="subtitle1" sx={{ color: '#4caf50', mb: 1 }}>
+                        Original Image
+                      </Typography>
+                      <Box sx={{ backgroundColor: '#0b1020', border: '1px dashed #666', borderRadius: '8px', p: 2, display: 'flex', justifyContent: 'center', alignItems: 'center' }}>
+                        <img 
+                          src={originalPreviewUrl} 
+                          alt="Original Preview" 
+                          style={{ maxWidth: '100%', maxHeight: '300px', borderRadius: '8px' }} 
+                        />
+                      </Box>
+                    </Box>
+                  </Grid>
+                )}
+
+                {/* Leaked Image Preview */}
+                {leakedPreviewUrl && (
+                  <Grid item xs={12} md={6}>
+                    <Box sx={{ p: 2, backgroundColor: '#2a2a2a', borderRadius: 2 }}>
+                      <Typography variant="subtitle1" sx={{ color: '#ff9800', mb: 1 }}>
+                        Leaked/Suspected Image
+                      </Typography>
+                      <Box sx={{ backgroundColor: '#0b1020', border: '1px dashed #666', borderRadius: '8px', p: 2, display: 'flex', justifyContent: 'center', alignItems: 'center' }}>
+                        <img 
+                          src={leakedPreviewUrl} 
+                          alt="Leaked Preview" 
+                          style={{ maxWidth: '100%', maxHeight: '300px', borderRadius: '8px' }} 
+                        />
+                      </Box>
+                    </Box>
+                  </Grid>
+                )}
+              </Grid>
             </Box>
           )}
 
@@ -256,18 +516,17 @@ export default function PhotoLeakChecker() {
         onClose={() => setShowCreditModal(false)}
         onConfirm={handleCreditConfirm}
         mediaType="photo"
-        
         currentCredits={userCredits}
-        fileName={selectedFile?.name || ''}
+        fileName={`${originalImageFile?.name || ''} vs ${leakedImageFile?.name || ''}`}
         user={userData}
         isProcessing={false}
-        file={selectedFile}
+        file={leakedImageFile}
         fileDetails={{
-          type: 'image',
-          size: selectedFile?.size || 0,
-          name: selectedFile?.name || '',
-          horizontal: imageRef.current?.naturalWidth || 0,
-          vertical: imageRef.current?.naturalHeight || 0
+          type: 'photo-leak-check',
+          size: (originalImageFile?.size || 0) + (leakedImageFile?.size || 0),
+          name: 'Photo Leak Detection',
+          originalFile: originalImageFile?.name || '',
+          leakedFile: leakedImageFile?.name || ''
         }}
         actionType="photo-leak-check"
         actionDescription="photo leak detection"

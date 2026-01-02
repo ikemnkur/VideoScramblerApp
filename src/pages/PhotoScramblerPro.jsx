@@ -70,6 +70,7 @@ export default function PhotoScramblerPro() {
     const [userCredits, setUserCredits] = useState(0); // Mock credits, replace with actual user data
     const [actionCost, setActionCost] = useState(15); // Cost to unscramble a video (pro version)
     const [scrambleLevel, setScrambleLevel] = useState(1); // Level of scrambling (for credit calculation)
+    
 
     // Scrambling Parameters
     const [algorithm, setAlgorithm] = useState('position'); // position, color, rotation, mirror, intensity
@@ -78,9 +79,46 @@ export default function PhotoScramblerPro() {
     const [cols, setCols] = useState(6);
     const [scramblingPercentage, setScramblingPercentage] = useState(100);
 
+    // noise seed
+
+    const [noiseIntensity, setNoiseIntensity] = useState(30); // Noise intensity for obscuring the image (0-127)
+    const [noiseSeed, setNoiseSeed] = useState(() => genRandomSeed());
+
     // Algorithm-specific parameters
     const [maxHueShift, setMaxHueShift] = useState(64);
     const [maxIntensityShift, setMaxIntensityShift] = useState(128);
+
+    // =============================
+    // UTILS
+    // =============================
+    function clamp(v, min, max) { return Math.max(min, Math.min(max, v)); }
+    function mulberry32(a) {
+        return function () {
+            let t = (a += 0x6D2B79F5);
+            t = Math.imul(t ^ (t >>> 15), t | 1);
+            t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
+            return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+        };
+    }
+    function genRandomSeed() {
+        if (window.crypto?.getRandomValues) {
+            const buf = new Uint32Array(1);
+            window.crypto.getRandomValues(buf);
+            return buf[0] >>> 0;
+        }
+        return (Math.floor(Math.random() * 2 ** 32) >>> 0);
+    }
+    function seededPermutation(size, seed) {
+        const rand = mulberry32(seed >>> 0);
+        const srcs = Array.from({ length: size }, (_, i) => i);
+        for (let i = size - 1; i > 0; i--) {
+            const j = Math.floor(rand() * (i + 1));
+            [srcs[i], srcs[j]] = [srcs[j], srcs[i]];
+        }
+        return srcs; // dest index i will take from source srcs[i]
+    }
+
+    function oneBased(a) { return a.map((x) => x + 1); }
 
     useEffect(() => {
         const fetchUserCredits = async () => {
@@ -105,6 +143,10 @@ export default function PhotoScramblerPro() {
     }, [userData]);
 
     const handleRefundCredits = async () => {
+        // Generate noise seed
+        const nSeed = genRandomSeed();
+        setNoiseSeed(nSeed);
+
         const result = await refundCredits({
             userId: userData.id,
             username: userData.username,
@@ -113,12 +155,34 @@ export default function PhotoScramblerPro() {
             currentCredits: userCredits,
             password: localStorage.getItem('passwordtxt'),
             action: 'scramble_photo_pro',
+            // params: {
+            //     scrambleLevel: scrambleLevel,
+            //     grid: { rows, cols },
+            //     seed: seed,
+            //     algorithm: algorithm,
+            //     percentage: scramblingPercentage
+            // }
             params: {
                 scrambleLevel: scrambleLevel,
                 grid: { rows, cols },
                 seed: seed,
                 algorithm: algorithm,
-                percentage: scramblingPercentage
+                percentage: scramblingPercentage,
+                scramble: shuffleParamsObj,
+                noise: {
+                    seed: nSeed,
+                    intensity: Math.round(noiseIntensity),
+                    mode: "add_mod256_tile",
+                    prng: "mulberry32"
+                },
+                metadata: {
+                    username: userData.username || 'Anonymous',
+                    userId: userData.userId || 'Unknown',
+                    timestamp: new Date().toISOString()
+                },
+                type: "photo",
+                version: "premium"
+
             }
         });
 
@@ -296,8 +360,26 @@ export default function PhotoScramblerPro() {
                     maxIntensityShift,
                     timestamp: Date.now(),
                     username: userData.username || 'Anonymous',
-                    userId: userData.userId || 'Unknown'
-                };
+                    userId: userData.userId || 'Unknown',
+                    type: "photo",
+                    version: "premium" ,
+                    scramble: {
+                        algorithm,
+                        seed,
+                        rows,
+                        cols,
+                        percentage: scramblingPercentage,
+                        maxHueShift,
+                        maxIntensityShift
+                    },
+                    noise: {
+                        seed: noiseSeed,
+                        intensity: Math.round(noiseIntensity),
+                        mode: "add_mod256_tile",
+                        prng: "mulberry32"
+                    },
+                };             
+
                 const encodedKey = btoa(JSON.stringify(key));
                 setKeyCode(encodedKey);
 
@@ -369,7 +451,11 @@ export default function PhotoScramblerPro() {
             const url = URL.createObjectURL(blob);
             const a = document.createElement('a');
             a.href = url;
-            a.download = `scrambled_${selectedFile?.name || 'unknown'}_${Date.now()}.png`;
+
+            let tempname = selectedFile?.name
+                ? selectedFile.name.replace(/\.[^/.]+$/, '').replace(/[^\w\-. ]+/g, '').replace(/\s+/g, '_')
+                : 'video' + timestamp();//selectedFile.name.replace (/\.[^/.]+$/, ""); // remove extension
+            a.download = `scrambled_${tempname}_${Date.now()}.png`;
             document.body.appendChild(a);
             a.click();
             document.body.removeChild(a);
@@ -500,45 +586,9 @@ export default function PhotoScramblerPro() {
 
                         {/* Algorithm Parameters */}
                         <Grid container spacing={2}>
-                            {/* Common Parameters */}
-                            <Grid item xs={12} md={6}>
-                                <TextField
-                                    fullWidth
-                                    type="number"
-                                    label="Seed"
-                                    value={seed}
-                                    onChange={(e) => setSeed(parseInt(e.target.value) || 0)}
-                                    InputProps={{
-                                        sx: { backgroundColor: '#353535', color: 'white' },
-                                        endAdornment: (
-                                            <Button size="small" onClick={regenerateSeed} sx={{ color: '#22d3ee' }}>
-                                                Random
-                                            </Button>
-                                        )
-                                    }}
-                                    InputLabelProps={{ sx: { color: '#e0e0e0' } }}
-                                />
-                            </Grid>
 
-                            <Grid item xs={12} md={6}>
-                                <Typography variant="body2" sx={{ color: '#e0e0e0', mb: 1 }}>
-                                    Scrambling Percentage: {scramblingPercentage}%
-                                </Typography>
-                                <Slider
-                                    value={scramblingPercentage}
-                                    onChange={(e, val) => setScramblingPercentage(val)}
-                                    min={25}
-                                    max={100}
-                                    step={5}
-                                    marks={[
-                                        { value: 25, label: '25%' },
-                                        { value: 50, label: '50%' },
-                                        { value: 75, label: '75%' },
-                                        { value: 100, label: '100%' }
-                                    ]}
-                                    sx={{ color: '#22d3ee' }}
-                                />
-                            </Grid>
+
+
 
                             {/* Position, Rotation, Mirror - need rows/cols */}
                             {(algorithm === 'position' || algorithm === 'rotation' || algorithm === 'mirror') && (
@@ -617,16 +667,119 @@ export default function PhotoScramblerPro() {
                             )}
                         </Grid>
 
-                        {/* Algorithm Descriptions */}
-                        <Alert severity="info" sx={{ mt: 2, backgroundColor: '#1976d2', color: 'white' }}>
-                            <strong>{algorithm.toUpperCase()}</strong>: {
-                                algorithm === 'position' ? 'Scrambles by shuffling tile positions in a grid' :
-                                    algorithm === 'color' ? 'Scrambles by shifting hue values in HSV color space' :
-                                        algorithm === 'rotation' ? 'Scrambles by randomly rotating tiles (90°, 180°, 270°)' :
-                                            algorithm === 'mirror' ? 'Scrambles by randomly flipping tiles horizontally/vertically' :
-                                                'Scrambles by shifting pixel intensity values'
-                            }
-                        </Alert>
+                        <Grid>
+
+                            {/* Algorithm Descriptions */}
+                            <Alert severity="info" sx={{ mt: 2, backgroundColor: '#1976d2', color: 'white' }}>
+                                <strong>{algorithm.toUpperCase()}</strong>: {
+                                    algorithm === 'position' ? 'Scrambles by shuffling tile positions in a grid' :
+                                        algorithm === 'color' ? 'Scrambles by shifting hue values in HSV color space' :
+                                            algorithm === 'rotation' ? 'Scrambles by randomly rotating tiles (90°, 180°, 270°)' :
+                                                algorithm === 'mirror' ? 'Scrambles by randomly flipping tiles horizontally/vertically' :
+                                                    'Scrambles by shifting pixel intensity values'
+                                }
+                            </Alert>
+                            <br></br>
+                        </Grid>
+
+                        {/* Common Parameters */}
+                        {/* <Grid item xs={12} md={6}>
+                            <TextField
+                                fullWidth
+                                type="number"
+                                label="Seed"
+                                value={seed}
+                                onChange={(e) => setSeed(parseInt(e.target.value) || 0)}
+                                InputProps={{
+                                    sx: { backgroundColor: '#353535', color: 'white' },
+                                    endAdornment: (
+                                        <Button size="small" onClick={regenerateSeed} sx={{ color: '#22d3ee' }}>
+                                            Random
+                                        </Button>
+                                    )
+                                }}
+                                InputLabelProps={{ sx: { color: '#e0e0e0' } }}
+                            />
+                        </Grid> */}
+
+                        <Grid item xs={12} md={6} sx={{ mt: 2 }}>
+                            <Typography variant="h6" sx={{ color: '#e0e0e0', mb: 1 }}>
+                                Scrambling Percentage: {scramblingPercentage}%
+                            </Typography>
+                            <Box m={3}>
+                                <Slider
+                                    value={scramblingPercentage}
+                                    onChange={(e, val) => setScramblingPercentage(val)}
+                                    min={25}
+                                    max={100}
+                                    step={5}
+                                    marks={[
+                                        { value: 25, label: '25%' },
+                                        { value: 50, label: '50%' },
+                                        { value: 75, label: '75%' },
+                                        { value: 100, label: '100%' }
+                                    ]}
+                                    sx={{ color: '#22d3ee' }}
+                                />
+                            </Box>
+
+                        </Grid>
+
+                        <Grid item xs={12} md={6}>
+                            <Typography variant="h6" sx={{ mb: 1, color: '#e0e0e0' }}>
+                                Scramble Noise Intensity
+                            </Typography>
+
+                            <Box>
+                                <Typography variant="body2" sx={{ mb: 1, color: '#bdbdbd' }}>
+                                    Noise intensity (max abs per channel)
+                                </Typography>
+                                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                                    <Button
+                                        variant="outlined"
+                                        onClick={() => setNoiseIntensity(Math.max(0, noiseIntensity - 1))}
+                                        sx={{ minWidth: '40px', borderColor: '#666', color: '#e0e0e0' }}
+                                    >
+                                        −
+                                    </Button>
+                                    <input
+                                        type="range"
+                                        min="0"
+                                        max="127"
+                                        value={noiseIntensity}
+                                        onChange={(e) => setNoiseIntensity(Number(e.target.value))}
+                                        style={{ flex: 1 }}
+                                    />
+                                    <Button
+                                        variant="outlined"
+                                        onClick={() => setNoiseIntensity(Math.min(127, noiseIntensity + 1))}
+                                        sx={{ minWidth: '40px', borderColor: '#666', color: '#e0e0e0' }}
+                                    >
+                                        +
+                                    </Button>
+                                    <TextField
+                                        type="number"
+                                        value={noiseIntensity}
+                                        onChange={(e) => setNoiseIntensity(Number(e.target.value))}
+                                        inputProps={{ min: 0, max: 127 }}
+                                        sx={{
+                                            width: '80px',
+                                            '& .MuiInputBase-root': { backgroundColor: '#353535', color: 'white' }
+                                        }}
+                                    />
+                                </Box>
+                            </Box>
+                            {/* Todo: fix noise preview */}
+                            {/* <div class="canvRow">
+                                            <div>
+                                              <label>Regenerated noise tile preview</label>
+                                              <canvas id="cvNoiseTile2" style={{height: 128 , width: 128}}></canvas>
+                                            </div>
+                                          </div> */}
+                            {/* <Typography variant="body2" sx={{ color: '#bdbdbd', mt: 1 }}>
+                                    Higher levels create more pieces, making unscrambling more complex.
+                                </Typography> */}
+                        </Grid>
                     </Box>
 
                     {/* Action Buttons */}

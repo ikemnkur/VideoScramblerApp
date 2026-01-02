@@ -2,7 +2,7 @@
 // Unscrambles photos that were scrambled with the photo scrambler
 // Uses the same algorithm but works with images instead of videos
 
-import React, { useState, useRef, useEffect, useCallback,  } from 'react';
+import React, { useState, useRef, useEffect, useCallback, } from 'react';
 import {
   Container,
   Typography,
@@ -217,6 +217,13 @@ export default function PhotoUnscrambler() {
           setKeyCode(btoa(text)); // Convert to base64 for consistency
           success('🔑 Key file loaded and decoded successfully!');
         }
+      }
+
+      if (decodedParams.type == "photo") {
+        error('The loaded key file is not a valid video scramble key.');
+      } else if (decodedParams.version !== "premium" || decodedParams.version !== "standard") {
+        error('Use the ' + decodedParams.version + ' ' + decodedParams.type + ' scrambler to unscramble this file.');
+        alert('The loaded key file will not work with this scrambler version, you must use the ' + decodedParams.version + ' ' + decodedParams.type + ' scrambler to unscramble this file.');
       }
     } catch (err) {
       console.error("Error loading key:", err);

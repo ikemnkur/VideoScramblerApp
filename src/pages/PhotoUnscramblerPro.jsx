@@ -32,7 +32,7 @@ import { useToast } from '../contexts/ToastContext';
 import CreditConfirmationModal from '../components/CreditConfirmationModal';
 import api from '../api/client';
 
-const API_URL = import.meta.env.VITE_API_SERVER_URL || 'http://localhost:3001'; 
+const API_URL = import.meta.env.VITE_API_SERVER_URL || 'http://localhost:3001';
 const Flask_API_URL = 'http://localhost:5000/';
 
 export default function PhotoUnscramblerPro() {
@@ -213,7 +213,16 @@ export default function PhotoUnscramblerPro() {
             const jsonString = atob(keyCode.trim());
             const keyData = JSON.parse(jsonString);
 
-            // Validate key structure
+           
+            if (keyData.type == "photo") {
+                error('The loaded key file is not a valid video scramble key.');
+                throw new Error("Invalid key format");
+            } else if (keyData.version !== "premium" || keyData.version !== "standard") {
+                error('Use the ' + keyData.version + ' ' + keyData.type + ' scrambler to unscramble this file.');
+                alert('The loaded key file will not work with this scrambler version, you must use the ' + keyData.version + ' ' + keyData.type + ' scrambler to unscramble this file.');
+                throw new Error("Invalid key format");
+            }
+             // Validate key structure
             if (!keyData.algorithm || !keyData.seed) {
                 throw new Error("Invalid key format");
             }
@@ -280,7 +289,7 @@ export default function PhotoUnscramblerPro() {
                 const data = await response.json();
 
                 console.log("Unscramble response:", response);
-                
+
                 if (!response.ok || !data.success) {
                     error("Scrambling failed: " + (data.message || "Unknown error"));
                     setIsProcessing(false);
@@ -399,7 +408,7 @@ export default function PhotoUnscramblerPro() {
             {/* Header */}
             <Box sx={{ mb: 4, textAlign: 'center' }}>
                 <Typography variant="h3" color="primary.main" sx={{ mb: 2, fontWeight: 'bold', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 1 }}>
-                    <LockOpen />
+                    {/* <LockOpen /> */}
                     🔓 Pro Photo Unscrambler
                 </Typography>
                 <Typography variant="h6" color="text.secondary" sx={{ mb: 2 }}>

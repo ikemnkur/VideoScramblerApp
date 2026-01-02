@@ -425,6 +425,13 @@ export default function PhotoUnscrambler() {
           success('🔑 Key file loaded and decoded successfully!');
         }
       }
+
+      if (decodedParams.type == "photo") {
+        error('The loaded key file is not a valid video scramble key.');
+      } else if (decodedParams.version !== "basic") {
+        error('Use the ' + decodedParams.version + ' ' + decodedParams.type + ' scrambler to unscramble this file.');
+        alert('The loaded key file will not work with this scrambler version, you must use the ' + decodedParams.version + ' ' + decodedParams.type + ' scrambler to unscramble this file.');
+      }
     } catch (err) {
       console.error("Error loading key:", err);
       error('Invalid or corrupted key file. Please check the file format.');
@@ -513,7 +520,7 @@ export default function PhotoUnscrambler() {
 
       // Store complete params including noise data
       setUnscrambleParams(params);
-      
+
       const noiseInfo = noise ? `, noise intensity: ${noise.intensity}` : '';
       success(`Parameters applied: ${n}×${m} grid${noiseInfo}`);
 
@@ -628,11 +635,11 @@ export default function PhotoUnscrambler() {
       console.log("Removing noise with parameters:", { seed: noiseSeed, intensity });
 
       const ctx = canvas.getContext('2d', { willReadFrequently: true });
-      
+
       // Get only the center area (excluding 64px border)
       const centerWidth = canvas.width - (border * 2);
       const centerHeight = canvas.height - (border * 2);
-      
+
       if (centerWidth <= 0 || centerHeight <= 0) {
         console.warn("Invalid center dimensions after border removal");
         return;
@@ -735,7 +742,7 @@ export default function PhotoUnscrambler() {
       <Card elevation={3} sx={{ backgroundColor: '#424242', color: 'white', mb: 4 }}>
         <CardContent sx={{ p: 4 }}>
           <Typography variant="h4" sx={{ mb: 3, display: 'flex', alignItems: 'center', gap: 1 }}>
-            <LockOpen />
+            {/* <LockOpen /> */}
             Unscramble a Photo
           </Typography>
 

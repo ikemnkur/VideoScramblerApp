@@ -26,3 +26,6 @@ dist-ssr
 .env
 .env.local
 dev-dist/
+
+# TTS Server generated audio files
+public_audio/

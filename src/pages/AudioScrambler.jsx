@@ -30,9 +30,15 @@ import {
 import { useToast } from '../contexts/ToastContext';
 import CreditConfirmationModal from '../components/CreditConfirmationModal';
 import api from '../api/client';
+import { 
+  generateWatermark, 
+  loadAudioFromUrl, 
+  prependWatermark,
+  checkTTSServerHealth 
+} from '../utils/ttsWatermarkService';
 
 export default function AudioScrambler() {
-  const { success, error } = useToast();
+  const { success, error, info } = useToast();
 
   const API_URL = import.meta.env.VITE_API_SERVER_URL || 'http://localhost:3001';
 
@@ -78,8 +84,21 @@ export default function AudioScrambler() {
   const [userCredits, setUserCredits] = useState(0);
   const [actionCost, setActionCost] = useState(3);
   const [scrambleLevel, setScrambleLevel] = useState(1);
+  const [ttsAvailable, setTtsAvailable] = useState(false);
 
   const [userData] = useState(JSON.parse(localStorage.getItem("userdata")));
+
+  // =============================
+  // CHECK TTS SERVER ON MOUNT
+  // =============================
+  useEffect(() => {
+    checkTTSServerHealth().then(available => {
+      setTtsAvailable(available);
+      if (!available) {
+        console.warn('TTS server not available - watermarks will be skipped');
+      }
+    });
+  }, []);
 
   // =============================
   // FETCH USER CREDITS
@@ -141,20 +160,21 @@ export default function AudioScrambler() {
     const jsonStr = JSON.stringify(keyObject);
     const encryptionKey = "AudioProtectionKey2025";
     const encrypted = xorEncrypt(jsonStr, encryptionKey);
+    console
     return btoa(encrypted);
   };
 
-  const decryptKeyData = (encodedData) => {
-    try {
-      const encrypted = atob(encodedData);
-      const encryptionKey = "AudioProtectionKey2025";
-      const jsonStr = xorEncrypt(encrypted, encryptionKey);
-      return JSON.parse(jsonStr);
-    } catch (err) {
-      console.error('Decryption error:', err);
-      throw new Error('Invalid or corrupted key file');
-    }
-  };
+  // const decryptKeyData = (encodedData) => {
+  //   try {
+  //     const encrypted = atob(encodedData);
+  //     const encryptionKey = "AudioProtectionKey2025";
+  //     const jsonStr = xorEncrypt(encrypted, encryptionKey);
+  //     return JSON.parse(jsonStr);
+  //   } catch (err) {
+  //     console.error('Decryption error:', err);
+  //     throw new Error('Invalid or corrupted key file');
+  //   }
+  // };
 
   // =============================
   // AUDIO PROCESSING FUNCTIONS
@@ -249,8 +269,8 @@ export default function AudioScrambler() {
   const applyAudioShuffling = async (sourceBuffer, segSize, pad, seed) => {
     if (!sourceBuffer) return null;
 
-    const numSegments = Math.floor(sourceBuffer.duration / segSize);
-    const remainder = sourceBuffer.duration - (numSegments * segSize);
+    const numSegments = Math.ceil(sourceBuffer.duration / segSize);
+    // const remainder = sourceBuffer.duration - (numSegments * segSize);
 
     const newSegments = [];
     for (let i = 0; i < numSegments; i++) {
@@ -261,13 +281,13 @@ export default function AudioScrambler() {
       });
     }
 
-    if (remainder > 0) {
-      newSegments.push({
-        start: numSegments * segSize,
-        duration: remainder,
-        originalIndex: numSegments
-      });
-    }
+    // if (remainder > 0) {
+    //   newSegments.push({
+    //     start: numSegments * segSize,
+    //     duration: remainder,
+    //     originalIndex: numSegments
+    //   });
+    // }
 
     const originalOrder = newSegments.map(s => s.originalIndex);
     const shuffleOrder = seededShuffle(originalOrder, seed);
@@ -511,14 +531,39 @@ export default function AudioScrambler() {
     setActionCost(actualCostSpent);
 
     try {
+      // Generate TTS watermark in background (non-blocking)
+      let watermarkBuffer = null;
+      if (ttsAvailable && userData?.username) {
+        try {
+          info('Generating watermark tag...');
+          const watermarkUrl = await generateWatermark(userData.username, 'scrambler', {
+            voice: 'en-US-GuyNeural',
+            rate: '+15%',
+            pitch: '+0Hz'
+          });
+          watermarkBuffer = await loadAudioFromUrl(watermarkUrl, audioContext);
+          console.log('Watermark generated successfully');
+        } catch (err) {
+          console.error('Watermark generation failed:', err);
+          // Continue without watermark
+        }
+      }
+
       const segSize = parseFloat(segmentSize) || 2;
       const pad = parseFloat(padding) || 0.5;
       const shuffleSd = parseInt(shuffleSeed) || 12345;
       const noiseLevel_ = parseFloat(noiseLevel) || 0.3;
       const noiseSd = parseInt(noiseSeed) || 54321;
 
+      // Prepend watermark to original audio if available
+      let audioToProcess = audioBuffer;
+      if (watermarkBuffer) {
+        audioToProcess = prependWatermark(audioBuffer, watermarkBuffer, audioContext);
+        console.log('Watermark prepended to audio');
+      }
+
       // Apply shuffle
-      const shuffleResult = await applyAudioShuffling(audioBuffer, segSize, pad, shuffleSd);
+      const shuffleResult = await applyAudioShuffling(audioToProcess, segSize, pad, shuffleSd);
       const shuffled = shuffleResult.buffer;
       const shuffleOrder = shuffleResult.shuffleOrder;
 
@@ -531,12 +576,12 @@ export default function AudioScrambler() {
 
       // Store parameters
       const params = {
-        version: "1.0",
+        // version: "1.0",
         timestamp: new Date().toISOString(),
         audio: {
-          duration: audioBuffer.duration,
-          sampleRate: audioBuffer.sampleRate,
-          channels: audioBuffer.numberOfChannels
+          duration: audioToProcess.duration,
+          sampleRate: audioToProcess.sampleRate,
+          channels: audioToProcess.numberOfChannels
         },
         shuffle: {
           enabled: true,
@@ -555,7 +600,13 @@ export default function AudioScrambler() {
           username: userData.username || 'Anonymous',
           userId: userData.userId || 'Unknown',
           timestamp: new Date().toISOString()
-        }
+        },
+        watermark: {
+          applied: watermarkBuffer !== null,
+          type: 'prepended'
+        },
+        type: "audio",
+        version: "basic"
 
       };
 
@@ -613,7 +664,7 @@ export default function AudioScrambler() {
     const url = bufferToWavUrl(finalAudioBuffer, finalAudioBuffer.numberOfChannels, finalAudioBuffer.sampleRate);
     const a = document.createElement('a');
     a.href = url;
-    a.download = filename ? filename.replace(/\.[^/.]+$/, "") + '-scrambled.wav' : 'scrambled-audio.wav';
+    a.download = filename ? filename.replace(/\.[^/.]+$/, "").replace(/[^\w\-. ]+/g, '').replace(/\s+/g, '_') + '-scrambled.wav' : 'scrambled-audio.wav';
     a.click();
     success("Scrambled audio downloaded!");
   };
@@ -641,105 +692,6 @@ export default function AudioScrambler() {
       error('Error downloading key');
     }
   };
-
-  // const handleScrambledFileSelect = async (event) => {
-  //   const file = event.target.files?.[0];
-  //   if (!file) return;
-
-  //   try {
-  //     const arrayBuffer = await file.arrayBuffer();
-  //     const buffer = await audioContext.decodeAudioData(arrayBuffer);
-  //     setScrambledAudioBuffer(buffer);
-  //     success('Scrambled audio loaded');
-  //   } catch (err) {
-  //     console.error("Error loading scrambled audio:", err);
-  //     error('Error loading scrambled audio');
-  //   }
-  // };
-
-  // const handleKeyFileSelect = async (event) => {
-  //   const file = event.target.files?.[0];
-  //   if (!file) return;
-
-  //   try {
-  //     const text = await file.text();
-  //     const keyData = decryptKeyData(text);
-  //     setLoadedKeyData(keyData);
-  //     success('🔑 Key loaded!');
-  //   } catch (err) {
-  //     console.error("Error loading key:", err);
-  //     error('Invalid or corrupted key file');
-  //   }
-  // };
-
-  // const handleUnscramble = async () => {
-  //   if (!scrambledAudioBuffer) {
-  //     error('Please load scrambled audio!');
-  //     return;
-  //   }
-
-  //   if (!loadedKeyData) {
-  //     error('Please load key file!');
-  //     return;
-  //   }
-
-  //   setIsProcessing(true);
-
-  //   try {
-  //     let recoveredBuffer = scrambledAudioBuffer;
-
-  //     // Remove noise
-  //     if (loadedKeyData.noise?.enabled) {
-  //       const noise = generateMultiFrequencyNoise(
-  //         scrambledAudioBuffer.length,
-  //         loadedKeyData.noise.level,
-  //         loadedKeyData.noise.seed
-  //       );
-  //       recoveredBuffer = reverseNoise(recoveredBuffer, noise);
-  //     }
-
-  //     // Un-shuffle
-  //     if (loadedKeyData.shuffle?.enabled) {
-  //       const shuffleOrderOrSeed = loadedKeyData.shuffle.shuffleOrder || loadedKeyData.shuffle.seed;
-
-  //       recoveredBuffer = await unshuffleAudio(
-  //         recoveredBuffer,
-  //         loadedKeyData.shuffle.segmentSize,
-  //         loadedKeyData.shuffle.padding,
-  //         shuffleOrderOrSeed,
-  //         loadedKeyData.audio.duration
-  //       );
-  //     }
-
-  //     setRecoveredAudioBuffer(recoveredBuffer);
-
-  //     const url = bufferToWavUrl(recoveredBuffer, loadedKeyData.audio.channels, loadedKeyData.audio.sampleRate);
-  //     if (unscrambledAudioPlayerRef.current) {
-  //       unscrambledAudioPlayerRef.current.src = url;
-  //     }
-
-  //     setIsProcessing(false);
-  //     success('✅ Audio unscrambled!');
-  //   } catch (err) {
-  //     console.error('Unscramble error:', err);
-  //     error('Error: ' + err.message);
-  //     setIsProcessing(false);
-  //   }
-  // };
-
-  // const handleDownloadRecovered = () => {
-  //   if (!recoveredAudioBuffer) {
-  //     error("Please unscramble audio first!");
-  //     return;
-  //   }
-
-  //   const url = bufferToWavUrl(recoveredAudioBuffer, loadedKeyData.audio.channels, loadedKeyData.audio.sampleRate);
-  //   const a = document.createElement('a');
-  //   a.href = url;
-  //   a.download = 'recovered-audio.wav';
-  //   a.click();
-  //   success("Recovered audio downloaded!");
-  // };
 
   // Update waveforms on time update
   useEffect(() => {
@@ -824,7 +776,7 @@ export default function AudioScrambler() {
     <Container sx={{ py: 4 }}>
       <Box sx={{ mb: 4, textAlign: 'center' }}>
         <Typography variant="h3" color="primary.main" sx={{ mb: 2, fontWeight: 'bold', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 1 }}>
-          <AudioFile />
+          {/* <AudioFile /> */}
           🎵 Audio Scrambler
         </Typography>
         <Typography variant="h6" color="text.secondary" sx={{ mb: 2 }}>

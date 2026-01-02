@@ -137,6 +137,13 @@ export default function VideoScrambler() {
       m: Number(m),
       perm1based: oneBased(perm),
       semantics: "Index = destination cell (1-based), value = source cell index (1-based)",
+      user: {
+        username: userData?.username || 'Anonymous',
+        userId: userData?.userId || 'Unknown',
+      },
+      timestamp: new Date().toISOString(),
+      type: "video",
+      version: "free"
     };
   }
 
@@ -179,9 +186,9 @@ export default function VideoScrambler() {
 
     let finalWidth = paddedWidth;
     let finalHeight = paddedHeight;
-    
-    const maxWidth = Math.floor(854/grid.m)*grid.m; // 854px is 480p width
-    const maxHeight = Math.floor(480/grid.n)*grid.n; // 480px is 480p height
+
+    const maxWidth = Math.floor(854 / grid.m) * grid.m; // 854px is 480p width
+    const maxHeight = Math.floor(480 / grid.n) * grid.n; // 480px is 480p height
 
     const aspectRatio = paddedWidth / paddedHeight;
 

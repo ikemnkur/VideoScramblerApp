@@ -227,6 +227,16 @@ export default function VideoUnscrambler() {
           console.log("Decoded key data from base64:", keyData);
           success('🔑 Key file loaded and decoded successfully!');
         }
+
+        if (decodedParams.type !== "video") {
+          error('The loaded key file is not a valid video scramble key.');
+        } else if (decodedParams.version !== "free" ) {
+          error('Use the ' + decodedParams.version + ' ' + decodedParams.type + ' scrambler to unscramble this file.');
+          alert('The loaded key file will not work with this scrambler version, you must use the ' + decodedParams.version + ' ' + decodedParams.type + ' scrambler to unscramble this file.');
+        }
+
+
+
       }
     } catch (err) {
       console.error("Error loading key:", err);
@@ -240,6 +250,16 @@ export default function VideoUnscrambler() {
       // setDecodedParams(json);
       const decoded = fromBase64(keyCode);
       const keyData = JSON.parse(decoded);
+
+      if (keyData.type !== "video") {
+        error('The loaded key file is not a valid video scramble key.');
+        throw new Error('Invalid key file type');
+      } else if (keyData.version !== "free") {
+        error('Use the ' + keyData.version + ' ' + keyData.type + ' scrambler to unscramble this file.');
+        alert('The loaded key file will not work with this scrambler version, you must use the ' + keyData.version + ' ' + keyData.type + ' scrambler to unscramble this file.');
+        throw new Error('Incompatible key file version');
+      }
+
       setDecodedParams(keyData);
       localStorage.setItem('decodedParams', keyCode);
       success('Key code decoded successfully!');
@@ -615,7 +635,7 @@ export default function VideoUnscrambler() {
       {/* Header */}
       <Box sx={{ mb: 4, textAlign: 'center' }}>
         <Typography variant="h3" color="primary.main" sx={{ mb: 2, fontWeight: 'bold', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 1 }}>
-          <LockOpen />
+          {/* <LockOpen /> */}
           🔓 Video Unscrambler
         </Typography>
         <Typography variant="h6" color="text.secondary" sx={{ mb: 2 }}>

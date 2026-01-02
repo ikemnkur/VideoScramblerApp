@@ -1,0 +1,1067 @@
+<!doctype html>
+<html lang="en">
+
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Seeded Tileable Video Noise (Reversible)</title>
+  <style>
+    :root {
+      --bg: #0b1220;
+      --card: #0f1b33;
+      --muted: #9fb0cc;
+      --text: #eaf1ff;
+      --accent: #66e3ff;
+      --border: #1f335a;
+      --good: #64ffb8;
+      --warn: #ffcc66;
+    }
+
+    * {
+      box-sizing: border-box
+    }
+
+    body {
+      margin: 0;
+      font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Ubuntu, Cantarell, Noto Sans, sans-serif;
+      background: radial-gradient(1200px 600px at 20% 0%, #12224a 0%, var(--bg) 60%);
+      color: var(--text);
+    }
+
+    .wrap {
+      max-width: 1200px;
+      margin: 0 auto;
+      padding: 20px
+    }
+
+    h1 {
+      margin: 6px 0 16px;
+      font-size: 22px
+    }
+
+    h2 {
+      margin: 0 0 10px;
+      font-size: 16px;
+      color: #d9e6ff
+    }
+
+    .grid {
+      display: grid;
+      grid-template-columns: 1fr;
+      gap: 14px
+    }
+
+    @media (min-width: 980px) {
+      .grid {
+        grid-template-columns: 1fr 1fr
+      }
+    }
+
+    .card {
+      background: linear-gradient(180deg, rgba(255, 255, 255, .06), rgba(255, 255, 255, .03));
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      padding: 14px;
+      box-shadow: 0 12px 40px rgba(0, 0, 0, .35);
+      backdrop-filter: blur(6px);
+    }
+
+    .row {
+      display: flex;
+      gap: 10px;
+      flex-wrap: wrap;
+      align-items: center
+    }
+
+    .row>* {
+      flex: 0 0 auto
+    }
+
+    label {
+      font-size: 12px;
+      color: var(--muted)
+    }
+
+    input[type="file"] {
+      max-width: 100%
+    }
+
+    input[type="number"],
+    input[type="text"],
+    textarea {
+      background: #0b1733;
+      border: 1px solid var(--border);
+      color: var(--text);
+      border-radius: 10px;
+      padding: 9px 10px;
+      outline: none;
+    }
+
+    textarea {
+      width: 100%;
+      min-height: 92px;
+      resize: vertical;
+      line-height: 1.3
+    }
+
+    .btn {
+      border: 1px solid var(--border);
+      background: linear-gradient(180deg, rgba(102, 227, 255, .18), rgba(102, 227, 255, .08));
+      color: var(--text);
+      border-radius: 12px;
+      padding: 9px 12px;
+      cursor: pointer;
+      transition: transform .05s ease;
+      user-select: none;
+    }
+
+    .btn:active {
+      transform: translateY(1px)
+    }
+
+    .btn.secondary {
+      background: linear-gradient(180deg, rgba(255, 255, 255, .10), rgba(255, 255, 255, .05));
+    }
+
+    .btn.ghost {
+      background: transparent;
+    }
+
+    .btn:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+    }
+
+    .pill {
+      border: 1px solid var(--border);
+      border-radius: 999px;
+      padding: 6px 10px;
+      font-size: 12px;
+      color: var(--muted);
+      background: rgba(0, 0, 0, .15);
+    }
+
+    .sliderWrap {
+      display: flex;
+      align-items: center;
+      gap: 8px
+    }
+
+    input[type="range"] {
+      width: 240px
+    }
+
+    .kv {
+      display: grid;
+      grid-template-columns: 140px 1fr;
+      gap: 8px 10px;
+      margin-top: 10px;
+      font-size: 12px;
+      color: var(--muted);
+    }
+
+    .kv div:nth-child(2n) {
+      color: var(--text)
+    }
+
+    .videoRow {
+      display: grid;
+      gap: 10px;
+      grid-template-columns: 1fr
+    }
+
+    @media (min-width: 980px) {
+      .videoRow {
+        grid-template-columns: 1fr 1fr
+      }
+    }
+
+    video,
+    canvas {
+      width: 100%;
+      background: #081027;
+      border: 1px solid var(--border);
+      border-radius: 14px;
+    }
+
+    .hint {
+      font-size: 12px;
+      color: var(--muted);
+      margin-top: 6px
+    }
+
+    .status {
+      font-size: 12px;
+      color: var(--muted);
+      margin-top: 8px
+    }
+
+    .status b {
+      color: var(--good)
+    }
+
+    .warn b {
+      color: var(--warn)
+    }
+
+    code.inline {
+      background: rgba(0, 0, 0, .25);
+      border: 1px solid var(--border);
+      padding: 2px 6px;
+      border-radius: 8px;
+      font-size: 12px;
+      color: #d8e6ff;
+    }
+
+    .progress-bar {
+      width: 100%;
+      height: 8px;
+      background: #0b1733;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      overflow: hidden;
+      margin-top: 8px;
+    }
+
+    .progress-fill {
+      height: 100%;
+      background: linear-gradient(90deg, var(--accent), var(--good));
+      transition: width 0.3s ease;
+      width: 0%;
+    }
+  </style>
+</head>
+
+<body>
+  <div class="wrap">
+    <h1>Seeded Low-Frequency Video Noise (Reversible Add/Sub Mod 256)</h1>
+
+    <div class="grid">
+
+      <!-- =========================
+           Forward / Add Noise
+      ========================== -->
+      <section class="card">
+        <h2>1) Add noise to video (forward)</h2>
+
+        <div class="row">
+          <div>
+            <label>Upload video</label><br />
+            <input id="inOriginal" type="file" accept="video/*" />
+          </div>
+        </div>
+
+        <div style="height:10px"></div>
+
+        <div class="row">
+          <div>
+            <label>Seed (32-bit integer)</label><br />
+            <div class="row">
+              <input id="seed" type="number" step="1" value="123456789" style="width:220px" />
+              <button id="btnRandomSeed" class="btn secondary">Random seed</button>
+            </div>
+          </div>
+
+          <div>
+            <label>Noise intensity (max abs per channel)</label><br />
+            <div class="sliderWrap">
+              <button id="btnIntMinus" class="btn ghost">−</button>
+              <input id="intensity" type="range" min="0" max="127" value="24" />
+              <button id="btnIntPlus" class="btn ghost">+</button>
+              <input id="intensityNum" type="number" min="0" max="127" value="24" style="width:80px" />
+            </div>
+          </div>
+        </div>
+
+        <div style="height:10px"></div>
+
+        <div class="row">
+          <div>
+            <label>Tile scale factor (smaller = more compression-resistant)</label><br />
+            <div class="sliderWrap">
+              <input id="tileScale" type="range" min="8" max="128" value="8" step="1" />
+              <input id="tileScaleNum" type="number" min="8" max="128" value="8" style="width:80px" />
+            </div>
+            <div class="hint" style="margin-top:4px">Video dimensions will be divided by this factor to create the noise
+              tile</div>
+          </div>
+        </div>
+
+        <div style="height:10px"></div>
+
+        <div class="row">
+          <button id="btnAddNoise" class="btn">Generate + Apply noise</button>
+          <button id="btnDownloadNoisy" class="btn secondary" disabled>Download noisy video</button>
+          <span class="pill" id="tileInfo">Tile: —</span>
+        </div>
+
+        <div class="progress-bar" id="progressBarForward" style="display:none">
+          <div class="progress-fill" id="progressFillForward"></div>
+        </div>
+
+        <div class="kv" id="paramsKv" style="display:none">
+          <!-- filled by JS -->
+        </div>
+
+        <div class="row" style="margin-top:10px">
+          <button id="btnCopyParams" class="btn secondary" disabled>Copy parameters</button>
+          <input id="paramsText" type="text" readonly style="flex:1 1 420px; min-width:280px" />
+        </div>
+        <div class="hint">
+          Parameters include the video dimensions, tile scale factor, seed, intensity, and algorithm version.
+          Keep them with the noisy video to reverse it later. The low-frequency noise is more resistant to video
+          compression.
+        </div>
+
+        <div style="height:10px"></div>
+
+        <div class="videoRow">
+          <div>
+            <label>Original video</label>
+            <video id="videoOriginal" controls muted></video>
+          </div>
+          <div>
+            <label>Noisy output preview</label>
+            <canvas id="cvNoisy"></canvas>
+          </div>
+        </div>
+
+        <div style="height:10px"></div>
+
+        <div class="videoRow">
+          <div>
+            <label>Noise tile preview (visualized as 128 + offset)</label>
+            <canvas id="cvNoiseTile"></canvas>
+          </div>
+          <div>
+            <label>Noise tile (zoomed)</label>
+            <canvas id="cvNoiseTileZoom"></canvas>
+          </div>
+        </div>
+
+        <div class="status" id="statusForward">Status: —</div>
+      </section>
+
+      <!-- =========================
+           Reverse / Restore
+      ========================== -->
+      <section class="card">
+        <h2>2) Reverse noise (restore video)</h2>
+
+        <div class="row">
+          <div>
+            <label>Upload noisy video</label><br />
+            <input id="inNoisy" type="file" accept="video/*" />
+          </div>
+        </div>
+
+        <div style="height:10px"></div>
+
+        <label>Paste parameters (copied from above)</label>
+        <textarea id="paramsPaste"
+          placeholder='{"v":2,"w":1920,"h":1080,"tileW":240,"tileH":135,"scale":8,"seed":123,"intensity":24,"mode":"add_mod256_scaled","prng":"mulberry32","fps":30,"duration":5.2,"note":"..."}'></textarea>
+
+        <div class="row" style="margin-top:10px">
+          <button id="btnRestore" class="btn">Restore (reverse noise)</button>
+          <button id="btnDownloadRestored" class="btn secondary" disabled>Download restored video</button>
+          <span class="pill" id="restoreInfo">—</span>
+        </div>
+
+        <div class="progress-bar" id="progressBarRestore" style="display:none">
+          <div class="progress-fill" id="progressFillRestore"></div>
+        </div>
+
+        <div class="hint">
+          Restore is done by regenerating the same tileable noise from the parameters, then
+          applying modulo subtraction (i.e., reverse of the forward pass) to each frame.
+        </div>
+
+        <div style="height:10px"></div>
+
+        <div class="videoRow">
+          <div>
+            <label>Noisy input</label>
+            <video id="videoNoisyIn" controls muted></video>
+          </div>
+          <div>
+            <label>Restored output preview</label>
+            <canvas id="cvRestored"></canvas>
+          </div>
+        </div>
+
+        <div style="height:10px"></div>
+
+        <div class="videoRow">
+          <div>
+            <label>Regenerated noise tile preview</label>
+            <canvas id="cvNoiseTile2"></canvas>
+          </div>
+          <div>
+            <label>Regenerated noise tile (zoomed)</label>
+            <canvas id="cvNoiseTileZoom2"></canvas>
+          </div>
+        </div>
+
+        <div class="status" id="statusRestore">Status: —</div>
+      </section>
+
+    </div>
+
+    <div class="hint" style="margin-top:14px">
+      Implementation notes:
+      <span class="inline code inline">noisy = (orig + offset) mod 256</span>,
+      <span class="inline code inline">restored = (noisy - offset) mod 256</span>.
+      Low-frequency noise tile is generated at reduced dimensions (video_size / scale_factor), then upscaled to video
+      size.
+      This approach is more resistant to compression artifacts than high-frequency tiling. Applied frame-by-frame.
+    </div>
+  </div>
+
+  <script>
+    /* =========================
+       Utilities
+    ========================= */
+    function gcd(a, b) {
+      a = Math.abs(a | 0); b = Math.abs(b | 0);
+      while (b !== 0) { const t = a % b; a = b; b = t; }
+      return a;
+    }
+
+    function mod(n, m) {
+      // true mathematical modulo for negatives
+      return ((n % m) + m) % m;
+    }
+
+    // Mulberry32 PRNG (seeded, fast, deterministic)
+    function mulberry32(seed) {
+      let t = seed >>> 0;
+      return function () {
+        t += 0x6D2B79F5;
+        let x = Math.imul(t ^ (t >>> 15), 1 | t);
+        x ^= x + Math.imul(x ^ (x >>> 7), 61 | x);
+        return ((x ^ (x >>> 14)) >>> 0) / 4294967296; // [0,1)
+      };
+    }
+
+    function clampInt(n, lo, hi) {
+      n = Number(n);
+      if (!Number.isFinite(n)) n = lo;
+      return Math.max(lo, Math.min(hi, Math.round(n)));
+    }
+
+    /* =========================
+       Noise generation (low-frequency scaled tile)
+       - offsets are integers in [-intensity, +intensity]
+       - tile dimensions are video_size / scale_factor
+       - tile is upscaled to video size for smooth, compression-resistant noise
+    ========================= */
+    function generateNoiseTileOffsets(tileW, tileH, seed, intensity) {
+      const rand = mulberry32(seed >>> 0);
+      const pxCount = tileW * tileH;
+
+      // store offsets per pixel per channel (RGB), Int16 is plenty
+      const offsets = new Int16Array(pxCount * 3);
+
+      for (let p = 0; p < pxCount; p++) {
+        const base = p * 3;
+        // Uniform integer in [-intensity, +intensity]
+        offsets[base + 0] = Math.round((rand() * 2 - 1) * intensity);
+        offsets[base + 1] = Math.round((rand() * 2 - 1) * intensity);
+        offsets[base + 2] = Math.round((rand() * 2 - 1) * intensity);
+      }
+      return offsets;
+    }
+
+    function applyNoiseAddMod256(imageData, tileOffsets, tileW, tileH) {
+      const w = imageData.width, h = imageData.height;
+      const src = imageData.data;
+      const out = new Uint8ClampedArray(src); // copy
+
+      // Map video coordinates to tile coordinates with bilinear-style sampling
+      for (let y = 0; y < h; y++) {
+        for (let x = 0; x < w; x++) {
+          // Map to tile coordinates (nearest neighbor for simplicity and speed)
+          const tx = Math.floor((x / w) * tileW);
+          const ty = Math.floor((y / h) * tileH);
+          const tileIndex = (ty * tileW + tx) * 3;
+          const i = (y * w + x) * 4;
+
+          out[i + 0] = mod(src[i + 0] + tileOffsets[tileIndex + 0], 256);
+          out[i + 1] = mod(src[i + 1] + tileOffsets[tileIndex + 1], 256);
+          out[i + 2] = mod(src[i + 2] + tileOffsets[tileIndex + 2], 256);
+          // alpha unchanged
+        }
+      }
+      return new ImageData(out, w, h);
+    }
+
+    function applyNoiseSubMod256(imageData, tileOffsets, tileW, tileH) {
+      const w = imageData.width, h = imageData.height;
+      const src = imageData.data;
+      const out = new Uint8ClampedArray(src); // copy
+
+      // Map video coordinates to tile coordinates
+      for (let y = 0; y < h; y++) {
+        for (let x = 0; x < w; x++) {
+          // Map to tile coordinates (nearest neighbor)
+          const tx = Math.floor((x / w) * tileW);
+          const ty = Math.floor((y / h) * tileH);
+          const tileIndex = (ty * tileW + tx) * 3;
+          const i = (y * w + x) * 4;
+
+          out[i + 0] = mod(src[i + 0] - tileOffsets[tileIndex + 0], 256);
+          out[i + 1] = mod(src[i + 1] - tileOffsets[tileIndex + 1], 256);
+          out[i + 2] = mod(src[i + 2] - tileOffsets[tileIndex + 2], 256);
+        }
+      }
+      return new ImageData(out, w, h);
+    }
+
+    // Visualize offsets as RGB around 128 (so 0 offset = mid-gray)
+    function renderNoiseTilePreview(tileOffsets, tileW, tileH, cv, zoom = 1) {
+      const w = tileW, h = tileH;
+      cv.width = w * zoom;
+      cv.height = h * zoom;
+
+      const tmp = document.createElement("canvas");
+      tmp.width = w; tmp.height = h;
+      const tctx = tmp.getContext("2d", { willReadFrequently: true });
+      const img = tctx.createImageData(w, h);
+
+      for (let y = 0; y < h; y++) {
+        for (let x = 0; x < w; x++) {
+          const p = (y * w + x);
+          const base3 = p * 3;
+          const i = p * 4;
+
+          const r = 128 + tileOffsets[base3 + 0];
+          const g = 128 + tileOffsets[base3 + 1];
+          const b = 128 + tileOffsets[base3 + 2];
+
+          img.data[i + 0] = clampInt(r, 0, 255);
+          img.data[i + 1] = clampInt(g, 0, 255);
+          img.data[i + 2] = clampInt(b, 0, 255);
+          img.data[i + 3] = 255;
+        }
+      }
+      tctx.putImageData(img, 0, 0);
+
+      const ctx = cv.getContext("2d");
+      ctx.imageSmoothingEnabled = false;
+      ctx.clearRect(0, 0, cv.width, cv.height);
+      ctx.drawImage(tmp, 0, 0, cv.width, cv.height);
+    }
+
+    /* =========================
+       Video Processing
+    ========================= */
+    async function processVideo(videoElement, tileOffsets, tileW, tileH, mode, progressCallback) {
+      return new Promise((resolve, reject) => {
+        const canvas = document.createElement('canvas');
+        const ctx = canvas.getContext('2d', { willReadFrequently: true });
+
+        canvas.width = videoElement.videoWidth;
+        canvas.height = videoElement.videoHeight;
+
+        const stream = canvas.captureStream(30); // 30 fps
+
+        // Choose a mimeType that the browser supports with fallback mechanism
+        let mediaRecorder;
+        try {
+          const preferred = [
+            "video/webm;codecs=vp9",
+            "video/webm;codecs=vp8",
+            "video/webm;codecs=vp8,opus",
+            "video/webm"
+          ];
+          let opts = { videoBitsPerSecond: 8000000 }; // 8 Mbps
+
+          for (const mt of preferred) {
+            try {
+              if (MediaRecorder.isTypeSupported && MediaRecorder.isTypeSupported(mt)) {
+                opts.mimeType = mt;
+                break;
+              }
+            } catch (e) {
+              // ignore and try next
+            }
+          }
+
+          // If no supported mimeType was found, use default options
+          mediaRecorder = new MediaRecorder(stream, opts);
+        } catch (err) {
+          // As a last-resort fallback, try without mimeType specification
+          try {
+            mediaRecorder = new MediaRecorder(stream, { videoBitsPerSecond: 8000000 });
+          } catch (finalErr) {
+            reject(new Error("Recording not supported in this browser: " + finalErr.message));
+            return;
+          }
+        }
+
+        const chunks = [];
+        mediaRecorder.ondataavailable = (e) => {
+          if (e.data.size > 0) {
+            chunks.push(e.data);
+          }
+        };
+
+        mediaRecorder.onstop = () => {
+          const blob = new Blob(chunks, { type: 'video/webm' });
+          resolve(blob);
+        };
+
+        mediaRecorder.onerror = (e) => {
+          reject(new Error('MediaRecorder error: ' + e));
+        };
+
+        // Start recording
+        mediaRecorder.start();
+
+        let frameCount = 0;
+        const totalFrames = Math.ceil(videoElement.duration * 30); // estimate
+
+        videoElement.currentTime = 0;
+
+        function processFrame() {
+          if (videoElement.ended || videoElement.paused) {
+            mediaRecorder.stop();
+            return;
+          }
+
+          // Draw current frame
+          ctx.drawImage(videoElement, 0, 0, canvas.width, canvas.height);
+
+          // Get image data
+          const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+
+          // Apply noise
+          let processed;
+          if (mode === 'add') {
+            processed = applyNoiseAddMod256(imageData, tileOffsets, tileW, tileH);
+          } else {
+            processed = applyNoiseSubMod256(imageData, tileOffsets, tileW, tileH);
+          }
+
+          // Put processed frame back
+          ctx.putImageData(processed, 0, 0);
+
+          frameCount++;
+          if (progressCallback) {
+            progressCallback(frameCount / totalFrames);
+          }
+
+          // Continue to next frame
+          requestAnimationFrame(processFrame);
+        }
+
+        videoElement.play();
+        requestAnimationFrame(processFrame);
+      });
+    }
+
+    function downloadBlob(blob, filename) {
+      const a = document.createElement("a");
+      const url = URL.createObjectURL(blob);
+      a.href = url;
+      a.download = filename;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      setTimeout(() => URL.revokeObjectURL(url), 0);
+    }
+
+    /* =========================
+       DOM wiring
+    ========================= */
+    const el = (id) => document.getElementById(id);
+
+    const inOriginal = el("inOriginal");
+    const inNoisy = el("inNoisy");
+
+    const seedInput = el("seed");
+    const btnRandomSeed = el("btnRandomSeed");
+
+    const intensityRange = el("intensity");
+    const intensityNum = el("intensityNum");
+    const btnIntMinus = el("btnIntMinus");
+    const btnIntPlus = el("btnIntPlus");
+
+    const tileScaleRange = el("tileScale");
+    const tileScaleNum = el("tileScaleNum");
+
+    const btnAddNoise = el("btnAddNoise");
+    const btnCopyParams = el("btnCopyParams");
+    const paramsText = el("paramsText");
+    const paramsKv = el("paramsKv");
+    const tileInfo = el("tileInfo");
+    const statusForward = el("statusForward");
+    const btnDownloadNoisy = el("btnDownloadNoisy");
+
+    const videoOriginal = el("videoOriginal");
+    const cvNoisy = el("cvNoisy");
+    const cvNoiseTile = el("cvNoiseTile");
+    const cvNoiseTileZoom = el("cvNoiseTileZoom");
+
+    const progressBarForward = el("progressBarForward");
+    const progressFillForward = el("progressFillForward");
+
+    const paramsPaste = el("paramsPaste");
+    const btnRestore = el("btnRestore");
+    const restoreInfo = el("restoreInfo");
+    const statusRestore = el("statusRestore");
+    const btnDownloadRestored = el("btnDownloadRestored");
+
+    const videoNoisyIn = el("videoNoisyIn");
+    const cvRestored = el("cvRestored");
+    const cvNoiseTile2 = el("cvNoiseTile2");
+    const cvNoiseTileZoom2 = el("cvNoiseTileZoom2");
+
+    const progressBarRestore = el("progressBarRestore");
+    const progressFillRestore = el("progressFillRestore");
+
+    let forwardState = {
+      videoFile: null,
+      noisyBlob: null,
+      params: null,
+    };
+
+    let restoreState = {
+      videoFile: null,
+      restoredBlob: null,
+      params: null,
+    };
+
+    function syncIntensity(from) {
+      if (from === "range") {
+        intensityNum.value = intensityRange.value;
+      } else if (from === "num") {
+        intensityRange.value = clampInt(intensityNum.value, 0, 127);
+        intensityNum.value = intensityRange.value;
+      }
+    }
+
+    intensityRange.addEventListener("input", () => syncIntensity("range"));
+    intensityNum.addEventListener("input", () => syncIntensity("num"));
+
+    function syncTileScale(from) {
+      if (from === "range") {
+        tileScaleNum.value = tileScaleRange.value;
+      } else if (from === "num") {
+        tileScaleRange.value = clampInt(tileScaleNum.value, 8, 128);
+        tileScaleNum.value = tileScaleRange.value;
+      }
+    }
+
+    tileScaleRange.addEventListener("input", () => syncTileScale("range"));
+    tileScaleNum.addEventListener("input", () => syncTileScale("num"));
+
+    btnIntMinus.addEventListener("click", () => {
+      intensityRange.value = clampInt(Number(intensityRange.value) - 1, 0, 127);
+      syncIntensity("range");
+    });
+    
+    btnIntPlus.addEventListener("click", () => {
+      intensityRange.value = clampInt(Number(intensityRange.value) + 1, 0, 127);
+      syncIntensity("range");
+    });
+
+    btnRandomSeed.addEventListener("click", () => {
+      const u = new Uint32Array(1);
+      crypto.getRandomValues(u);
+      seedInput.value = (u[0] >>> 0);
+    });
+
+    inOriginal.addEventListener("change", async () => {
+      forwardState.videoFile = null;
+      forwardState.noisyBlob = null;
+      forwardState.params = null;
+      paramsText.value = "";
+      paramsKv.style.display = "none";
+      btnCopyParams.disabled = true;
+      btnDownloadNoisy.disabled = true;
+
+      const file = inOriginal.files?.[0];
+      if (!file) return;
+
+      forwardState.videoFile = file;
+      const url = URL.createObjectURL(file);
+      videoOriginal.src = url;
+
+      videoOriginal.onloadedmetadata = () => {
+        const w = videoOriginal.videoWidth;
+        const h = videoOriginal.videoHeight;
+        const duration = videoOriginal.duration;
+        const scale = clampInt(tileScaleRange.value, 8, 128);
+        const tileW = Math.floor(w / scale);
+        const tileH = Math.floor(h / scale);
+
+        cvNoisy.width = w;
+        cvNoisy.height = h;
+
+        tileInfo.textContent = `Tile: ${tileW}×${tileH} (video: ${w}×${h}, scale: 1/${scale})`;
+        statusForward.textContent = `Status: Loaded original (${w}×${h}, ${duration.toFixed(2)}s).`;
+      };
+    });
+
+    inNoisy.addEventListener("change", async () => {
+      restoreState.videoFile = null;
+      restoreState.restoredBlob = null;
+      restoreState.params = null;
+      btnDownloadRestored.disabled = true;
+
+      const file = inNoisy.files?.[0];
+      if (!file) return;
+
+      restoreState.videoFile = file;
+      const url = URL.createObjectURL(file);
+      videoNoisyIn.src = url;
+
+      videoNoisyIn.onloadedmetadata = () => {
+        const w = videoNoisyIn.videoWidth;
+        const h = videoNoisyIn.videoHeight;
+        const duration = videoNoisyIn.duration;
+
+        cvRestored.width = w;
+        cvRestored.height = h;
+
+        statusRestore.textContent = `Status: Loaded noisy (${w}×${h}, ${duration.toFixed(2)}s). Paste params and click Restore.`;
+      };
+    });
+
+    btnAddNoise.addEventListener("click", async () => {
+      try {
+        if (!forwardState.videoFile) {
+          statusForward.textContent = "Status: Please upload a video first.";
+          return;
+        }
+
+        const w = videoOriginal.videoWidth;
+        const h = videoOriginal.videoHeight;
+        const duration = videoOriginal.duration;
+        const seed = (Number(seedInput.value) >>> 0);
+        const intensity = clampInt(intensityRange.value, 0, 127);
+        const scale = clampInt(tileScaleRange.value, 8, 128);
+
+        // Calculate tile dimensions based on scale factor
+        const tileW = Math.floor(w / scale);
+        const tileH = Math.floor(h / scale);
+
+        if (tileW <= 0 || tileH <= 0) throw new Error("Invalid tile dimensions computed.");
+
+        // Generate low-frequency tile offsets
+        const tileOffsets = generateNoiseTileOffsets(tileW, tileH, seed, intensity);
+
+        // Render noise tile previews
+        renderNoiseTilePreview(tileOffsets, tileW, tileH, cvNoiseTile, 1);
+        const zoom = Math.min(8, Math.max(2, Math.floor(256 / Math.max(tileW, tileH, 1)))); // adaptive
+        renderNoiseTilePreview(tileOffsets, tileW, tileH, cvNoiseTileZoom, zoom);
+
+        btnAddNoise.disabled = true;
+        progressBarForward.style.display = "block";
+        statusForward.textContent = "Status: Processing video...";
+
+        // Process video
+        const noisyBlob = await processVideo(
+          videoOriginal,
+          tileOffsets,
+          tileW,
+          tileH,
+          'add',
+          (progress) => {
+            progressFillForward.style.width = (progress * 100) + '%';
+          }
+        );
+
+        forwardState.noisyBlob = noisyBlob;
+
+        // Draw preview frame
+        videoOriginal.currentTime = 0;
+        await new Promise(resolve => {
+          videoOriginal.onseeked = () => {
+            const ctx = cvNoisy.getContext('2d', { willReadFrequently: true });
+            ctx.drawImage(videoOriginal, 0, 0, w, h);
+            const imageData = ctx.getImageData(0, 0, w, h);
+            const processed = applyNoiseAddMod256(imageData, tileOffsets, tileW, tileH);
+            ctx.putImageData(processed, 0, 0);
+            resolve();
+          };
+        });
+
+        // Store params
+        const params = {
+          v: 2,
+          mode: "add_mod256_scaled",
+          prng: "mulberry32",
+          w, h,
+          tileW, tileH,
+          scale,
+          seed,
+          intensity,
+          fps: 30,
+          duration: duration,
+          note: "Keep these params with the noisy video to reverse it. Low-frequency noise for compression resistance."
+        };
+
+        forwardState.params = params;
+
+        // Show params + copy
+        const paramsStr = JSON.stringify(params);
+        paramsText.value = paramsStr;
+        btnCopyParams.disabled = false;
+        btnDownloadNoisy.disabled = false;
+        btnAddNoise.disabled = false;
+
+        // Show key-values
+        paramsKv.innerHTML = `
+      <div>Version</div><div>${params.v}</div>
+      <div>Mode</div><div>${params.mode}</div>
+      <div>PRNG</div><div>${params.prng}</div>
+      <div>Video</div><div>${params.w}×${params.h}</div>
+      <div>Duration</div><div>${params.duration.toFixed(2)}s @ ${params.fps} fps</div>
+      <div>Tile</div><div>${params.tileW}×${params.tileH} (1/${params.scale} scale)</div>
+      <div>Seed</div><div>${params.seed}</div>
+      <div>Intensity</div><div>${params.intensity}</div>
+    `;
+        paramsKv.style.display = "grid";
+
+        tileInfo.textContent = `Tile: ${tileW}×${tileH} (1/${scale} of ${w}×${h})`;
+        statusForward.innerHTML = `Status: <b>Applied noise</b> (seed=${seed}, intensity=${intensity}, tile=${tileW}×${tileH}).`;
+        progressBarForward.style.display = "none";
+        progressFillForward.style.width = "0%";
+      } catch (e) {
+        statusForward.textContent = `Status: Error: ${e?.message || e}`;
+        btnAddNoise.disabled = false;
+        progressBarForward.style.display = "none";
+      }
+    });
+
+    btnCopyParams.addEventListener("click", async () => {
+      try {
+        if (!paramsText.value) return;
+        await navigator.clipboard.writeText(paramsText.value);
+        statusForward.innerHTML = `Status: <b>Copied</b> parameters to clipboard.`;
+      } catch (e) {
+        statusForward.textContent = `Status: Could not copy (browser permission). You can still manually copy the text.`;
+      }
+    });
+
+    btnDownloadNoisy.addEventListener("click", async () => {
+      if (!forwardState.noisyBlob) return;
+      downloadBlob(forwardState.noisyBlob, "noisy_video.webm");
+    });
+
+    btnRestore.addEventListener("click", async () => {
+      try {
+        if (!restoreState.videoFile) {
+          statusRestore.textContent = "Status: Please upload a noisy video first.";
+          return;
+        }
+        const raw = paramsPaste.value.trim();
+        if (!raw) {
+          statusRestore.textContent = "Status: Please paste the parameters JSON.";
+          return;
+        }
+
+        let params;
+        try {
+          params = JSON.parse(raw);
+        } catch {
+          statusRestore.textContent = "Status: Parameters are not valid JSON.";
+          return;
+        }
+
+        const w = videoNoisyIn.videoWidth;
+        const h = videoNoisyIn.videoHeight;
+        const duration = videoNoisyIn.duration;
+
+        const seed = (Number(params.seed) >>> 0);
+        const intensity = clampInt(params.intensity, 0, 127);
+
+        // Handle both v1 (old tile-based) and v2 (new scaled) formats
+        let tileW, tileH;
+        if (params.v === 2 && params.tileW && params.tileH) {
+          // Version 2: use tile dimensions directly
+          tileW = clampInt(params.tileW, 1, 10000);
+          tileH = clampInt(params.tileH, 1, 10000);
+        } else if (params.scale) {
+          // Fallback: calculate from scale
+          const scale = clampInt(params.scale, 8, 128);
+          tileW = Math.floor(w / scale);
+          tileH = Math.floor(h / scale);
+        } else if (params.tile) {
+          // Version 1 compatibility: square tile
+          tileW = tileH = clampInt(params.tile, 1, 1_000_000);
+        } else {
+          statusRestore.textContent = "Status: Invalid parameters format.";
+          return;
+        }
+
+        if (w !== params.w || h !== params.h) {
+          statusRestore.classList.add("warn");
+        } else {
+          statusRestore.classList.remove("warn");
+        }
+
+        // Regenerate tile offsets deterministically
+        const tileOffsets = generateNoiseTileOffsets(tileW, tileH, seed, intensity);
+
+        // Show regenerated noise tile previews
+        renderNoiseTilePreview(tileOffsets, tileW, tileH, cvNoiseTile2, 1);
+        const zoom = Math.min(8, Math.max(2, Math.floor(256 / Math.max(tileW, tileH, 1))));
+        renderNoiseTilePreview(tileOffsets, tileW, tileH, cvNoiseTileZoom2, zoom);
+
+        btnRestore.disabled = true;
+        progressBarRestore.style.display = "block";
+        statusRestore.textContent = "Status: Processing video...";
+
+        // Process video
+        const restoredBlob = await processVideo(
+          videoNoisyIn,
+          tileOffsets,
+          tileW,
+          tileH,
+          'sub',
+          (progress) => {
+            progressFillRestore.style.width = (progress * 100) + '%';
+          }
+        );
+
+        restoreState.restoredBlob = restoredBlob;
+
+        // Draw preview frame
+        videoNoisyIn.currentTime = 0;
+        await new Promise(resolve => {
+          videoNoisyIn.onseeked = () => {
+            const ctx = cvRestored.getContext('2d', { willReadFrequently: true });
+            ctx.drawImage(videoNoisyIn, 0, 0, w, h);
+            const imageData = ctx.getImageData(0, 0, w, h);
+            const processed = applyNoiseSubMod256(imageData, tileOffsets, tileW, tileH);
+            ctx.putImageData(processed, 0, 0);
+            resolve();
+          };
+        });
+
+        restoreState.params = { ...params, w, h, tileW, tileH, seed, intensity };
+
+        btnDownloadRestored.disabled = false;
+        btnRestore.disabled = false;
+        restoreInfo.textContent = `Restore: seed=${seed}, intensity=${intensity}, tile=${tileW}×${tileH}`;
+        statusRestore.innerHTML = `Status: <b>Restored</b> via modulo subtraction. ${((w !== params.w) || (h !== params.h)) ? "(Warning: video dims differ from params; used best-effort.)" : ""}`;
+        progressBarRestore.style.display = "none";
+        progressFillRestore.style.width = "0%";
+      } catch (e) {
+        statusRestore.textContent = `Status: Error: ${e?.message || e}`;
+        btnRestore.disabled = false;
+        progressBarRestore.style.display = "none";
+      }
+    });
+
+    btnDownloadRestored.addEventListener("click", async () => {
+      if (!restoreState.restoredBlob) return;
+      downloadBlob(restoreState.restoredBlob, "restored_video.webm");
+    });
+  </script>
+</body>
+
+</html>

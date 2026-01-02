@@ -12,35 +12,29 @@ export default function AudioLeakChecker() {
 
   const API_URL = import.meta.env.VITE_API_SERVER_URL || 'http://localhost:3001'; // = 'http://localhost:3001/api';
 
-  const { success, error: showError } = useToast();
-  const [selectedFile, setSelectedFile] = useState(null);
-  const [audioFile, setAudioFile] = useState(null);
-  const [previewUrl, setPreviewUrl] = useState(null);
+  const { success, error: showError, info } = useToast();
+  
+  // Original and leaked audio files
+  const [originalAudioFile, setOriginalAudioFile] = useState(null);
+  const [leakedAudioFile, setLeakedAudioFile] = useState(null);
+  const [originalPreviewUrl, setOriginalPreviewUrl] = useState(null);
+  const [leakedPreviewUrl, setLeakedPreviewUrl] = useState(null);
+  
   const [isChecking, setIsChecking] = useState(false);
   const [checkStatus, setCheckStatus] = useState('idle');
   const [leakData, setLeakData] = useState(null);
   const [extractedCode, setExtractedCode] = useState('');
-  const fileInputRef = useRef(null);
-  const audioRef = useRef(null);
-  const audioPlayerRef = useRef(null);
-  const canvasRef = useRef(null);
+  
+  const originalAudioFileInputRef = useRef(null);
+  const leakedAudioFileInputRef = useRef(null);
   const keyFileInputRef = useRef(null);
-
-  const [audioBuffer, setAudioBuffer] = useState(null);
-  const [filename, setFilename] = useState('');
-  const [audioDuration, setAudioDuration] = useState(0);
-  const [sampleRate, setSampleRate] = useState(48000);
-  const [numberOfChannels, setNumberOfChannels] = useState(2);
-
-  const [audioContext] = useState(() => new (window.AudioContext || window.webkitAudioContext)());
-  const VIEW_SPAN = 10; // 10 seconds viewable area
 
   const [userData, setUserData] = useState(JSON.parse(localStorage.getItem("userdata")));
 
   const [showCreditModal, setShowCreditModal] = useState(false);
   const [allowLeakChecking, setAllowLeakChecking] = useState(false);
-  const [userCredits, setUserCredits] = useState(0); // Mock credits, replace with actual user data
-  const [actionCost, setActionCost] = useState(5); // Cost for leak checking
+  const [userCredits, setUserCredits] = useState(0);
+  const [actionCost, setActionCost] = useState(5);
   const [loadedKeyData, setLoadedKeyData] = useState(null);
   const [keyCode, setKeyCode] = useState('');
 
@@ -78,11 +72,11 @@ export default function AudioLeakChecker() {
       success('🔑 Key loaded!');
     } catch (err) {
       console.error("Error loading key:", err);
-      error('Invalid or corrupted key file');
+      showError('Invalid or corrupted key file');
     }
   };
 
-  const handleFileSelect = async (event) => {
+  const handleOriginalFileSelect = async (event) => {
     const file = event.target.files?.[0];
     if (!file || !file.type.startsWith('audio/')) {
       showError("Please select a valid audio file");
@@ -93,38 +87,29 @@ export default function AudioLeakChecker() {
       return;
     }
 
-    setSelectedFile(file);
-    setAudioFile(file);
-    setFilename(file.name);
+    setOriginalAudioFile(file);
     const objectUrl = URL.createObjectURL(file);
-    setPreviewUrl(objectUrl);
+    setOriginalPreviewUrl(objectUrl);
+    success(`Original audio selected: ${file.name}`);
+  };
+
+  const handleLeakedFileSelect = async (event) => {
+    const file = event.target.files?.[0];
+    if (!file || !file.type.startsWith('audio/')) {
+      showError("Please select a valid audio file");
+      return;
+    }
+    if (file.size > 50 * 1024 * 1024) {
+      showError("File size must be less than 50MB");
+      return;
+    }
+
+    setLeakedAudioFile(file);
+    const objectUrl = URL.createObjectURL(file);
+    setLeakedPreviewUrl(objectUrl);
     setCheckStatus('idle');
     setLeakData(null);
-
-    try {
-      const arrayBuffer = await file.arrayBuffer();
-      const buffer = await audioContext.decodeAudioData(arrayBuffer);
-
-      setAudioBuffer(buffer);
-      setAudioDuration(buffer.duration);
-      setSampleRate(buffer.sampleRate);
-      setNumberOfChannels(buffer.numberOfChannels);
-
-      // Set audio player source
-      if (audioRef.current) {
-        audioRef.current.src = objectUrl;
-      }
-
-      // Draw initial waveform
-      if (canvasRef.current) {
-        drawWaveform(buffer, canvasRef.current, audioRef.current);
-      }
-
-      success(`Selected: ${file.name} (${buffer.duration.toFixed(2)}s)`);
-    } catch (err) {
-      console.error("Error processing audio file:", err);
-      showError('Error loading audio file');
-    }
+    success(`Leaked audio selected: ${file.name}`);
   };
 
   const handleCreditConfirm = useCallback(() => {
@@ -159,13 +144,13 @@ export default function AudioLeakChecker() {
   }, []);
 
   const handleCheckForLeak = async () => {
-    if (!selectedFile) {
-      showError("Please select a audio file first");
+    if (!originalAudioFile || !leakedAudioFile) {
+      showError("Please select both original and leaked audio files");
       return;
     }
 
     if (!allowLeakChecking) {
-      error('You need to confirm credit usage before applying parameters.');
+      showError('You need to confirm credit usage before checking for leaks.');
       return;
     }
 
@@ -174,7 +159,16 @@ export default function AudioLeakChecker() {
 
     try {
       const formData = new FormData();
-      formData.append('file', selectedFile);
+      formData.append('originalAudio', originalAudioFile);
+      formData.append('leakedAudio', leakedAudioFile);
+      
+      // Add key data if available
+      if (loadedKeyData) {
+        formData.append('keyData', JSON.stringify(loadedKeyData));
+      } else if (keyCode) {
+        formData.append('keyCode', keyCode);
+      }
+
       const response = await fetch(`${API_URL}/api/check-audio-leak`, {
         method: 'POST',
         body: formData,
@@ -194,14 +188,10 @@ export default function AudioLeakChecker() {
         success('✅ No leak detected. This audio is clean.');
       }
 
-      // SHOW MESSAGE DIALOG SAYTHING THAT THE USER HAS SPENT CREDITS TO CHECK THE IMAGE
-      try {
-        setTimeout(() => {
-          info(`Image checked successfully. ${data.creditsUsed} credits spent.`);
-        }, timeout);
-      } catch (error) {
-        console.error('Error showing credit spent info:', error);
-      }
+      // Show credit spent message
+      setTimeout(() => {
+        info(`Audio checked successfully. ${data.creditsUsed || actionCost} credits spent.`);
+      }, 1500);
 
     } catch (err) {
       setCheckStatus('error');
@@ -212,119 +202,18 @@ export default function AudioLeakChecker() {
   };
 
   const handleReset = () => {
-    setSelectedFile(null);
-    setAudioFile(null);
-    setPreviewUrl(null);
+    setOriginalAudioFile(null);
+    setLeakedAudioFile(null);
+    setOriginalPreviewUrl(null);
+    setLeakedPreviewUrl(null);
     setCheckStatus('idle');
     setLeakData(null);
     setExtractedCode('');
-    setAudioBuffer(null);
-    setFilename('');
-    if (fileInputRef.current) fileInputRef.current.value = '';
-    if (audioRef.current) audioRef.current.src = '';
-  };
-
-  // Update waveforms on time update
-  useEffect(() => {
-    const audioPlayer = audioRef.current;
-    const canvas = canvasRef.current;
-
-    const updateWaveform = () => {
-      if (audioBuffer && canvas && audioPlayer) {
-        drawWaveform(audioBuffer, canvas, audioPlayer);
-      }
-    };
-
-    if (audioPlayer) {
-      audioPlayer.addEventListener('timeupdate', updateWaveform);
-      audioPlayer.addEventListener('loadedmetadata', updateWaveform);
-
-      return () => {
-        audioPlayer.removeEventListener('timeupdate', updateWaveform);
-        audioPlayer.removeEventListener('loadedmetadata', updateWaveform);
-      };
-    }
-  }, [audioBuffer]);
-
-  // =============================
-  // WAVEFORM DRAWING
-  // =============================
-  const drawWaveform = (audioBuffer, canvas, audioElement) => {
-    if (!audioBuffer || !canvas) return;
-
-    const ctx = canvas.getContext('2d');
-    const { duration, sampleRate } = audioBuffer;
-    const currentTime = audioElement?.currentTime || 0;
-    const canvasWidth = canvas.width;
-    const canvasHeight = canvas.height;
-    const channelData = audioBuffer.getChannelData(0);
-
-    const viewStart = currentTime - VIEW_SPAN / 2;
-    const viewEnd = currentTime + VIEW_SPAN / 2;
-    const viewDuration = viewEnd - viewStart;
-
-    ctx.clearRect(0, 0, canvasWidth, canvasHeight);
-
-    // Draw grid
-    ctx.strokeStyle = '#ddd';
-    ctx.lineWidth = 0.5;
-    const center = canvasHeight / 2;
-    ctx.beginPath();
-    ctx.moveTo(0, center);
-    ctx.lineTo(canvasWidth, center);
-    ctx.stroke();
-
-    // Draw waveform
-    ctx.beginPath();
-    ctx.strokeStyle = '#007bff';
-    ctx.lineWidth = 1;
-    const ampScale = canvasHeight / 2;
-
-    for (let i = 0; i < canvasWidth; i++) {
-      const t = viewStart + (i / canvasWidth) * viewDuration;
-
-      if (t < 0 || t > duration) {
-        if (i === 0) {
-          ctx.moveTo(i, center);
-        } else {
-          ctx.lineTo(i, center);
-        }
-      } else {
-        const sampleStart = Math.floor(t * sampleRate);
-        const sampleEnd = Math.floor((t + viewDuration / canvasWidth) * sampleRate);
-        const step = Math.max(1, sampleEnd - sampleStart);
-
-        let min = 1.0;
-        let max = -1.0;
-
-        for (let j = 0; j < step; j++) {
-          const sampleIndex = sampleStart + j;
-          if (sampleIndex >= 0 && sampleIndex < channelData.length) {
-            const sample = channelData[sampleIndex];
-            if (sample < min) min = sample;
-            if (sample > max) max = sample;
-          }
-        }
-
-        if (i === 0 || (viewStart + ((i - 1) / canvasWidth) * viewDuration < 0)) {
-          ctx.moveTo(i, (1 + min) * ampScale);
-        }
-        ctx.lineTo(i, (1 + min) * ampScale);
-        ctx.lineTo(i, (1 + max) * ampScale);
-      }
-    }
-    ctx.stroke();
-
-    // Draw seeker line
-    if (audioElement) {
-      const seekerX = canvasWidth / 2;
-      ctx.strokeStyle = 'red';
-      ctx.lineWidth = 2;
-      ctx.beginPath();
-      ctx.moveTo(seekerX, 0);
-      ctx.lineTo(seekerX, canvasHeight);
-      ctx.stroke();
-    }
+    setLoadedKeyData(null);
+    setKeyCode('');
+    if (originalAudioFileInputRef.current) originalAudioFileInputRef.current.value = '';
+    if (leakedAudioFileInputRef.current) leakedAudioFileInputRef.current.value = '';
+    if (keyFileInputRef.current) keyFileInputRef.current.value = '';
   };
 
   return (
@@ -353,24 +242,105 @@ export default function AudioLeakChecker() {
       <Card elevation={3} sx={{ backgroundColor: '#424242', color: 'white', mb: 4 }}>
         <CardContent sx={{ p: 4 }}>
           <Typography variant="h4" sx={{ mb: 3, display: 'flex', alignItems: 'center', gap: 1 }}>
-            <Speaker /> Upload Audio for Leak Detection
+            <Speaker /> Upload Audio Files for Leak Detection
           </Typography>
 
-          <Box sx={{ mb: 3 }}>
-             <Typography variant="body2" sx={{ color: '#bdbdbd', mb: 1 }}>
-                  Scrambled Audio File
+          <Grid container spacing={3} sx={{ mb: 3 }}>
+            {/* Original Audio File */}
+            <Grid item xs={12} md={6}>
+              <Box sx={{ p: 2, backgroundColor: '#353535', borderRadius: 2 }}>
+                <Typography variant="h6" sx={{ color: '#4caf50', mb: 2 }}>
+                  Original Audio File
                 </Typography>
-            <input type="file" accept="audio/*" onChange={handleFileSelect} style={{ display: 'none' }} id="audio-leak-upload" ref={fileInputRef} />
-            <label htmlFor="audio-leak-upload">
-              <Button variant="contained" component="span" startIcon={<Upload />} sx={{ backgroundColor: '#2196f3', color: 'white', mb: 2 }}>
-                Choose Audio File
-              </Button>
-            </label>
+                <Typography variant="body2" sx={{ color: '#bdbdbd', mb: 2 }}>
+                  Upload the original unscrambled audio file
+                </Typography>
 
-            <Grid container spacing={2} sx={{ mb: 2 }}>
-              <Grid item xs={12} md={6}>
+                <input 
+                  type="file" 
+                  accept="audio/*" 
+                  onChange={handleOriginalFileSelect} 
+                  style={{ display: 'none' }} 
+                  id="original-audio-upload" 
+                  ref={originalAudioFileInputRef} 
+                />
+                <label htmlFor="original-audio-upload">
+                  <Button 
+                    variant="contained" 
+                    component="span" 
+                    startIcon={<Upload />} 
+                    sx={{ backgroundColor: '#4caf50', color: 'white', mb: 2 }}
+                  >
+                    Choose Original Audio
+                  </Button>
+                </label>
+
+                {originalAudioFile && (
+                  <Box sx={{ mt: 2 }}>
+                    <Typography variant="body2" sx={{ color: '#4caf50', mb: 1 }}>
+                      ✓ Selected: {originalAudioFile.name}
+                    </Typography>
+                    <Typography variant="caption" sx={{ color: '#bdbdbd' }}>
+                      Size: {(originalAudioFile.size / (1024 * 1024)).toFixed(2)} MB
+                    </Typography>
+                  </Box>
+                )}
+              </Box>
+            </Grid>
+
+            {/* Leaked/Suspected Audio File */}
+            <Grid item xs={12} md={6}>
+              <Box sx={{ p: 2, backgroundColor: '#353535', borderRadius: 2 }}>
+                <Typography variant="h6" sx={{ color: '#ff9800', mb: 2 }}>
+                  Leaked/Suspected Audio File
+                </Typography>
+                <Typography variant="body2" sx={{ color: '#bdbdbd', mb: 2 }}>
+                  Upload the audio file you want to check for leaks
+                </Typography>
+
+                <input 
+                  type="file" 
+                  accept="audio/*" 
+                  onChange={handleLeakedFileSelect} 
+                  style={{ display: 'none' }} 
+                  id="leaked-audio-upload" 
+                  ref={leakedAudioFileInputRef} 
+                />
+                <label htmlFor="leaked-audio-upload">
+                  <Button 
+                    variant="contained" 
+                    component="span" 
+                    startIcon={<Upload />} 
+                    sx={{ backgroundColor: '#ff9800', color: 'white', mb: 2 }}
+                  >
+                    Choose Leaked Audio
+                  </Button>
+                </label>
+
+                {leakedAudioFile && (
+                  <Box sx={{ mt: 2 }}>
+                    <Typography variant="body2" sx={{ color: '#ff9800', mb: 1 }}>
+                      ✓ Selected: {leakedAudioFile.name}
+                    </Typography>
+                    <Typography variant="caption" sx={{ color: '#bdbdbd' }}>
+                      Size: {(leakedAudioFile.size / (1024 * 1024)).toFixed(2)} MB
+                    </Typography>
+                  </Box>
+                )}
+              </Box>
+            </Grid>
+          </Grid>
+
+          {/* Optional Key File or Code */}
+          <Box sx={{ mb: 3, p: 2, backgroundColor: '#353535', borderRadius: 2 }}>
+            <Typography variant="h6" sx={{ color: '#e0e0e0', mb: 2 }}>
+              Optional: Scramble Key (for enhanced detection)
+            </Typography>
+            
+            <Grid container spacing={2} alignItems="center">
+              <Grid item xs={12} md={5}>
                 <Typography variant="body2" sx={{ color: '#bdbdbd', mb: 1 }}>
-                  Scramble Key File
+                  Upload Key File
                 </Typography>
                 <input
                   type="file"
@@ -381,70 +351,118 @@ export default function AudioLeakChecker() {
                   ref={keyFileInputRef}
                 />
                 <label htmlFor="key-file-upload">
-                  <Button variant="contained" component="span" startIcon={<Upload />} sx={{ backgroundColor: '#2196f3', color: 'white', mb: 2 }}>
+                  <Button 
+                    variant="outlined" 
+                    component="span" 
+                    startIcon={<Upload />} 
+                    sx={{ borderColor: '#2196f3', color: '#2196f3' }}
+                  >
                     Choose Key File
                   </Button>
                 </label>
-
+                {loadedKeyData && (
+                  <Typography variant="body2" sx={{ color: '#4caf50', mt: 1 }}>
+                    ✓ Key loaded
+                  </Typography>
+                )}
               </Grid>
 
-           <strong style={{fontSize: 24, margin: '0 16px'}}> OR </strong>
+              <Grid item xs={12} md={2} sx={{ textAlign: 'center' }}>
+                <Typography variant="h6" sx={{ color: '#666' }}>OR</Typography>
+              </Grid>
 
-              <Grid item xs={12} md={6}>
-                <Typography variant="h6" sx={{ mb: 1, color: '#e0e0e0' }}>
+              <Grid item xs={12} md={5}>
+                <Typography variant="body2" sx={{ color: '#bdbdbd', mb: 1 }}>
                   Enter Key Code
                 </Typography>
                 <TextField
                   fullWidth
                   multiline
-                   rows={3}
+                  rows={2}
                   value={keyCode}
                   onChange={(e) => setKeyCode(e.target.value)}
-                  placeholder="eyJzZWVkIjoxMjM0NSwibiI6MywibSI6MywicGVybTFiYXNlZCI6WzMsMiw1LDEsNyw2LDksNCw4XX0="
+                  placeholder="Paste key code here..."
                   sx={{
-                    mb: 2,
                     '& .MuiInputBase-root': {
-                      backgroundColor: '#353535',
+                      backgroundColor: '#2a2a2a',
                       color: 'white',
-                      fontFamily: 'monospace'
+                      fontFamily: 'monospace',
+                      fontSize: '0.85rem'
                     }
                   }}
                 />
               </Grid>
             </Grid>
-
-            {selectedFile && (
-              <Box>
-                <Typography variant="body2" sx={{ color: '#4caf50', mb: 1 }}>✓ Selected: {selectedFile.name}</Typography>
-                <Typography variant="caption" sx={{ color: '#bdbdbd' }}>Size: {(selectedFile.size / (1024 * 1024)).toFixed(2)} MB | Type: {selectedFile.type}</Typography>
-              </Box>
-            )}
           </Box>
 
+          {/* Action Buttons */}
           <Box sx={{ display: 'flex', gap: 2, flexWrap: 'wrap', mb: 3 }}>
-            <Button variant="contained" onClick={() => setShowCreditModal(true)} startIcon={isChecking ? <CircularProgress size={20} color="inherit" /> : <Search />} disabled={!selectedFile || isChecking}
-              sx={{ backgroundColor: (!selectedFile || isChecking) ? '#666' : '#22d3ee', color: (!selectedFile || isChecking) ? '#999' : '#001018', fontWeight: 'bold', minWidth: 200 }}>
+            <Button 
+              variant="contained" 
+              onClick={() => setShowCreditModal(true)} 
+              startIcon={isChecking ? <CircularProgress size={20} color="inherit" /> : <Search />} 
+              disabled={!originalAudioFile || !leakedAudioFile || isChecking}
+              sx={{ 
+                backgroundColor: (!originalAudioFile || !leakedAudioFile || isChecking) ? '#666' : '#22d3ee', 
+                color: (!originalAudioFile || !leakedAudioFile || isChecking) ? '#999' : '#001018', 
+                fontWeight: 'bold', 
+                minWidth: 200 
+              }}
+            >
               {isChecking ? 'Checking for Leaks...' : 'Check for Leak'}
             </Button>
-            <Button variant="outlined" onClick={handleReset} disabled={isChecking} sx={{ borderColor: '#666', color: '#e0e0e0' }}>Reset</Button>
+            <Button 
+              variant="outlined" 
+              onClick={handleReset} 
+              disabled={isChecking} 
+              sx={{ borderColor: '#666', color: '#e0e0e0' }}
+            >
+              Reset
+            </Button>
           </Box>
 
-          {previewUrl && (
-            <Box sx={{ borderTop: '1px solid #666', pt: 3, mb: 3 }}>
-              <Typography variant="h6" sx={{ mb: 2, color: '#e0e0e0' }}>Audio Preview</Typography>
-              <Box sx={{ mt: 1, color: '#bdbdbd' }}>
-                <Typography variant="caption" sx={{ mb: 2, display: 'block' }}>Preview of the selected audio file before leak checking.</Typography>
-                <canvas ref={canvasRef} width="600" height="150" style={{ width: '100%', height: 'auto', border: '1px solid #666', borderRadius: '4px', marginBottom: '10px' }} />
-                <audio ref={audioRef} controls style={{ width: '100%', borderRadius: '8px' }}>
-                  <source src={previewUrl} type={selectedFile?.type} />
-                  Your browser does not support the audio tag.
-                </audio>
-                {audioBuffer && (
-                  <Typography variant="caption" sx={{ color: '#4caf50', mt: 1, display: 'block' }}>
-                    Duration: {audioDuration.toFixed(2)}s | Sample Rate: {sampleRate}Hz | Channels: {numberOfChannels}
-                  </Typography>
+          {/* Audio Previews */}
+          {(originalPreviewUrl || leakedPreviewUrl) && (
+            <Box sx={{ borderTop: '1px solid #666', pt: 3 }}>
+              <Typography variant="h6" sx={{ mb: 2, color: '#e0e0e0' }}>Audio Previews</Typography>
+              
+              <Grid container spacing={3}>
+                {/* Original Audio Preview */}
+                {originalPreviewUrl && (
+                  <Grid item xs={12} md={6}>
+                    <Box sx={{ p: 2, backgroundColor: '#2a2a2a', borderRadius: 2 }}>
+                      <Typography variant="subtitle1" sx={{ color: '#4caf50', mb: 1 }}>
+                        Original Audio
+                      </Typography>
+                      <audio 
+                        controls 
+                        style={{ width: '100%', borderRadius: '8px' }}
+                        src={originalPreviewUrl}
+                      >
+                        Your browser does not support the audio tag.
+                      </audio>
+                    </Box>
+                  </Grid>
                 )}
-              </Box>
+
+                {/* Leaked Audio Preview */}
+                {leakedPreviewUrl && (
+                  <Grid item xs={12} md={6}>
+                    <Box sx={{ p: 2, backgroundColor: '#2a2a2a', borderRadius: 2 }}>
+                      <Typography variant="subtitle1" sx={{ color: '#ff9800', mb: 1 }}>
+                        Leaked/Suspected Audio
+                      </Typography>
+                      <audio 
+                        controls 
+                        style={{ width: '100%', borderRadius: '8px' }}
+                        src={leakedPreviewUrl}
+                      >
+                        Your browser does not support the audio tag.
+                      </audio>
+                    </Box>
+                  </Grid>
+                )}
+              </Grid>
             </Box>
           )}
 
@@ -509,24 +527,18 @@ export default function AudioLeakChecker() {
         onClose={() => setShowCreditModal(false)}
         onConfirm={handleCreditConfirm}
         mediaType="audio"
-        
         currentCredits={userCredits}
-        fileName={selectedFile?.name || ''}
-        file={selectedFile}
+        fileName={`${originalAudioFile?.name || ''} vs ${leakedAudioFile?.name || ''}`}
+        file={leakedAudioFile}
         user={userData}
         isProcessing={false}
         fileDetails={{
-          type: 'audio',
-          size: selectedFile?.size || 0,
-          name: selectedFile?.name || '',
-          duration: audioRef.current?.duration || 0,
-          sampleRate: sampleRate,
-          numberOfChannels: numberOfChannels,
-          // horizontal: audioRef.current?.audioWidth || 0,
-          // vertical: audioRef.current?.audioHeight || 0
+          type: 'audio-leak-check',
+          size: (originalAudioFile?.size || 0) + (leakedAudioFile?.size || 0),
+          name: 'Audio Leak Detection',
+          originalFile: originalAudioFile?.name || '',
+          leakedFile: leakedAudioFile?.name || ''
         }}
-
-
         actionType="audio-leak-check"
         actionDescription="audio leak detection"
       />
