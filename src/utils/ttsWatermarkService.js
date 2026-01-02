@@ -3,7 +3,7 @@
  * Handles generation and application of audio watermarks
  */
 
-const TTS_SERVER_URL = 'http://localhost:5001';
+const TTS_SERVER_URL = 'http://localhost:5000';
 
 /**
  * Generate a TTS watermark for audio scrambling/unscrambling
