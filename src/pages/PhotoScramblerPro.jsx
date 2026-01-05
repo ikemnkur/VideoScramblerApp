@@ -43,7 +43,7 @@ const API_URL = import.meta.env.VITE_API_SERVER_URL || 'http://localhost:3001'; 
 const Flask_API_URL = import.meta.env.VITE_API_PY_SERVER_URL || 'http://localhost:5000';
 
 export default function PhotoScramblerPro() {
-    const { success, error } = useToast();
+    const { success, error, info } = useToast();
 
 
     // Refs
