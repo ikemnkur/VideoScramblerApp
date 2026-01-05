@@ -35,11 +35,12 @@ import {
 } from '@mui/icons-material';
 import { useToast } from '../contexts/ToastContext';
 import CreditConfirmationModal from '../components/CreditConfirmationModal';
+import ProcessingModal from '../components/ProcessingModal';
 import { refundCredits } from '../utils/creditUtils';
 import api from '../api/client';
 
 const API_URL = import.meta.env.VITE_API_SERVER_URL || 'http://localhost:3001'; // = 'http://localhost:3001/api';
-const Flask_API_URL = 'http://localhost:5000/';
+const Flask_API_URL = 'http://localhost:5000';
 
 export default function PhotoScramblerPro() {
     const { success, error } = useToast();
@@ -70,7 +71,12 @@ export default function PhotoScramblerPro() {
     const [userCredits, setUserCredits] = useState(0); // Mock credits, replace with actual user data
     const [actionCost, setActionCost] = useState(15); // Cost to unscramble a video (pro version)
     const [scrambleLevel, setScrambleLevel] = useState(1); // Level of scrambling (for credit calculation)
-    
+
+    const [shuffleParams, setShuffleParams] = useState(null);
+    const [scrambSeed, setScrambSeed] = useState(Math.floor(Math.random() * 1000000000));
+    const [perm, setPerm] = useState([]);
+
+    const timeout = 2000; // 2 seconds
 
     // Scrambling Parameters
     const [algorithm, setAlgorithm] = useState('position'); // position, color, rotation, mirror, intensity
@@ -83,6 +89,7 @@ export default function PhotoScramblerPro() {
 
     const [noiseIntensity, setNoiseIntensity] = useState(30); // Noise intensity for obscuring the image (0-127)
     const [noiseSeed, setNoiseSeed] = useState(() => genRandomSeed());
+    const [noiseTileSize, setNoiseTileSize] = useState(128);
 
     // Algorithm-specific parameters
     const [maxHueShift, setMaxHueShift] = useState(64);
@@ -120,6 +127,13 @@ export default function PhotoScramblerPro() {
 
     function oneBased(a) { return a.map((x) => x + 1); }
 
+    function gcd(a, b) {
+        while (b !== 0) {
+            [a, b] = [b, a % b];
+        }
+        return a;
+    }
+
     useEffect(() => {
         const fetchUserCredits = async () => {
             try {
@@ -142,10 +156,10 @@ export default function PhotoScramblerPro() {
         }
     }, [userData]);
 
-    const handleRefundCredits = async () => {
+    const handleRefundCredits = async (actionCost) => {
         // Generate noise seed
-        const nSeed = genRandomSeed();
-        setNoiseSeed(nSeed);
+        // const nSeed = genRandomSeed();
+        // setNoiseSeed(nSeed);
 
         const result = await refundCredits({
             userId: userData.id,
@@ -168,9 +182,9 @@ export default function PhotoScramblerPro() {
                 seed: seed,
                 algorithm: algorithm,
                 percentage: scramblingPercentage,
-                scramble: shuffleParamsObj,
+                scramble: shuffleParams,
                 noise: {
-                    seed: nSeed,
+                    seed: noiseSeed,
                     intensity: Math.round(noiseIntensity),
                     mode: "add_mod256_tile",
                     prng: "mulberry32"
@@ -182,7 +196,6 @@ export default function PhotoScramblerPro() {
                 },
                 type: "photo",
                 version: "premium"
-
             }
         });
 
@@ -198,17 +211,26 @@ export default function PhotoScramblerPro() {
 
         setAllowScrambling(true);
 
+        // record parameter for potenaital refund evaluation
+
+        const shuffleParamsObj = {
+            version: 2,
+            seed: scrambSeed,
+            n: rows,
+            m: cols,
+            perm1based: oneBased(perm),
+            semantics: "Index = destination cell (1-based), value = source cell index (1-based)"
+        };
+
+        setShuffleParams(shuffleParamsObj);
+
         // Now you have access to the actual cost that was calculated and spent
         console.log('Credits spent:', actualCostSpent);
 
-        // You can use this value for logging, analytics, or displaying to user
-        // For example, update a state variable:
-        // setLastCreditCost(actualCostSpent);
         setActionCost(actualCostSpent);
 
-        // Use setTimeout to ensure state update completes before scrambling
         setTimeout(() => {
-            scrambleImage();
+            scrambleImage(actionCost);
         }, 0);
 
     }, [selectedFile, allowScrambling]);
@@ -232,10 +254,7 @@ export default function PhotoScramblerPro() {
         setKeyCode('');
 
         // Reset previous state
-        // setPermDestToSrc0([]);
-        // setBase64Key("");
-        // setJsonKey("");
-        // setImageLoaded(false);
+
         setImageLoaded(true);
 
         const url = URL.createObjectURL(file);
@@ -248,6 +267,8 @@ export default function PhotoScramblerPro() {
                 setImageLoaded(true);
                 // updateCanvas();
                 URL.revokeObjectURL(url);
+                // set tile size for noise generation
+                setNoiseTileSize(gcd(imageRef.current.naturalWidth, imageRef.current.naturalHeight))
             };
 
             imageRef.current.onerror = () => {
@@ -265,8 +286,7 @@ export default function PhotoScramblerPro() {
 
 
     // =============================
-    const scrambleImage = async (file) => {
-
+    const scrambleImage = useCallback(async (file, actionCost) => {
 
         console.log("scrambleImage called, selectedFile:", selectedFile);
         // console.log("selected Image File:", localStorage.getItem("selectedImageFile"));
@@ -276,8 +296,6 @@ export default function PhotoScramblerPro() {
             return;
         }
 
-
-
         setIsProcessing(true);
 
         try {
@@ -286,9 +304,14 @@ export default function PhotoScramblerPro() {
                 input: selectedFile.name,
                 output: `scrambled_${selectedFile.name}`,
                 seed: seed,
-                mode: 'scramble'
-            };
+                mode: 'scramble',
+                noise_seed: noiseSeed,
+                noise_intensity: Math.round(noiseIntensity),
+                noise_tile_size: noiseTileSize,
+                noise_mode: "add_mod256_tile",
+                prng: "mulberry32"
 
+            };
             // Add algorithm-specific parameters
             switch (algorithm) {
                 case 'position':
@@ -342,7 +365,8 @@ export default function PhotoScramblerPro() {
                 if (!response.ok || !data.success) {
                     error("Scrambling failed: " + (data.message || "Unknown error"));
                     setIsProcessing(false);
-                    handleRefundCredits();
+                    console.log("Scrambling failed, refunding credits: ", actionCost);
+                    handleRefundCredits(actionCost);
                     return;
                 }
 
@@ -362,7 +386,7 @@ export default function PhotoScramblerPro() {
                     username: userData.username || 'Anonymous',
                     userId: userData.userId || 'Unknown',
                     type: "photo",
-                    version: "premium" ,
+                    version: "premium",
                     scramble: {
                         algorithm,
                         seed,
@@ -378,7 +402,7 @@ export default function PhotoScramblerPro() {
                         mode: "add_mod256_tile",
                         prng: "mulberry32"
                     },
-                };             
+                };
 
                 const encodedKey = btoa(JSON.stringify(key));
                 setKeyCode(encodedKey);
@@ -419,7 +443,7 @@ export default function PhotoScramblerPro() {
             setIsProcessing(false);
         }
 
-    };
+    }, [selectedFile, algorithm, seed, rows, cols, scramblingPercentage, maxHueShift, maxIntensityShift, error, userData]);
 
     const loadScrambledImage = async (filename) => {
         try {
@@ -682,26 +706,6 @@ export default function PhotoScramblerPro() {
                             <br></br>
                         </Grid>
 
-                        {/* Common Parameters */}
-                        {/* <Grid item xs={12} md={6}>
-                            <TextField
-                                fullWidth
-                                type="number"
-                                label="Seed"
-                                value={seed}
-                                onChange={(e) => setSeed(parseInt(e.target.value) || 0)}
-                                InputProps={{
-                                    sx: { backgroundColor: '#353535', color: 'white' },
-                                    endAdornment: (
-                                        <Button size="small" onClick={regenerateSeed} sx={{ color: '#22d3ee' }}>
-                                            Random
-                                        </Button>
-                                    )
-                                }}
-                                InputLabelProps={{ sx: { color: '#e0e0e0' } }}
-                            />
-                        </Grid> */}
-
                         <Grid item xs={12} md={6} sx={{ mt: 2 }}>
                             <Typography variant="h6" sx={{ color: '#e0e0e0', mb: 1 }}>
                                 Scrambling Percentage: {scramblingPercentage}%
@@ -738,7 +742,12 @@ export default function PhotoScramblerPro() {
                                     <Button
                                         variant="outlined"
                                         onClick={() => setNoiseIntensity(Math.max(0, noiseIntensity - 1))}
-                                        sx={{ minWidth: '40px', borderColor: '#666', color: '#e0e0e0' }}
+                                        disabled={scrambledFilename !== ''}
+                                        sx={{
+                                            minWidth: '40px',
+                                            borderColor: scrambledFilename !== '' ? '#444' : '#666',
+                                            color: scrambledFilename !== '' ? '#666' : '#e0e0e0'
+                                        }}
                                     >
                                         −
                                     </Button>
@@ -748,12 +757,22 @@ export default function PhotoScramblerPro() {
                                         max="127"
                                         value={noiseIntensity}
                                         onChange={(e) => setNoiseIntensity(Number(e.target.value))}
-                                        style={{ flex: 1 }}
+                                        disabled={scrambledFilename !== ''}
+                                        style={{
+                                            flex: 1,
+                                            opacity: scrambledFilename !== '' ? 0.5 : 1,
+                                            cursor: scrambledFilename !== '' ? 'not-allowed' : 'pointer'
+                                        }}
                                     />
                                     <Button
                                         variant="outlined"
                                         onClick={() => setNoiseIntensity(Math.min(127, noiseIntensity + 1))}
-                                        sx={{ minWidth: '40px', borderColor: '#666', color: '#e0e0e0' }}
+                                        disabled={scrambledFilename !== ''}
+                                        sx={{
+                                            minWidth: '40px',
+                                            borderColor: scrambledFilename !== '' ? '#444' : '#666',
+                                            color: scrambledFilename !== '' ? '#666' : '#e0e0e0'
+                                        }}
                                     >
                                         +
                                     </Button>
@@ -761,10 +780,14 @@ export default function PhotoScramblerPro() {
                                         type="number"
                                         value={noiseIntensity}
                                         onChange={(e) => setNoiseIntensity(Number(e.target.value))}
+                                        disabled={scrambledFilename !== ''}
                                         inputProps={{ min: 0, max: 127 }}
                                         sx={{
                                             width: '80px',
-                                            '& .MuiInputBase-root': { backgroundColor: '#353535', color: 'white' }
+                                            '& .MuiInputBase-root': {
+                                                backgroundColor: scrambledFilename !== '' ? '#252525' : '#353535',
+                                                color: scrambledFilename !== '' ? '#666' : 'white'
+                                            }
                                         }}
                                     />
                                 </Box>
@@ -954,33 +977,37 @@ export default function PhotoScramblerPro() {
             </Card>
 
             {/* Credit Confirmation Modal */}
-            <CreditConfirmationModal
-                open={showCreditModal}
-                onClose={() => setShowCreditModal(false)}
-                onConfirm={handleCreditConfirm}
-                mediaType="photo"
+            {showCreditModal &&
+                <CreditConfirmationModal
+                    open={showCreditModal}
+                    onClose={() => setShowCreditModal(false)}
+                    onConfirm={handleCreditConfirm}
+                    mediaType="photo"
 
-                scrambleLevel={scrambleLevel}
-                currentCredits={userCredits}
+                    scrambleLevel={scrambleLevel}
+                    currentCredits={userCredits}
 
-                file={selectedFile}
-                fileName={selectedFile?.name || ''}
-                fileDetails={{
-                    type: 'image',
-                    size: imageFile?.size || 0,
-                    name: imageFile?.name || '',
-                    horizontal: imageRef.current?.naturalWidth || 0,
-                    vertical: imageRef.current?.naturalHeight || 0
-                }}
+                    file={selectedFile}
+                    fileName={selectedFile?.name || ''}
+                    fileDetails={{
+                        type: 'image',
+                        size: imageFile?.size || 0,
+                        name: imageFile?.name || '',
+                        horizontal: imageRef.current?.naturalWidth || 0,
+                        vertical: imageRef.current?.naturalHeight || 0
+                    }}
 
-                user={userData}
-                isProcessing={false}
+                    user={userData}
+                    isProcessing={false}
 
-                actionType="scramble-photo-pro"
-                actionDescription="pro photo scrambling"
-                height={600}
-                width={500}
-            />
+                    actionType="scramble-photo-pro"
+                    actionDescription="pro photo scrambling"
+                    height={600}
+                    width={500}
+                />}
+
+            {/* Processing Modal */}
+            <ProcessingModal open={isProcessing} mediaType="photo" />
 
             {/* Info Section */}
             <Paper elevation={1} sx={{ p: 2, backgroundColor: '#f5f5f5' }}>

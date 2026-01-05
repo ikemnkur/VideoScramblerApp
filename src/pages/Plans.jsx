@@ -32,7 +32,7 @@ import {
 import PaymentButton from '../components/PaymentButton';
 import api from '../api/client';
 import { useToast } from '../contexts/ToastContext';
-import fetchUserData from '../utils/fetchUserData';
+import { fetchUserData } from '../utils/fetchUserData';
 
 export default function Wallet() {
   const [balance, setBalance] = useState(null);
@@ -111,6 +111,22 @@ export default function Wallet() {
 
   const p = plans[selectedPlan];
 
+  // Fetch fresh user data on mount
+  useEffect(() => {
+    const loadUserData = async () => {
+      const freshUserData = await fetchUserData();
+      if (freshUserData) {
+        setUserData(freshUserData);
+        setTimeout(() => {
+          load();
+        }, 1000);
+      }
+      
+    };
+
+    loadUserData();
+  }, []);
+
   function handleCancelPayment() {
     setShowModal(false);
     setPendingPlan(null);
@@ -126,7 +142,7 @@ export default function Wallet() {
 
   const load = async () => {
     try {
-      const { data } = await api.post(`/api/wallet/balance/${ud.username}`, { Password: ud.password, email: ud.email });
+      const { data } = await api.post(`/api/wallet/balance/${userdata.username}`, { password: userdata.password, email: userdata.email });
 
       setBalance(data?.balance ?? 0);
     } catch (e) {
@@ -136,11 +152,6 @@ export default function Wallet() {
   };
 
 
-  useEffect(() => {
-    load();
-    // Fetch initial rate
-    // fetchCryptoRate(currency).then(setRate);
-  }, []);
 
 
   function handleConfirmPayment() {
@@ -149,22 +160,39 @@ export default function Wallet() {
     // Record start timestamp
     const timestamp = Date.now();
     setStartTimestamp(timestamp);
-    console.log("Payment Start Timestamp (Unix epoch ms):", timestamp);
-    console.log("Payment Start Time:", new Date(timestamp).toISOString());
+    console.log("Subscription Payment Start Timestamp (Unix epoch ms):", timestamp);
+    console.log("Subscription Payment Start Time:", new Date(timestamp).toISOString());
 
-    // Open Stripe payment page in new window
+    // Open Stripe subscription page in new window based on selected plan
     let stripeUrl = '';
-    if (pendingPlan.dollars === 2.5) stripeUrl = stripeCheckoutUrl_2_5;
-    else if (pendingPlan.dollars === 5) stripeUrl = stripeCheckoutUrl_5;
-    else if (pendingPlan.dollars === 10) stripeUrl = stripeCheckoutUrl_10;
-    else if (pendingPlan.dollars === 20) stripeUrl = stripeCheckoutUrl_20;
+    if (selectedPlan === 'basic') stripeUrl = stripeCheckoutUrl_Basic;
+    else if (selectedPlan === 'standard') stripeUrl = stripeCheckoutUrl_Standard;
+    else if (selectedPlan === 'premium') stripeUrl = stripeCheckoutUrl_Premium;
+
+    // check if user is already on the given plan, dont open stripe page if the user is already on the given plan
+    const currentPlan = userdata?.accountType || 'free';
+    if (currentPlan === selectedPlan) {
+      alert( `You are already on the ${selectedPlan} plan, no payment is necessary.`);
+      error("Unable to open payment page. Please try again.");
+      setShowModal(false);
+      return;
+    }
+
+    // check if user is accidentally trying to select a lower plan than current plan
+    const planHierarchy = { free: 0, basic: 1, standard: 2, premium: 3 };
+    if (planHierarchy[selectedPlan] < planHierarchy[currentPlan]) {
+      alert( `You are already on the ${currentPlan} plan, please select a higher plan than your current plan.`);
+      error("Unable to open payment page. Please try again.");
+      setShowModal(false);
+      return;
+    }
 
     if (stripeUrl) {
       paymentWindowRef.current = window.open(stripeUrl, '_blank');
-      console.log("Opening Stripe payment page for:", pendingPlan);
+      console.log("Opening Stripe subscription page for:", selectedPlan, pendingPlan);
 
       // Start checking if window is closed
-      startWindowCheck();
+      // startWindowCheck();
 
       // Show waiting state
       setIsWaitingForReturn(true);
@@ -174,101 +202,67 @@ export default function Wallet() {
     setShowModal(false);
   }
 
-  const click = async () => {
-        try {
-            setLoading(true);
-            info('Opening stripe subscription checkout...');
+ 
+  // function startWindowCheck() {
+  //   // Check every 1 second if the payment window was closed
+  //   checkIntervalRef.current = setInterval(() => {
+  //     try {
+  //       // Only trigger if the window is actually closed, not just inaccessible
+  //       if (paymentWindowRef.current && paymentWindowRef.current.closed) {
+  //         // Double-check by trying to access the window
+  //         // If it throws, it might be cross-origin but still open
+  //         try {
+  //           const stillOpen = !paymentWindowRef.current.closed;
+  //           if (!stillOpen) {
+  //             handlePaymentWindowClosed();
+  //           }
+  //         } catch (e) {
+  //           // Cross-origin error means window is likely still open
+  //           // Only close if we're certain it's closed
+  //           if (paymentWindowRef.current.closed) {
+  //             handlePaymentWindowClosed();
+  //           }
+  //         }
+  //       }
+  //     } catch (error) {
+  //       // If we can't access the window at all, it's likely still open but cross-origin
+  //       console.log("Window check error (window likely still open):", error);
+  //     }
+  //   }, 1000);
+  // }
 
-            // open link in new tab: https://buy.stripe.com/test_7sYcN58SH61v7JG9LK5AQ00
+  // function handlePaymentWindowClosed() {
+  //   // Clear the interval
+  //   if (checkIntervalRef.current) {
+  //     clearInterval(checkIntervalRef.current);
+  //     checkIntervalRef.current = null;
+  //   }
 
-            const stripeCheckoutUrl_Basic = `https://buy.stripe.com/test_bJedR9fh54Xrd40f645AQ02?client_reference_id=${ud.id}`; //`https://buy.stripe.com/test_14k14g6SH4bA7JG9AA`;
-            const stripeCheckoutUrl_Standard = `https://buy.stripe.com/test_6oU7sLfh53Tn1li0ba5AQ01?client_reference_id=${ud.id}`;
-            const stripeCheckoutUrl_Premium = `https://buy.stripe.com/test_7sYcN58SH61v7JG9LK5AQ00?client_reference_id=${ud.id}`;
-            
-            
-            if (!amountUSD || amountUSD == 10) {
-                window.open(stripeCheckoutUrl_Premium, '_blank');
-            }
-            if (!amountUSD || amountUSD == 5) {
-                window.open(stripeCheckoutUrl_Standard, '_blank');
-            }
-            if (!amountUSD || amountUSD == 2.5) {
-                window.open(stripeCheckoutUrl_Basic, '_blank');
-            }
-            // const { data } = await api.post('/payments/create-checkout', { amountUSD });
-            // if (data?.hosted_url) {
-            //     window.location.href = data.hosted_url;
-            // } else {
-            //     error('Could not start checkout');
-            //     onError && onError();
-            // }
-        } catch (e) {
-            console.error(e);
-            error('Payment init failed');
-            onError && onError();
-        } finally { setLoading(false); }
-    };
+  //   // Record end timestamp
+  //   const endTimestamp = Date.now();
+  //   console.log("Payment End Timestamp (Unix epoch ms):", endTimestamp);
+  //   console.log("Payment End Time:", new Date(endTimestamp).toISOString());
+  //   console.log("Time Range:", {
+  //     start: startTimestamp,
+  //     end: endTimestamp,
+  //     duration: `${((endTimestamp - startTimestamp) / 1000).toFixed(2)} seconds`
+  //   });
 
-  function startWindowCheck() {
-    // Check every 1 second if the payment window was closed
-    checkIntervalRef.current = setInterval(() => {
-      try {
-        // Only trigger if the window is actually closed, not just inaccessible
-        if (paymentWindowRef.current && paymentWindowRef.current.closed) {
-          // Double-check by trying to access the window
-          // If it throws, it might be cross-origin but still open
-          try {
-            const stillOpen = !paymentWindowRef.current.closed;
-            if (!stillOpen) {
-              handlePaymentWindowClosed();
-            }
-          } catch (e) {
-            // Cross-origin error means window is likely still open
-            // Only close if we're certain it's closed
-            if (paymentWindowRef.current.closed) {
-              handlePaymentWindowClosed();
-            }
-          }
-        }
-      } catch (error) {
-        // If we can't access the window at all, it's likely still open but cross-origin
-        console.log("Window check error (window likely still open):", error);
-      }
-    }, 1000);
-  }
+  //   // Verify payment with backend
+  //   verifyPayment(startTimestamp, endTimestamp);
+  // }
 
-  function handlePaymentWindowClosed() {
-    // Clear the interval
-    if (checkIntervalRef.current) {
-      clearInterval(checkIntervalRef.current);
-      checkIntervalRef.current = null;
-    }
-
-    // Record end timestamp
-    const endTimestamp = Date.now();
-    console.log("Payment End Timestamp (Unix epoch ms):", endTimestamp);
-    console.log("Payment End Time:", new Date(endTimestamp).toISOString());
-    console.log("Time Range:", {
-      start: startTimestamp,
-      end: endTimestamp,
-      duration: `${((endTimestamp - startTimestamp) / 1000).toFixed(2)} seconds`
-    });
-
-    // Verify payment with backend
-    verifyPayment(startTimestamp, endTimestamp);
-  }
-
-  async function fetchUserIP() {
-    // Simple function to fetch user's IP address
-    // In production, consider using a more reliable method or service
-    return fetch('https://api.ipify.org?format=json')
-      .then(response => response.json())
-      .then(data => data.ip)
-      .catch(error => {
-        console.error("Error fetching user IP:", error);
-        return null;
-      });
-  }
+  // async function fetchUserIP() {
+  //   // Simple function to fetch user's IP address
+  //   // In production, consider using a more reliable method or service
+  //   return fetch('https://api.ipify.org?format=json')
+  //     .then(response => response.json())
+  //     .then(data => data.ip)
+  //     .catch(error => {
+  //       console.error("Error fetching user IP:", error);
+  //       return null;
+  //     });
+  // }
 
   async function verifyPayment(startTime, endTime) {
     if (!pendingPlan) return;
@@ -279,44 +273,49 @@ export default function Wallet() {
       // Get user data from localStorage
       const userData = JSON.parse(localStorage.getItem('userdata') || '{}');
 
+      // Extract price from priceLabel (e.g., "$10" -> 10)
+      const planPrice = pendingPlan.priceLabel === 'Free' ? 0 : parseFloat(pendingPlan.priceLabel.replace('$', ''));
+
       const paymentData = {
         timeRange: {
           start: startTime,
           end: endTime
         },
-        packageData: {
-          amount: Math.ceil(pendingPlan.dollars * 100), // in cents
-          dollars: pendingPlan.dollars,
-          credits: pendingPlan.credits,
-          priceId: pendingPlan.priceId
+        subscriptionData: {
+          amount: Math.ceil(planPrice * 100), // in cents
+          dollars: planPrice,
+          plan: pendingPlan.title,
+          planType: selectedPlan
         },
         user: {
           id: userData.id || '',
           email: userData.email || '',
           username: userData.username || '',
           phone: userData.phoneNumber || '',
-          name: userData.firstname + " " + userData.lastname || '',
+          name: (userData.firstname || '') + " " + (userData.lastname || ''),
           ip: await fetchUserIP() || '',
-          userAgent: navigator.userAgent || '',
-
+          userAgent: navigator.userAgent || ''
         }
       };
 
-      console.log("Sending payment verification to backend:", paymentData);
+      console.log("Sending subscription verification to backend:", paymentData);
 
       // Send to backend for verification
-      const response = await api.post('/api/verify-stripe-payment', paymentData);
+      const response = await api.post('/api/verify-stripe-subscription', paymentData);
 
       if (response.data && response.data.success) {
-        setMessage(`Payment verified! ${pendingPlan.credits.toLocaleString()} credits have been added to your account.`);
-        console.log("Payment verification successful:", response.data);
+        setMessage(`Subscription verified! Your ${pendingPlan.title} plan is now active.`);
+        console.log("Subscription verification successful:", response.data);
+        // Reload user data to reflect new subscription
+        const updatedUserData = await fetchUserData();
+        setUserData(updatedUserData);
       } else {
-        setMessage("Payment verification pending. Please check your account or contact support if credits don't appear within 5 minutes.");
-        console.log("Payment verification response:", response.data);
+        setMessage("Subscription verification pending. Please check your account or contact support if your plan doesn't activate within 5 minutes.");
+        console.log("Subscription verification response:", response.data);
       }
     } catch (error) {
-      console.error("Payment verification error:", error);
-      setMessage("Unable to verify payment automatically. Please contact support with your transaction time: " + new Date(startTime).toISOString());
+      console.error("Subscription verification error:", error);
+      setMessage("Unable to verify subscription automatically. Please contact support with your transaction time: " + new Date(startTime).toISOString());
     } finally {
       setIsVerifying(false);
       setIsWaitingForReturn(false);
@@ -469,7 +468,7 @@ export default function Wallet() {
                               Stripe
                             </Typography>
                             <Typography variant="body2" sx={{ mb: 2, color: '#e0e0e0' }}>
-                              Subscribe with Stripe and get 1250 bonus credits monthly!
+                              Subscribe with Stripe and get bonus credits monthly!
                             </Typography>
                             <Stack spacing={1}>
 
@@ -677,26 +676,33 @@ export default function Wallet() {
             {pendingPlan && (
               <Paper sx={{ p: 2, backgroundColor: '#353535', mb: 2 }}>
                 <Typography variant="subtitle2" sx={{ color: '#bdbdbd', mb: 1 }}>
-                  Package Details:
+                  Subscription Details:
                 </Typography>
-                <Typography variant="h6" sx={{ color: pendingPlan.color, fontWeight: 'bold' }}>
-                  {pendingPlan.credits.toLocaleString()} Credits
+                <Typography variant="h6" sx={{ color: 'primary.main', fontWeight: 'bold' }}>
+                  {pendingPlan.title} Plan
                 </Typography>
-                <Typography variant="body1" sx={{ color: 'white' }}>
-                  ${pendingPlan.dollars.toFixed(2)} USD
+                <Typography variant="body1" sx={{ color: 'white', mb: 2 }}>
+                  {pendingPlan.priceLabel === 'Free' ? 'Free' : `${pendingPlan.priceLabel}/month`}
                 </Typography>
-                {pendingPlan.bonusCredits > 0 && (
-                  <Chip
-                    icon={<LocalOffer />}
-                    label={`+${pendingPlan.bonusCredits.toLocaleString()} Bonus Credits`}
-                    size="small"
-                    sx={{ mt: 1, backgroundColor: pendingPlan.color, color: 'white' }}
-                  />
-                )}
+                <Typography variant="subtitle2" sx={{ color: '#bdbdbd', mb: 1 }}>
+                  Features:
+                </Typography>
+                <Box sx={{ pl: 1 }}>
+                  {pendingPlan.features.slice(0, 3).map((feature, idx) => (
+                    <Typography key={idx} variant="body2" sx={{ color: '#e0e0e0', mb: 0.5 }}>
+                      • {feature}
+                    </Typography>
+                  ))}
+                  {pendingPlan.features.length > 3 && (
+                    <Typography variant="body2" sx={{ color: '#bdbdbd' }}>
+                      + {pendingPlan.features.length - 3} more features
+                    </Typography>
+                  )}
+                </Box>
               </Paper>
             )}
             <Alert severity="info" sx={{ backgroundColor: '#1976d2', color: 'white' }}>
-              After completing payment, return to this page. Your credits will be verified and added automatically.
+              After completing payment, return to this page. Your subscription will be verified and activated automatically.
             </Alert>
           </Box>
         </DialogContent>
@@ -719,16 +725,34 @@ export default function Wallet() {
         </DialogActions>
       </Dialog>
 
-      {/* Waiting for Return from Payment */}
-      {isWaitingForReturn && !isVerifying && (
-        <Paper elevation={4} sx={{ p: 3, backgroundColor: '#424242', color: 'white', mb: 3, textAlign: 'center' }}>
-          <OpenInNew sx={{ fontSize: 60, color: '#4caf50', mb: 2 }} />
+      {/* Waiting for Return from Payment Modal */}
+      <Dialog
+        open={isWaitingForReturn && !isVerifying}
+        maxWidth="sm"
+        fullWidth
+        disableEscapeKeyDown
+        onClose={(event, reason) => {
+          // Prevent closing on backdrop click or escape key
+          if (reason === 'backdropClick' || reason === 'escapeKeyDown') {
+            return;
+          }
+        }}
+      >
+        <DialogTitle sx={{ backgroundColor: '#424242', color: 'white', display: 'flex', alignItems: 'center', gap: 1, justifyContent: 'center' }}>
+          <OpenInNew sx={{ fontSize: 40, color: '#4caf50' }} />
+        </DialogTitle>
+        <DialogContent sx={{ backgroundColor: '#424242', color: 'white', pt: 3, textAlign: 'center' }}>
           <Typography variant="h5" sx={{ mb: 2, fontWeight: 'bold' }}>
             Complete Your Payment
           </Typography>
           <Typography variant="body1" sx={{ color: '#e0e0e0', mb: 3 }}>
-            A payment window has been opened. After you complete your payment, click the button below to verify and credit your account.
+            A payment window has been opened. After you complete your subscription payment, click the button below to verify and activate your plan.
           </Typography>
+          <Alert severity="info" sx={{ backgroundColor: '#1976d2', color: 'white', mb: 2 }}>
+            Haven't completed payment yet? The payment window should still be open in another tab.
+          </Alert>
+        </DialogContent>
+        <DialogActions sx={{ backgroundColor: '#424242', p: 2, justifyContent: 'center' }}>
           <Button
             variant="contained"
             size="large"
@@ -737,11 +761,8 @@ export default function Wallet() {
           >
             I've Completed Payment
           </Button>
-          <Typography variant="caption" sx={{ display: 'block', mt: 2, color: '#bdbdbd' }}>
-            Haven't completed payment yet? The payment window should still be open in another tab.
-          </Typography>
-        </Paper>
-      )}
+        </DialogActions>
+      </Dialog>
 
       {/* Verification Progress */}
       {isVerifying && (
@@ -751,7 +772,7 @@ export default function Wallet() {
             Verifying Payment...
           </Typography>
           <Typography variant="body2" sx={{ color: '#e0e0e0' }}>
-            Please wait while we confirm your transaction and credit your account.
+            Please wait while we confirm your subscription and activate your plan.
           </Typography>
         </Paper>
       )}

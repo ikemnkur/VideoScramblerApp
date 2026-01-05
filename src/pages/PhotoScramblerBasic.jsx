@@ -638,6 +638,7 @@ export default function PhotoScrambler() {
       } catch (err) {
         console.error('Scrambling error:', err);
         error('Failed to scramble image: ' + err.message);
+        handleRefundCredits(actionCost);
         setIsProcessing(false);
       }
     }, 500);
@@ -714,6 +715,57 @@ export default function PhotoScrambler() {
     download(tempname + "-unscramble_key.txt", blob);
     success("Key file downloaded successfully!");
   }, [base64Key, error, success]);
+
+
+  const handleRefundCredits = async (actionCost) => {
+    // Generate noise seed
+    // const nSeed = genRandomSeed();
+    // setNoiseSeed(nSeed);
+
+    const result = await refundCredits({
+      userId: userData.id,
+      username: userData.username,
+      email: userData.email,
+      credits: actionCost,
+      currentCredits: userCredits,
+      password: localStorage.getItem('passwordtxt'),
+      action: 'scramble_photo_pro',
+      // params: {
+      //     scrambleLevel: scrambleLevel,
+      //     grid: { rows, cols },
+      //     seed: seed,
+      //     algorithm: algorithm,
+      //     percentage: scramblingPercentage
+      // }
+      params: {
+        scrambleLevel: scrambleLevel,
+        grid: { rows, cols },
+        seed: seed,
+        algorithm: algorithm,
+        percentage: scramblingPercentage,
+        scramble: shuffleParams,
+        noise: {
+          seed: noiseSeed,
+          intensity: Math.round(noiseIntensity),
+          mode: "add_mod256_tile",
+          prng: "mulberry32"
+        },
+        metadata: {
+          username: userData.username || 'Anonymous',
+          userId: userData.userId || 'Unknown',
+          timestamp: new Date().toISOString()
+        },
+        type: "photo",
+        version: "premium"
+      }
+    });
+
+    if (result.success) {
+      error(`An error occurred during scrambling. ${result.message}`);
+    } else {
+      error(`Scrambling failed. ${result.message}`);
+    }
+  };
 
   // =============================
   // RENDER
@@ -841,7 +893,12 @@ export default function PhotoScrambler() {
                   <Button
                     variant="outlined"
                     onClick={() => setNoiseIntensity(Math.max(0, noiseIntensity - 1))}
-                    sx={{ minWidth: '40px', borderColor: '#666', color: '#e0e0e0' }}
+                    disabled={permDestToSrc0.length > 0}
+                    sx={{ 
+                      minWidth: '40px', 
+                      borderColor: permDestToSrc0.length > 0 ? '#444' : '#666', 
+                      color: permDestToSrc0.length > 0 ? '#666' : '#e0e0e0' 
+                    }}
                   >
                     −
                   </Button>
@@ -851,12 +908,22 @@ export default function PhotoScrambler() {
                     max="127"
                     value={noiseIntensity}
                     onChange={(e) => setNoiseIntensity(Number(e.target.value))}
-                    style={{ flex: 1 }}
+                    disabled={permDestToSrc0.length > 0}
+                    style={{ 
+                      flex: 1,
+                      opacity: permDestToSrc0.length > 0 ? 0.5 : 1,
+                      cursor: permDestToSrc0.length > 0 ? 'not-allowed' : 'pointer'
+                    }}
                   />
                   <Button
                     variant="outlined"
                     onClick={() => setNoiseIntensity(Math.min(127, noiseIntensity + 1))}
-                    sx={{ minWidth: '40px', borderColor: '#666', color: '#e0e0e0' }}
+                    disabled={permDestToSrc0.length > 0}
+                    sx={{ 
+                      minWidth: '40px', 
+                      borderColor: permDestToSrc0.length > 0 ? '#444' : '#666', 
+                      color: permDestToSrc0.length > 0 ? '#666' : '#e0e0e0' 
+                    }}
                   >
                     +
                   </Button>
@@ -864,10 +931,14 @@ export default function PhotoScrambler() {
                     type="number"
                     value={noiseIntensity}
                     onChange={(e) => setNoiseIntensity(Number(e.target.value))}
+                    disabled={permDestToSrc0.length > 0}
                     inputProps={{ min: 0, max: 127 }}
                     sx={{
                       width: '80px',
-                      '& .MuiInputBase-root': { backgroundColor: '#353535', color: 'white' }
+                      '& .MuiInputBase-root': { 
+                        backgroundColor: permDestToSrc0.length > 0 ? '#252525' : '#353535', 
+                        color: permDestToSrc0.length > 0 ? '#666' : 'white' 
+                      }
                     }}
                   />
                 </Box>

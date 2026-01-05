@@ -3,7 +3,7 @@
  * Handles generation and application of audio watermarks
  */
 
-const TTS_SERVER_URL = 'http://localhost:5000';
+const TTS_SERVER_URL = 'http://localhost:5000/';
 
 /**
  * Generate a TTS watermark for audio scrambling/unscrambling
@@ -35,7 +35,7 @@ export async function generateWatermark(username, type = 'unscrambler', options 
       outro = 'on scrambler dot com';
     }
 
-    const response = await fetch(`${TTS_SERVER_URL}/generate-watermark`, {
+    const response = await fetch(`${TTS_SERVER_URL}/tts/generate-watermark`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json'
@@ -243,7 +243,7 @@ function resampleBuffer(buffer, targetSampleRate, audioContext) {
  */
 export async function checkTTSServerHealth() {
   try {
-    const response = await fetch(`${TTS_SERVER_URL}/health`, {
+    const response = await fetch(`${TTS_SERVER_URL}/tts/health`, {
       method: 'GET',
       signal: AbortSignal.timeout(3000) // 3 second timeout
     });

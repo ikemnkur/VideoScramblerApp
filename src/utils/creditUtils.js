@@ -50,7 +50,7 @@ export async function refundCredits({
         data
       };
     } else {
-      console.error("Refund failed:", data);
+      console.error(`Refund of ${credits} failed:`, data);
       return {
         success: false,
         message: data.message || 'Refund failed. Please contact support.',

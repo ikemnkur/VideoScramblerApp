@@ -35,11 +35,13 @@ import {
 } from '@mui/icons-material';
 import { useToast } from '../contexts/ToastContext';
 import CreditConfirmationModal from '../components/CreditConfirmationModal';
+import ProcessingModal from '../components/ProcessingModal';
 import { refundCredits } from '../utils/creditUtils';
 import api from '../api/client';
+import { replace } from 'react-router-dom';
 
 const API_URL = import.meta.env.VITE_API_SERVER_URL || 'http://localhost:3001'; // = 'http://localhost:5000';
-const Flask_API_URL = 'http://localhost:5000/';
+const Flask_API_URL = 'http://localhost:5000';
 
 
 export default function ScramblerVideosPro() {
@@ -49,7 +51,7 @@ export default function ScramblerVideosPro() {
   const videoRef = useRef(null);
   const fileInputRef = useRef(null);
   const displayVideoRef = useRef(null);
-  const scrambledDisplayRef = useRef(null);
+  const scrambledVideoRef = useRef(null);
 
   // State
   const [selectedFile, setSelectedFile] = useState(null);
@@ -106,16 +108,10 @@ export default function ScramblerVideosPro() {
   }, []);
 
 
-   useEffect(() => {
+  useEffect(() => {
 
     console.log("parameters have changed")
-    // console.log("Rows:", rows);
-    // console.log("Cols:", cols);
-    // console.log("Algorithm:", algorithm);
-    // console.log("Max Hue Shift:", maxHueShift);
-    // console.log("Max Intensity Shift:", maxIntensityShift);
-    // console.log("Scrambling Percentage:", scramblingPercentage);
-    // console.log("Selected file changed:", selectedFile);
+
   }, [rows, cols, algorithm, maxHueShift, maxIntensityShift, scramblingPercentage]);
 
 
@@ -198,75 +194,22 @@ export default function ScramblerVideosPro() {
 
 
 
-  // =============================
-  // API CALLS
-  // =============================
-  // const uploadFile = async () => {
-  //   if (!selectedFile) {
-  //     error("Please select a file first");
-  //     return null;
-  //   }
 
-  //   const formData = new FormData();
-  //   formData.append('file', selectedFile);
+  const scrambleVideo = useCallback(async () => {
+    console.log("scrambleVideo called with current state:", {
+      rows, cols, algorithm, seed, maxHueShift, maxIntensityShift, scramblingPercentage
+    });
 
-  //   try {
-  //     const response = await fetch(`${API_URL}/api/upload`, {
-  //       method: 'POST',
-  //       body: formData
-  //     });
-
-  //     if (!response.ok) {
-  //       throw new Error('Upload failed');
-  //     }
-
-  //     const data = await response.json();
-  //     setUploadedFilename(data.filename);
-  //     success("File uploaded to server!");
-  //     return data.filename;
-  //   } catch (err) {
-  //     error("Failed to upload file: " + err.message);
-  //     return null;
-  //   }
-  // };
-
-
-
-  const scrambleVideo = async () => {
-
-    // console.log("fiel:", file);
-    console.log("scrambleImage called, selectedFile:", selectedFile);
-    // console.log("selected Image File:", localStorage.getItem("selectedImageFile"));
     if (!selectedFile) {
       console.error("No file selected");
-      error("Please select an image first");
+      error("Please select a video first");
       return;
     }
-
-    // if (!allowScrambling) {
-    //   error("You need to spend credits to enable scrambling before proceeding");
-    //   return;
-    // }
 
     setIsProcessing(true);
 
     try {
-      // First upload the file
-      // const filename = uploadedFilename || await uploadFile();
-      // if (!filename) {
-      //   setIsProcessing(false);
-      //   return;
-      // }
-
-      // // Build scramble parameters based on algorithm
-      // const params = {
-      //   input: filename,
-      //   output: `scrambled_${filename}`,
-      //   seed: seed,
-      //   mode: 'scramble'
-      // };
-
-      // Build scramble parameters based on algorithm
+      // Build scramble parameters based on algorithm with current state values
       const params = {
         input: selectedFile.name,
         output: `scrambled_${selectedFile.name}`,
@@ -306,6 +249,8 @@ export default function ScramblerVideosPro() {
           break;
       }
 
+      console.log("Scrambling with params:", params);
+
       // Create FormData with file and parameters
       const formData = new FormData();
       formData.append('file', selectedFile);
@@ -321,7 +266,7 @@ export default function ScramblerVideosPro() {
           body: formData
         });
         const data = await response.json();
-        console.log("Scramble response:", response);
+        console.log("Scramble response data:", data);
 
         if (!response.ok || !data.success) {
           error("Scrambling failed: " + (data.message || "Unknown error"));
@@ -330,8 +275,19 @@ export default function ScramblerVideosPro() {
           return;
         }
 
-        // The backend should return the scrambled image info
-        setScrambledFilename(data.output_file || data.scrambledFileName);
+        let tempFileName = data.output_file || data.scrambledFileName;
+
+        if (tempFileName.includes("mp4")) {
+          // if  "mp4" is the extenstion in the URL, change it to webm
+          if (tempFileName.endsWith("mp4")) {
+            tempFileName = tempFileName.replace("mp4", "webm");
+          }
+        }
+
+        // The backend should return the scrambled video info
+        setScrambledFilename(tempFileName);
+
+        console.log("Scrambled file:", tempFileName);
 
 
         // Generate and display key
@@ -352,9 +308,10 @@ export default function ScramblerVideosPro() {
         setKeyCode(encodedKey);
 
         // Load scrambled video preview
-        loadScrambledVideo(data.output_file);
+        loadScrambledVideo();
 
         success("Video scrambled successfully!");
+        
       } catch (err) {
         error("Scrambling failed: " + err.message);
         setIsProcessing(false);
@@ -368,46 +325,31 @@ export default function ScramblerVideosPro() {
     } finally {
       setIsProcessing(false);
     }
-  };
+  }, [selectedFile, algorithm, seed, rows, cols, scramblingPercentage, maxHueShift, maxIntensityShift, error, userData]);
 
-  const handleRefundCredits = async () => {
-    const result = await refundCredits({
-      userId: userData.id,
-      username: userData.username,
-      email: userData.email,
-      credits: actionCost,
-      currentCredits: userCredits,
-      password: localStorage.getItem('passwordtxt'),
-      action: 'scramble_video_pro',
-      params: {
 
-        scrambleLevel: scrambleLevel,
-        grid: { rows, cols },
-        seed: seed,
-        algorithm: algorithm,
-        percentage: scramblingPercentage
-      }
-    });
-
-    if (result.success) {
-      error(`An error occurred during scrambling. ${result.message}`);
-    } else {
-      error(`Scrambling failed. ${result.message}`);
-    }
-  };
-
-  const loadScrambledVideo = async (filename) => {
+  const loadScrambledVideo = async () => {
     try {
-      const response = await fetch(`${Flask_API_URL}/download/${filename}`);
+      const response = await fetch(`${Flask_API_URL}/download/${scrambledFilename}`);
       if (!response.ok) throw new Error('Failed to load scrambled video');
 
       const blob = await response.blob();
       const url = URL.createObjectURL(blob);
 
-      if (scrambledDisplayRef.current) {
-        scrambledDisplayRef.current.src = url;
+      if (scrambledVideoRef.current) {
+        scrambledVideoRef.current.src = url;
         console.log("SCRAMBLED VIDEO URL SET: " + url)
       }
+      // let url = `${Flask_API_URL}/download/${scrambledFilename}`;
+      // if (url.includes("mp4")) {
+      //   // if  "mp4" is the extenstion in the URL, change it to webm
+      //   if (url.endsWith("mp4")) {
+      //     url = url.replace("mp4", "webm");
+      //   }
+      // }
+      // scrambledVideoRef.current.src = url;
+      // console.log("SCRAMBLED VIDEO URL SET: " + url)
+
     } catch (err) {
       error("Failed to load scrambled video: " + err.message);
     }
@@ -452,12 +394,36 @@ export default function ScramblerVideosPro() {
     // setLastCreditCost(actualCostSpent);
     setActionCost(actualCostSpent);
 
-    // Use setTimeout to ensure state update completes before scrambling
-    setTimeout(() => {
-      scrambleVideo();
-    }, 0);
+    // Call scrambleVideo directly (it will use current state values)
+    scrambleVideo();
 
-  }, [selectedFile, allowScrambling]);
+  }, [scrambleVideo]);
+
+  const handleRefundCredits = async () => {
+    const result = await refundCredits({
+      userId: userData.id,
+      username: userData.username,
+      email: userData.email,
+      credits: actionCost,
+      currentCredits: userCredits,
+      password: localStorage.getItem('passwordtxt'),
+      action: 'scramble_video_pro',
+      params: {
+
+        scrambleLevel: scrambleLevel,
+        grid: { rows, cols },
+        seed: seed,
+        algorithm: algorithm,
+        percentage: scramblingPercentage
+      }
+    });
+
+    if (result.success) {
+      error(`An error occurred during scrambling. ${result.message}`);
+    } else {
+      error(`Scrambling failed. ${result.message}`);
+    }
+  };
 
 
   // =============================
@@ -784,32 +750,31 @@ export default function ScramblerVideosPro() {
                 }}>
                   {scrambledFilename ? (
                     <>
-
                       <video
-                        ref={scrambledDisplayRef}
+                        ref={scrambledVideoRef}
                         src={scrambledFilename ? `${Flask_API_URL}/download/${scrambledFilename}` : ''}
                         alt="Scrambled"
                         style={{
-                          maxWidth: '100%',
+                          width: '100%',
                           maxHeight: '400px',
+                          backgroundColor: '#0b1020',
                           borderRadius: '8px'
                         }}
+                        controls
                       />
-
                     </>
-
                   ) : (
                     <Typography variant="body2" sx={{ color: '#666' }}>
                       Scrambled video will appear here
                     </Typography>
                   )}
                 </Box>
-                  {scrambledFilename && (
-                     <Typography>
-                        {scrambledFilename + ' loaded. Size: ' + (scrambledDisplayRef.current?.videoWidth || 0) + '×' + (scrambledDisplayRef.current?.videoHeight || 0) + 'px'}
-                      </Typography>
-                  )}
-                     
+                {scrambledFilename && (
+                  <Typography>
+                    {scrambledFilename + ' loaded. Size: ' + (scrambledVideoRef.current?.videoWidth || 0) + '×' + (scrambledVideoRef.current?.videoHeight || 0) + 'px'}
+                  </Typography>
+                )}
+
               </Grid>
             </Grid>
           </Box>
@@ -861,8 +826,12 @@ export default function ScramblerVideosPro() {
         </CardContent>
       </Card>
 
+      {/* Processing Modal */}
+      <ProcessingModal open={isProcessing} mediaType="video" />
+
       {/* Credit Confirmation Modal */}
-      <CreditConfirmationModal
+
+      {showCreditModal && <CreditConfirmationModal
         open={showCreditModal}
         onClose={() => setShowCreditModal(false)}
         onConfirm={handleCreditConfirm}
@@ -884,7 +853,7 @@ export default function ScramblerVideosPro() {
         isProcessing={false}
         actionType="scramble-video-pro"
         actionDescription="pro level video scrambling"
-      />
+      />}
 
       {/* Info Section */}
       <Paper elevation={1} sx={{ p: 2, backgroundColor: '#f5f5f5' }}>

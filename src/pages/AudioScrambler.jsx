@@ -478,8 +478,12 @@ export default function AudioScrambler() {
     const file = event.target.files?.[0];
     if (!file) return;
 
-    if (!file.type.startsWith('audio/')) {
-      error("Please select a valid audio file");
+    // Check if it's an audio file by MIME type or extension
+    const isAudioByMime = file.type.startsWith('audio/');
+    const isAudioByExtension = /\.(mp3|wav|ogg|oga|opus|m4a|aac|flac|webm)$/i.test(file.name);
+    
+    if (!isAudioByMime && !isAudioByExtension) {
+      error("Please select a valid audio file (mp3, wav, ogg, m4a, etc.)");
       return;
     }
 
@@ -504,7 +508,12 @@ export default function AudioScrambler() {
       success(`Audio loaded: ${buffer.duration.toFixed(2)}s`);
     } catch (err) {
       console.error("Error processing audio file:", err);
-      error('Error loading audio file');
+      
+      if (err.name === 'EncodingError' || err.message.includes('Unable to decode')) {
+        error('Unable to decode audio file. This format may not be supported by your browser. Try converting to WAV or MP3.');
+      } else {
+        error('Error loading audio file: ' + (err.message || 'Unknown error'));
+      }
     }
   };
 
@@ -800,7 +809,7 @@ export default function AudioScrambler() {
 
           <input
             type="file"
-            accept="audio/*"
+            accept="audio/*,.mp3,.wav,.ogg,.oga,.opus,.m4a,.aac,.flac,.webm"
             onChange={handleFileSelect}
             style={{ display: 'none' }}
             id="audio-upload"

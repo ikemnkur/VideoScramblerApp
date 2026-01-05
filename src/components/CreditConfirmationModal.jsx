@@ -202,7 +202,7 @@ export default function CreditConfirmationModal({
         resolutionCost = LQ;
       }
 
-      calculatedCost = Math.ceil(resolutionCost * (1 + fileDetails.size / (1000 * 1000 * 0.5))); // scale by size in MB over 0.5MB
+      calculatedCost = Math.ceil(Math.sqrt(resolutionCost+1) * (1 + fileDetails.size / (1000 * 1000 * 0.5))); // scale by size in MB over 0.5MB
 
       // console.log('Calculated Photo Cost:', calculatedCost);
 
@@ -235,7 +235,7 @@ export default function CreditConfirmationModal({
         resolutionCost = SDcharge;
       }
 
-      // console.log("cost due to size: ", (1 + fileDetails.size / (1000 * 1000 * 1)))
+      console.log("cost due to size: ", (1 + fileDetails.size / (1000 * 1000 * 1)))
 
       calculatedCost = Math.ceil(Math.sqrt(duration * resolutionCost) * (1 + fileDetails.size / (1000 * 1000 * 1))); // scale by size in MB over 1MB
     }

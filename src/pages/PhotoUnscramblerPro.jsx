@@ -26,14 +26,17 @@ import {
     CloudDownload,
     AutoAwesome,
     CheckCircle,
-    Error as ErrorIcon
+    Error as ErrorIcon,
+    Upload
 } from '@mui/icons-material';
 import { useToast } from '../contexts/ToastContext';
 import CreditConfirmationModal from '../components/CreditConfirmationModal';
+import ProcessingModal from '../components/ProcessingModal';
+import { refundCredits } from '../utils/creditUtils';
 import api from '../api/client';
 
 const API_URL = import.meta.env.VITE_API_SERVER_URL || 'http://localhost:3001';
-const Flask_API_URL = 'http://localhost:5000/';
+const Flask_API_URL = 'http://localhost:5000';
 
 export default function PhotoUnscramblerPro() {
     const { success, error } = useToast();
@@ -44,6 +47,7 @@ export default function PhotoUnscramblerPro() {
     const fileInputRef = useRef(null);
     const scrambledDisplayRef = useRef(null);
     const unscrambledDisplayRef = useRef(null);
+    const keyFileInputRef = useRef(null);
 
     // State
     const [selectedFile, setSelectedFile] = useState(null);
@@ -67,6 +71,35 @@ export default function PhotoUnscramblerPro() {
     const [actionCost, setActionCost] = useState(15); // Cost to unscramble a photo (pro version)
     const [scrambleLevel, setScrambleLevel] = useState(1); // Level of scrambling (for credit calculation)
 
+
+    // ========== UTILITY FUNCTIONS ==========
+
+    // Base64 encoding/decoding utilities
+    const toBase64 = (str) => btoa(unescape(encodeURIComponent(str)));
+    const fromBase64 = (b64) => decodeURIComponent(escape(atob(b64.trim())));
+
+    // Array conversion utilities
+    const oneBased = (a) => a.map(x => x + 1);
+    const zeroBased = (a) => a.map(x => x - 1);
+
+    // Calculate inverse permutation
+    const inversePermutation = (arr) => {
+        const inv = new Array(arr.length);
+        for (let i = 0; i < arr.length; i++) inv[arr[i]] = i;
+        return inv;
+    };
+
+    // Generate rectangle coordinates for grid cells
+    const cellRects = (w, h, n, m) => {
+        const rects = [];
+        const cw = w / m, ch = h / n;
+        for (let r = 0; r < n; r++) {
+            for (let c = 0; c < m; c++) {
+                rects.push({ x: c * cw, y: r * ch, w: cw, h: ch });
+            }
+        }
+        return rects;
+    };
 
 
     useEffect(() => {
@@ -101,8 +134,7 @@ export default function PhotoUnscramblerPro() {
         console.log('Credits spent:', actualCostSpent);
 
         // You can use this value for logging, analytics, or displaying to user
-        // setLastCreditCost(actualCostSpent);
-        // setActionCost(actualCostSpent);
+        setActionCost(actualCostSpent);
 
 
 
@@ -202,6 +234,35 @@ export default function PhotoUnscramblerPro() {
     // =============================
     // KEY HANDLING
     // =============================
+
+    const handleKeyFileSelect = async (event) => {
+        const file = event.target.files?.[0];
+        if (!file) return;
+
+        try {
+            const text = await file.text();
+
+            const decoded = fromBase64(text.trim());
+            const keyData = JSON.parse(decoded);
+
+            setKeyCode(text);
+
+            // console.log("Loaded key file content:", text);
+            console.log("Decoded key data:", keyData);
+
+            // Try to parse the key file content
+            // const keyData = JSON.parse(text);
+            setDecodedKey(keyData);
+            setKeyValid(true);
+            success('🔑 Key file loaded and decoded successfully!');
+
+        } catch (err) {
+            console.error("Error loading key:", err);
+            error('Invalid or corrupted key file. Please check the file format.');
+        }
+    };
+
+
     const decodeKey = () => {
         if (!keyCode || keyCode.trim() === '') {
             error("Please paste your unscramble key first");
@@ -210,19 +271,26 @@ export default function PhotoUnscramblerPro() {
 
         try {
             // Decode base64 key
-            const jsonString = atob(keyCode.trim());
+            // const jsonString = atob(keyCode.trim());
+            const jsonString = fromBase64(keyCode.trim());
+
             const keyData = JSON.parse(jsonString);
 
-           
+            console.log("Decoded key data:", keyData);
+
+
             if (keyData.type == "photo") {
                 error('The loaded key file is not a valid video scramble key.');
+                console.error('The loaded key file is not a valid video scramble key.');
                 throw new Error("Invalid key format");
             } else if (keyData.version !== "premium" || keyData.version !== "standard") {
                 error('Use the ' + keyData.version + ' ' + keyData.type + ' scrambler to unscramble this file.');
                 alert('The loaded key file will not work with this scrambler version, you must use the ' + keyData.version + ' ' + keyData.type + ' scrambler to unscramble this file.');
+                console.error('The loaded key file is not compatible with this scrambler version.');
                 throw new Error("Invalid key format");
             }
-             // Validate key structure
+
+            // Validate key structure
             if (!keyData.algorithm || !keyData.seed) {
                 throw new Error("Invalid key format");
             }
@@ -246,11 +314,13 @@ export default function PhotoUnscramblerPro() {
     const unscrambleImage = async () => {
         if (!selectedFile) {
             error("Please select a scrambled image first");
+            handleRefundCredits();
             return;
         }
 
         if (!decodedKey || !keyValid) {
             error("Please decode your key first");
+            handleRefundCredits(actionCost);
             return;
         }
 
@@ -268,7 +338,28 @@ export default function PhotoUnscramblerPro() {
                 cols: decodedKey.cols,
                 percentage: decodedKey.percentage,
                 max_hue_shift: decodedKey.maxHueShift,
-                max_intensity_shift: decodedKey.maxIntensityShift
+                max_intensity_shift: decodedKey.maxIntensityShift,
+
+                scrambleLevel: scrambleLevel,
+             
+                algorithm: decodedKey.scramble.algorithm,
+                percentage: decodedKey.scramble.percentage,
+                scramble: decodedKey.scramble,
+                noise:decodedKey.noise,
+                noise_seed: decodedKey.noise.noise_seed,
+                noise_intensity: decodedKey.noise.noise_intensity,
+                noise_mode: decodedKey.noise.noise_mode,
+                noise_tile_size: decodedKey.noise.noise_tile_size,
+
+                
+                metadata: {
+                    username: userData.username || 'Anonymous',
+                    userId: userData.id || 'Unknown',
+                    timestamp: new Date().toISOString()
+                },
+                type: "photo",
+                version: "premium"
+            
             };
 
             setScrambleLevel(params.cols >= params.rows ? params.cols : params.rows);
@@ -293,7 +384,7 @@ export default function PhotoUnscramblerPro() {
                 if (!response.ok || !data.success) {
                     error("Scrambling failed: " + (data.message || "Unknown error"));
                     setIsProcessing(false);
-                    handleRefundCredits();
+                    handleRefundCredits(actionCost);
                     return;
                 }
 
@@ -351,6 +442,7 @@ export default function PhotoUnscramblerPro() {
         } catch (err) {
             console.error("Unscramble error:", err);
             error("Unscrambling failed: " + err.message);
+            handleRefundCredits(actionCost);
         } finally {
             setIsProcessing(false);
         }
@@ -395,6 +487,50 @@ export default function PhotoUnscramblerPro() {
             success("Unscrambled image downloaded!");
         } catch (err) {
             error("Download failed: " + err.message);
+        }
+    };
+
+
+    const handleRefundCredits = async (actionCost) => {
+        // Generate noise seed
+        // const nSeed = genRandomSeed();
+        // setNoiseSeed(nSeed);
+
+        const result = await refundCredits({
+            userId: userData.id,
+            username: userData.username,
+            email: userData.email,
+            credits: actionCost,
+            currentCredits: userCredits,
+            password: localStorage.getItem('passwordtxt'),
+            action: 'unscramble_photo_pro',
+           
+            params: {
+
+                scrambleLevel: scrambleLevel,
+                // grid: { rows, cols },
+                row: decodedKey.rows,
+                col: decodedKey.cols,
+                seed: decodedKey.seed,
+                algorithm: decodedKey.scramble.algorithm,
+                percentage: decodedKey.scramble.percentage,
+                scramble: decodedKey.scramble,
+                noise:decodedKey.noise,
+                
+                metadata: {
+                    username: userData.username || 'Anonymous',
+                    userId: userData.id || 'Unknown',
+                    timestamp: new Date().toISOString()
+                },
+                type: "photo",
+                version: "premium"
+            }
+        });
+
+        if (result.success) {
+            error(`An error occurred during scrambling. ${result.message}`);
+        } else {
+            error(`Scrambling failed. ${result.message}`);
         }
     };
 
@@ -475,9 +611,33 @@ export default function PhotoUnscramblerPro() {
                                 Step 2
                             </Typography>
                             <Typography variant="h6" sx={{ color: '#e0e0e0' }}>
-                                Paste Your Unscramble Key
+                                Enter Your Unscramble Key
                             </Typography>
                         </Box>
+
+                        <Grid item xs={12} md={6}>
+                            {/* <Typography variant="body2" sx={{ color: '#bdbdbd', mb: 1 }}>
+                                Scramble Key File
+                            </Typography> */}
+                            <input
+                                type="file"
+                                accept=".key,.json,.txt"
+                                onChange={handleKeyFileSelect}
+                                style={{ display: 'none' }}
+                                id="key-file-upload"
+                                ref={keyFileInputRef}
+                            />
+                            <label htmlFor="key-file-upload">
+                                <Button variant="contained" component="span" startIcon={<Upload />} sx={{ backgroundColor: '#2196f3', color: 'white', mb: 2 }}>
+                                    Choose Key File
+                                </Button>
+                            </label>
+
+                        </Grid>
+
+                        <Typography variant="body2" sx={{ mb: 1, color: '#bdbdbd' }}>
+                            Or paste your unscramble key below:
+                        </Typography>
 
                         <TextField
                             fullWidth
@@ -516,6 +676,8 @@ export default function PhotoUnscramblerPro() {
                                 />
                             )}
                         </Box>
+
+
 
                         {/* Display Decoded Key Info */}
                         {keyValid && decodedKey && (
@@ -705,7 +867,8 @@ export default function PhotoUnscramblerPro() {
             </Paper>
 
             {/* Credit Confirmation Modal */}
-            <CreditConfirmationModal
+
+            {showCreditModal && <CreditConfirmationModal
                 open={showCreditModal}
                 onClose={() => setShowCreditModal(false)}
                 onConfirm={handleCreditConfirm}
@@ -729,7 +892,10 @@ export default function PhotoUnscramblerPro() {
                 actionDescription="pro level photo unscrambling"
                 height={400}
                 width={500}
-            />
+            />}
+
+            {/* Processing Modal */}
+            <ProcessingModal open={isProcessing} mediaType="photo" />
         </Container>
     );
 }

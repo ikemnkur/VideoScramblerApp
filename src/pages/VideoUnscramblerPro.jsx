@@ -36,6 +36,7 @@ import {
 } from '@mui/icons-material';
 import { useToast } from '../contexts/ToastContext';
 import CreditConfirmationModal from '../components/CreditConfirmationModal';
+import ProcessingModal from '../components/ProcessingModal';
 import { refundCredits } from '../utils/creditUtils';
 import api from '../api/client';
 
@@ -243,7 +244,7 @@ export default function VideoUnscramblerPro() {
     }
   };
 
-  const unscrambleVideo = async () => {
+  const unscrambleVideo = useCallback(async () => {
     if (!selectedFile) {
       error("Please select a video first");
       return;
@@ -298,12 +299,22 @@ export default function VideoUnscramblerPro() {
           return;
         }
 
-        setUnscrambledFilename(data.output_file || data.unscrambledFileName);
+        let tempFileName = data.output_file || data.scrambledFileName;
+
+        if (tempFileName.includes("mp4")) {
+          // if  "mp4" is the extenstion in the URL, change it to webm
+          if (tempFileName.endsWith("mp4")) {
+            tempFileName = tempFileName.replace("mp4", "webm");
+          }
+        }
+
+        setUnscrambledFilename(tempFileName);
+        console.log("Unscrambled video filename:", tempFileName);
         // setUnscrambledReady(true);
 
         // Load unscrambled video preview
         // await 
-        loadUnscrambledVideo(data.output_file);
+        loadUnscrambledVideo();
 
         success("Video unscrambled successfully!");
 
@@ -321,11 +332,11 @@ export default function VideoUnscramblerPro() {
     } finally {
       setIsProcessing(false);
     }
-  };
+  }, [selectedFile, decodedParams, allowUnscrambling]);
 
-  const loadUnscrambledVideo = async (filename) => {
+  const loadUnscrambledVideo = async () => {
     try {
-      const response = await fetch(`${Flask_API_URL}/download/${filename}`);
+      const response = await fetch(`${Flask_API_URL}/download/${unscrambledFilename}`);
       if (!response.ok) throw new Error('Failed to load unscrambled video');
 
       const blob = await response.blob();
@@ -333,8 +344,19 @@ export default function VideoUnscramblerPro() {
 
       if (unscrambledVideoRef.current) {
         unscrambledVideoRef.current.src = url;
+        console.log("UNSCRAMBLED VIDEO URL SET: " + url);
         setVideoUrl(url);
       }
+
+      // let url = `${Flask_API_URL}/download/${unscrambledFilename}`;
+      // if (url.includes("mp4")) {
+      //   // if  "mp4" is the extenstion in the URL, change it to webm
+      //   if (url.endsWith("mp4")) {
+      //     url = url.replace("mp4", "webm");
+      //   }
+      // }
+      // unscrambledVideoRef.current.src = url;
+      // console.log("UNSCRAMBLED VIDEO URL SET: " + url)
 
       // if (scrambledDisplayRef.current) {
       //   scrambledDisplayRef.current.src = url;
@@ -682,7 +704,6 @@ export default function VideoUnscramblerPro() {
                   justifyContent: 'center',
                   overflow: 'hidden'
                 }}>
-
                   {unscrambledFilename ? (
                     <video
                       ref={unscrambledVideoRef}
@@ -696,17 +717,20 @@ export default function VideoUnscramblerPro() {
                         borderRadius: '8px'
                       }}
                     />
-
                   ) : (
                     <>
                       <Typography variant="body2" sx={{ color: '#666' }}>
                         Unscrambled video will appear here
                       </Typography>
-
                     </>
-
                   )}
+
                 </Box>
+                {unscrambledFilename && (
+                  <Typography>
+                    {unscrambledFilename + ' loaded. Size: ' + (unscrambledVideoRef.current?.videoWidth || 0) + '×' + (unscrambledVideoRef.current?.videoHeight || 0) + 'px'}
+                  </Typography>
+                )}
               </Grid>
             </Grid>
           </Box>
@@ -746,6 +770,9 @@ export default function VideoUnscramblerPro() {
         actionType="unscramble-video-pro"
         actionDescription="pro level video unscrambling"
       />
+
+      {/* Processing Modal */}
+      <ProcessingModal open={isProcessing} mediaType="video" />
     </Container>
   );
 }

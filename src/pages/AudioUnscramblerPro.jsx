@@ -31,6 +31,7 @@ import {
 } from '@mui/icons-material';
 import { useToast } from '../contexts/ToastContext';
 import CreditConfirmationModal from '../components/CreditConfirmationModal';
+import ProcessingModal from '../components/ProcessingModal';
 import { refundCredits } from '../utils/creditUtils';
 import api from '../api/client';
 
@@ -1072,6 +1073,9 @@ export default function AudioUnscrambler() {
           actionDescription="Unscrambling audio"
         />
       }
+
+      {/* Processing Modal */}
+      <ProcessingModal open={isProcessing} mediaType="audio" />
     </Container>
   );
 }
