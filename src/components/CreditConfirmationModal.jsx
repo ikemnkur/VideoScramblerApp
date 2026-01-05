@@ -97,13 +97,13 @@ export default function CreditConfirmationModal({
     try {
 
       console.log('Attempting to spend credits:', {
-        username: user.username,
+        username: userData.username,
         cost: totalCost,
         mediaType
       });
 
-      const response = await api.post(`api/spend-credits/${user.username}`, {
-        username: user.username,
+      const response = await api.post(`api/spend-credits/${userData.username}`, {
+        username: userData.username,
         cost: totalCost,
         mediaType,
         action: {

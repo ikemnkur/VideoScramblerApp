@@ -153,7 +153,7 @@ export default function Wallet() {
 
               {timeLeft > 0 ? (
                 <Paper sx={{ p: 3, backgroundColor: '#f5f5f5', textAlign: 'center' }}>
-                  <Typography variant="body1" color="text.secondary">
+                  <Typography variant="body1" color="black">
                     🔒 Quiz locked. Please watch the ad above to unlock.
                   </Typography>
                 </Paper>

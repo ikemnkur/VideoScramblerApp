@@ -129,24 +129,29 @@ const HelpPage = () => {
             <TableRow>
               <TableCell><strong>Tier</strong></TableCell>
               <TableCell><strong>Features</strong></TableCell>
-              <TableCell><strong>Daily Limit</strong></TableCell>
+              <TableCell><strong>Limits</strong></TableCell>
             </TableRow>
           </TableHead>
           <TableBody>
             <TableRow>
-              <TableCell>Tier 1</TableCell>
-              <TableCell>Basic features, standard upload limits</TableCell>
-              <TableCell>₡100 transactions</TableCell>
+              <TableCell>Free Tier</TableCell>
+              <TableCell>Basic features, Video and Photo scrambling </TableCell>
+              <TableCell>Standard upload limits, large watermarks</TableCell>
             </TableRow>
             <TableRow>
-              <TableCell>Tier 2</TableCell>
-              <TableCell>Enhanced features, higher upload limits</TableCell>
-              <TableCell>₡500 transactions</TableCell>
+              <TableCell>Basic Tier</TableCell>
+              <TableCell>Basic features, plus the Audio Scrambler </TableCell>
+              <TableCell>Standard upload size limits, Watermarks</TableCell>
             </TableRow>
             <TableRow>
-              <TableCell>Tier 3</TableCell>
-              <TableCell>Premium features, unlimited uploads</TableCell>
-              <TableCell>₡1000+ transactions</TableCell>
+              <TableCell>Standard Tier</TableCell>
+              <TableCell>Enhanced features, HD Photo and Video uploads</TableCell>
+              <TableCell>Lite WaterMarks, Larger upload size limits/</TableCell>
+            </TableRow>
+            <TableRow>
+              <TableCell>Premium Tier</TableCell>
+              <TableCell>Premium features, 2K/4K content uploads, leak prevention</TableCell>
+              <TableCell>Artifacts instead of watermarks, priority queue</TableCell>
             </TableRow>
           </TableBody>
         </Table>
@@ -155,37 +160,42 @@ const HelpPage = () => {
     {
       category: 'account',
       question: 'Can I change my account tier?',
-      answer: 'Yes, you can upgrade or downgrade to a different tier. Daily fees apply based on your selected tier level.'
+      answer: 'Yes, you can upgrade to a different tier, at any time. Downgrades take effect after your current billing cycle ends, if you cancel the subscription via Stripe.'
     },
     {
       category: 'payment',
       question: 'How do I buy more coins?',
-      answer: 'You can purchase coins through the dashboard using various payment methods including credit cards and digital wallets.'
+      answer: 'You can purchase coins through the dashboard using various payment methods/services, stripe, bitcoin, cashapp and more.'
     },
     {
       category: 'payment',
-      question: 'How do I send coins to other users?',
-      answer: 'Use the Send Money feature in your dashboard. Enter the recipient\'s username, amount, and a message to complete the transfer.'
+      question: 'Can I earn credits?',
+      answer: 'You can earn commissions based on how many users you unscramble your content on the site.'
     },
     {
-      category: 'security',
-      question: 'Should I trust other users on the site?',
-      answer: 'No, always verify outside the app that the person is who they say they are. Be cautious of impersonation and scams.'
+      category: 'payment',
+      question: 'Can I earn Free or Bonus Credits?',
+      answer: 'You can earn bonus credit by watching an advertisement or completing special offers, on the Bonus Credits page.'
     },
-    {
-      category: 'security',
-      question: 'How can I avoid being scammed?',
-      answer: 'Always verify users outside the app, start with small transactions, and report suspicious behavior immediately.'
-    },
-    {
-      category: 'security',
-      question: 'What should I do if I\'ve been scammed?',
-      answer: 'Create a support ticket immediately and include evidence of the scam so we can investigate. For large transactions, refunds may be possible with a penalty for conflict resolution.'
-    },
+    // {
+    //   category: 'security',
+    //   question: 'Should I trust other users on the site?',
+    //   answer: 'No, always verify outside the app that the person is who they say they are. Be cautious of impersonation and scams.'
+    // },
+    // {
+    //   category: 'security',
+    //   question: 'How can I avoid being scammed?',
+    //   answer: 'Always verify users outside the app, start with small transactions, and report suspicious behavior immediately.'
+    // },
+    // {
+    //   category: 'security',
+    //   question: 'What should I do if I\'ve been scammed?',
+    //   answer: 'Create a support ticket immediately and include evidence of the scam so we can investigate. For large transactions, refunds may be possible with a penalty for conflict resolution.'
+    // },
     {
       category: 'content',
       question: 'What type of content can I create?',
-      answer: 'You can create any digital content, but avoid anything illegal, child content, extreme gore, or content that violates site policy.'
+      answer: 'You can scramble any digital content, but avoid anything illegal, child content, extreme gore, or uncivil content.'
     },
     {
       category: 'content',
@@ -195,12 +205,12 @@ const HelpPage = () => {
     {
       category: 'support',
       question: 'How can my account be banned or restricted?',
-      answer: 'Accounts can be banned for hacking, scamming, spamming, and glitching. Restrictions occur from accumulation of bad reviews or frequent reports.'
+      answer: 'Accounts/IPs can be banned/blocked for attempts to spam/scam, leak content, hacking, and doing things to sabotage or to cause glitching of the site. Restrictions occur from frequent reports made by users.'
     },
     {
       category: 'support',
       question: 'When are accounts deleted?',
-      answer: 'Accounts are deleted after 90 days of inactivity, failing captchas repeatedly, or causing glitching events.'
+      answer: 'Accounts are deleted after 90 days of inactivity, failing captchas repeatedly, or by engaging in suspicious accounts activity/causing site instability/glitching.'
     }
   ];
 
@@ -375,7 +385,7 @@ const HelpPage = () => {
       </Card>
 
       {/* Search and Filter Section */}
-      <Paper sx={{ 
+     {false && <Paper sx={{ 
         p: 3, 
         mb: 4,
         backgroundColor: '#1a1a1a', // Dark background
@@ -465,7 +475,7 @@ const HelpPage = () => {
           ))}
         </Box>
       </Paper>
-
+}
       {/* FAQ Results */}
       <Box sx={{ mb: 4 }}>
         <Typography variant="h5" sx={{ mb: 2, fontWeight: 600 }}>

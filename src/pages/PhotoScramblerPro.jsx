@@ -40,7 +40,7 @@ import { refundCredits } from '../utils/creditUtils';
 import api from '../api/client';
 
 const API_URL = import.meta.env.VITE_API_SERVER_URL || 'http://localhost:3001'; // = 'http://localhost:3001/api';
-const Flask_API_URL = 'http://localhost:5000';
+const Flask_API_URL = import.meta.env.VITE_API_PY_SERVER_URL || 'http://localhost:5000';
 
 export default function PhotoScramblerPro() {
     const { success, error } = useToast();

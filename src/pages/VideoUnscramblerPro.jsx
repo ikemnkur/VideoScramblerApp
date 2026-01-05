@@ -42,7 +42,7 @@ import api from '../api/client';
 
 export default function VideoUnscramblerPro() {
   const API_URL = import.meta.env.VITE_API_SERVER_URL || 'http://localhost:3001';
-  const Flask_API_URL = import.meta.env.VITE_FLASK_API_URL || 'http://localhost:5000';
+  const Flask_API_URL = import.meta.env.VITE_API_PY_SERVER_URL || import.meta.env.VITE_FLASK_API_URL || 'http://localhost:5000';
 
   const { success, error } = useToast();
 
