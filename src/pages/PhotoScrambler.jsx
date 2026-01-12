@@ -377,19 +377,30 @@ export default function PhotoScrambler() {
 
   useEffect(() => {
     const fetchUserCredits = async () => {
-      try {
-        const response = await api.post(`api/wallet/balance/${userData.username}`, {
-          username: userData.username,
-          email: userData.email,
-          password: localStorage.getItem('passwordtxt')
+       try {
+        // JWT token in the Authorization header automatically authenticates the user
+        // No need to send password (it's not stored in localStorage anyway)
+        const { data } = await api.post(`/api/wallet/balance/${userData.username}`, {
+          email: userData.email
         });
 
-        if (response.status === 200 && response.data) {
-          setUserCredits(response.data.credits);
+      } catch (e) {
+        console.error('Failed to load wallet balance:', e);
+
+        // Handle authentication errors
+        if (e.response?.status === 401 || e.response?.status === 403) {
+          error('Session expired. Please log in again.');
+          setTimeout(() => {
+            localStorage.removeItem('token');
+            localStorage.removeItem('userdata');
+            window.location.href = '/login';
+          }, 2000);
+        } else {
+          error('Failed to load balance. Please try again.');
         }
-      } catch (err) {
-        console.error('Failed to fetch user credits:', err);
+        setBalance(0);
       }
+
     };
 
     if (userData?.username) {

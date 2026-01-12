@@ -38,6 +38,9 @@ import api from '../api/client';
 export default function AudioUnscrambler() {
   const { success, error } = useToast();
 
+  const API_URL = import.meta.env.VITE_API_SERVER_URL || 'http://localhost:3001';
+  const Flask_API_URL = import.meta.env.VITE_API_PY_SERVER_URL || 'http://localhost:5000';
+
   // =============================
   // STATE & REFS
   // =============================
@@ -58,6 +61,10 @@ export default function AudioUnscrambler() {
   const [audioBuffer, setAudioBuffer] = useState(null);
   const [finalAudioBuffer, setFinalAudioBuffer] = useState(null);
   const [recoveredAudioBuffer, setRecoveredAudioBuffer] = useState(null);
+  const [stegoAudioBuffer, setStegoAudioBuffer] = useState(null);
+
+  const [download_url, setDownloadUrl] = useState(null);
+
   const [scrambledAudioBuffer, setScrambledAudioBuffer] = useState(null);
 
   const [generatedNoise, setGeneratedNoise] = useState(null);
@@ -87,7 +94,7 @@ export default function AudioUnscrambler() {
 
   const [userData] = useState(JSON.parse(localStorage.getItem("userdata")));
 
-  const API_URL = import.meta.env.VITE_API_SERVER_URL || 'http://localhost:3001';
+  // const API_URL = import.meta.env.VITE_API_SERVER_URL || 'http://localhost:3001';
 
   // =============================
   // FETCH USER CREDITS
@@ -97,18 +104,29 @@ export default function AudioUnscrambler() {
       if (!userData?.username) return;
 
       try {
-        const response = await api.post(`api/wallet/balance/${userData.username}`, {
-          username: userData.username,
-          email: userData.email,
-          password: localStorage.getItem('passwordtxt')
+        // JWT token in the Authorization header automatically authenticates the user
+        // No need to send password (it's not stored in localStorage anyway)
+        const { data } = await api.post(`/api/wallet/balance/${userData.username}`, {
+          email: userData.email
         });
+        setUserCredits(data?.balance ?? 0);
+      } catch (e) {
+        console.error('Failed to load wallet balance:', e);
 
-        if (response.status === 200 && response.data) {
-          setUserCredits(response.data.credits);
+        // Handle authentication errors
+        if (e.response?.status === 401 || e.response?.status === 403) {
+          error('Session expired. Please log in again.');
+          setTimeout(() => {
+            localStorage.removeItem('token');
+            localStorage.removeItem('userdata');
+            window.location.href = '/login';
+          }, 2000);
+        } else {
+          error('Failed to load balance. Please try again.');
         }
-      } catch (err) {
-        console.error('Error fetching credits:', err);
+        setUserCredits(0);
       }
+
     };
 
     fetchCredits();
@@ -227,17 +245,17 @@ export default function AudioUnscrambler() {
     return buffer;
   };
 
-  const applyNoise = (originalBuffer, noiseData) => {
-    const originalData = originalBuffer.getChannelData(0);
-    const combinedData = new Float32Array(originalData.length);
+  // const applyNoise = (originalBuffer, noiseData) => {
+  //   const originalData = originalBuffer.getChannelData(0);
+  //   const combinedData = new Float32Array(originalData.length);
 
-    for (let i = 0; i < originalData.length; i++) {
-      const noiseIndex = i % noiseData.length;
-      combinedData[i] = Math.max(-1, Math.min(1, originalData[i] + noiseData[noiseIndex]));
-    }
+  //   for (let i = 0; i < originalData.length; i++) {
+  //     const noiseIndex = i % noiseData.length;
+  //     combinedData[i] = Math.max(-1, Math.min(1, originalData[i] + noiseData[noiseIndex]));
+  //   }
 
-    return createAudioBufferFromData(combinedData, originalBuffer.sampleRate, originalBuffer.numberOfChannels);
-  };
+  //   return createAudioBufferFromData(combinedData, originalBuffer.sampleRate, originalBuffer.numberOfChannels);
+  // };
 
   const reverseNoise = (noisyBuffer, noiseData) => {
     const noisyData = noisyBuffer.getChannelData(0);
@@ -592,6 +610,8 @@ export default function AudioUnscrambler() {
       // Apply segment shuffling
       handleUnscrambleAudio();
 
+      // applySteganography();
+
       setIsProcessing(false);
       setUserCredits(prev => prev - actionCost);
       success(`Audio scrambled! ${actionCost} credits used.`);
@@ -674,7 +694,35 @@ export default function AudioUnscrambler() {
 
       setRecoveredAudioBuffer(recoveredBuffer);
 
-      const url = bufferToWavUrl(recoveredBuffer, loadedKeyData.audio.channels, loadedKeyData.audio.sampleRate);
+      // Apply steganography watermark
+      let steganoAudioBuffer = await applySteganography(recoveredBuffer);
+
+      // If steganography failed, use the recovered buffer
+      if (!steganoAudioBuffer) {
+        steganoAudioBuffer = recoveredBuffer;
+        console.warn('Steganography failed, using recovered buffer without watermark');
+        let link2AudioFile = download_url
+
+        console.log("Link to audio file with watermarking:", link2AudioFile);
+
+        if (unscrambledAudioPlayerRef.current) {
+          unscrambledAudioPlayerRef.current.src = link2AudioFile;
+        }
+
+        // convert link2AudioFile to audio buffer
+        const audioResponse = await fetch(link2AudioFile);
+        const audioArrayBuffer = await audioResponse.arrayBuffer();
+        const watermarkedAudioBuffer = await audioContext.decodeAudioData(audioArrayBuffer);
+
+        setStegoAudioBuffer(watermarkedAudioBuffer);
+
+        return;
+      }
+
+      setStegoAudioBuffer(steganoAudioBuffer);
+
+      const url = bufferToWavUrl(steganoAudioBuffer, loadedKeyData.audio.channels, loadedKeyData.audio.sampleRate);
+
       if (unscrambledAudioPlayerRef.current) {
         unscrambledAudioPlayerRef.current.src = url;
       }
@@ -689,15 +737,15 @@ export default function AudioUnscrambler() {
   };
 
   const handleDownloadRecovered = () => {
-    if (!recoveredAudioBuffer) {
+    if (!stegoAudioBuffer) {
       error("Please unscramble audio first!");
       return;
     }
 
-    const url = bufferToWavUrl(recoveredAudioBuffer, loadedKeyData.audio.channels, loadedKeyData.audio.sampleRate);
+    const url = bufferToWavUrl(stegoAudioBuffer, loadedKeyData.audio.channels, loadedKeyData.audio.sampleRate);
     const a = document.createElement('a');
     a.href = url;
-    a.download = 'recovered-audio.wav';
+    a.download = 'recovered-audio_' + filename.replace(/\.[^/.]+$/, "") + '.wav';
     a.click();
     success("Recovered audio downloaded!");
   };
@@ -765,6 +813,101 @@ export default function AudioUnscrambler() {
       };
     }
   }, [recoveredAudioBuffer]);
+
+  // Todo:
+  // upload file to back end to add stegano watermark with user info and timestamp, then download the watermarked file for unscrambling
+
+  async function applySteganography(steganoAudioBuffer) {
+    if (!steganoAudioBuffer) return null;
+
+    const userInfo = {
+      username: userData.username,
+      time: new Date().toISOString(),
+      userid: userData.id
+    };
+
+    const steganoData = JSON.stringify(userInfo);
+
+    // convert audio buffer to wav blob to upload to backend
+    const wavUrl = bufferToWavUrl(steganoAudioBuffer, loadedKeyData.audio.channels, loadedKeyData.audio.sampleRate);
+    const blobResponse = await fetch(wavUrl);
+    const blob = await blobResponse.blob();
+    const file = new File([blob], 'recovered-audio.wav', { type: 'audio/wav' });
+
+    try {
+      console.log("Stegano Data, Hiding:", steganoData);
+
+      // Create FormData with file and parameters
+      const formData = new FormData();
+      formData.append('file', file);
+      formData.append('params', steganoData);
+
+      // Add JWT token for authentication
+      const token = localStorage.getItem('token');
+      const headers = {};
+      if (token) {
+        headers['Authorization'] = `Bearer ${token}`;
+      }
+
+      // Call steganography endpoint
+      const response = await fetch(`${API_URL}/api/audio-stegano-embed`, {
+        method: 'POST',
+        headers: headers,
+        body: formData
+      });
+
+      const data = await response.json();
+
+      console.log("Watermark steg. response:", data);
+
+      if (!response.ok || !data.success) {
+        error("Steganography failed: " + (data.message || "Unknown error"));
+        setIsProcessing(false);
+        return null;
+      }
+
+      success("Audio watermarked successfully!");
+
+      let link2AudioFile = Flask_API_URL + data.download_url
+      setDownloadUrl(link2AudioFile);
+
+      console.log("Link to watermarked audio file:", link2AudioFile);
+      // convert the returned URL to an audio buffer
+      const audioResponse = await fetch(link2AudioFile);
+      const audioArrayBuffer = await audioResponse.arrayBuffer();
+      const watermarkedAudioBuffer = await audioContext.decodeAudioData(audioArrayBuffer);
+
+      setStegoAudioBuffer(watermarkedAudioBuffer);
+
+      // Return the watermarked audio buffer or original if backend doesn't return one
+      setTimeout(() => {
+        return stegoAudioBuffer;
+      }, 1000);
+
+    } catch (err) {
+      console.error('Steganography error:', err);
+      error('Error applying steganography: ' + (err.message || 'Unknown error'));
+      setIsProcessing(false);
+
+      // Refund credits if applicable
+      try {
+        const refundResponse = await api.post(`${API_URL}/api/refund-credits`, {
+          userId: userData.id,
+          username: userData.username,
+          email: userData.email,
+          credits: actionCost,
+          action: 'unscramble_audio_pro',
+          reason: 'Steganography failed'
+        });
+        console.log("Refund response:", refundResponse.data);
+      } catch (refundError) {
+        console.error("Refund failed:", refundError);
+      }
+
+      return null;
+    }
+  }
+
 
   // =============================
   // RENDER
@@ -1066,7 +1209,7 @@ export default function AudioUnscrambler() {
             sampleRate: sampleRate,
             channels: numberOfChannels,
             name: filename,
-            size: audioBuffer ? (audioBuffer.length * numberOfChannels * 4) / (1024 * 1024) : 0
+            size: scrambledAudioBuffer ? (scrambledAudioBuffer.length * scrambledAudioBuffer.numberOfChannels * 4) / (1024 * 1024) : 0
           }}
           user={userData}
           actionType="unscramble-audio"

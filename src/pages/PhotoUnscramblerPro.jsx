@@ -105,18 +105,29 @@ export default function PhotoUnscramblerPro() {
     useEffect(() => {
         const fetchUserCredits = async () => {
             try {
-                const response = await api.post(`api/wallet/balance/${userData.username}`, {
-                    username: userData.username,
-                    email: userData.email,
-                    password: localStorage.getItem('passwordtxt')
+                // JWT token in the Authorization header automatically authenticates the user
+                // No need to send password (it's not stored in localStorage anyway)
+                const { data } = await api.post(`/api/wallet/balance/${userData.username}`, {
+                    email: userData.email
                 });
+                
+            } catch (e) {
+                console.error('Failed to load wallet balance:', e);
 
-                if (response.status === 200 && response.data) {
-                    setUserCredits(response.data.credits);
+                // Handle authentication errors
+                if (e.response?.status === 401 || e.response?.status === 403) {
+                    error('Session expired. Please log in again.');
+                    setTimeout(() => {
+                        localStorage.removeItem('token');
+                        localStorage.removeItem('userdata');
+                        window.location.href = '/login';
+                    }, 2000);
+                } else {
+                    error('Failed to load balance. Please try again.');
                 }
-            } catch (err) {
-                console.error('Failed to fetch user credits:', err);
+                setBalance(0);
             }
+
         };
 
         if (userData?.username) {
@@ -341,17 +352,17 @@ export default function PhotoUnscramblerPro() {
                 max_intensity_shift: decodedKey.maxIntensityShift,
 
                 scrambleLevel: scrambleLevel,
-             
+
                 algorithm: decodedKey.scramble.algorithm,
                 percentage: decodedKey.scramble.percentage,
                 scramble: decodedKey.scramble,
-                noise:decodedKey.noise,
+                noise: decodedKey.noise,
                 noise_seed: decodedKey.noise.noise_seed,
                 noise_intensity: decodedKey.noise.noise_intensity,
                 noise_mode: decodedKey.noise.noise_mode,
                 noise_tile_size: decodedKey.noise.noise_tile_size,
 
-                
+
                 metadata: {
                     username: userData.username || 'Anonymous',
                     userId: userData.id || 'Unknown',
@@ -359,7 +370,7 @@ export default function PhotoUnscramblerPro() {
                 },
                 type: "photo",
                 version: "premium"
-            
+
             };
 
             setScrambleLevel(params.cols >= params.rows ? params.cols : params.rows);
@@ -504,7 +515,7 @@ export default function PhotoUnscramblerPro() {
             currentCredits: userCredits,
             password: localStorage.getItem('passwordtxt'),
             action: 'unscramble_photo_pro',
-           
+
             params: {
 
                 scrambleLevel: scrambleLevel,
@@ -515,8 +526,8 @@ export default function PhotoUnscramblerPro() {
                 algorithm: decodedKey.scramble.algorithm,
                 percentage: decodedKey.scramble.percentage,
                 scramble: decodedKey.scramble,
-                noise:decodedKey.noise,
-                
+                noise: decodedKey.noise,
+
                 metadata: {
                     username: userData.username || 'Anonymous',
                     userId: userData.id || 'Unknown',

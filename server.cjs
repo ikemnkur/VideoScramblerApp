@@ -13,6 +13,8 @@ const fs = require('fs');
 const path = require('path');
 const util = require('util'); // Node.js utility for formatting arguments
 
+// const authenticateToken = require('../middleware/auth');
+const authenticateToken = require('./middleware/auth');
 
 const server = express();
 
@@ -33,11 +35,71 @@ const dbConfig = {
 // Create connection pool
 const pool = mysql.createPool(dbConfig);
 
-// Middleware
-// server.use(cors({
-//   origin: process.env.FRONTEND_URL || '*',
-//   credentials: true
-// }));
+// Analytics tracking
+const analytics = {
+  visitors: new Set(), // Unique IP addresses
+  users: new Set(), // Unique user accounts
+  totalRequests: 0,
+  dataTx: 0, // Data transmitted (bytes)
+  dataRx: 0, // Data received (bytes)
+  endpointCalls: {}, // Tally of each endpoint
+  startTime: Date.now()
+};
+
+// Logs storage
+const logs = {
+  maxLogs: 500, // Keep last 500 logs
+  entries: []
+};
+
+// Override console methods to capture logs
+const originalConsoleLog = console.log;
+const originalConsoleError = console.error;
+const originalConsoleWarn = console.warn;
+
+console.log = function(...args) {
+  const message = args.map(arg => typeof arg === 'object' ? JSON.stringify(arg) : String(arg)).join(' ');
+  logs.entries.push({
+    type: 'info',
+    message: message,
+    timestamp: new Date().toISOString(),
+    time: Date.now()
+  });
+  if (logs.entries.length > logs.maxLogs) {
+    logs.entries.shift();
+  }
+  originalConsoleLog.apply(console, args);
+};
+
+console.error = function(...args) {
+  const message = args.map(arg => typeof arg === 'object' ? JSON.stringify(arg) : String(arg)).join(' ');
+  logs.entries.push({
+    type: 'error',
+    message: message,
+    timestamp: new Date().toISOString(),
+    time: Date.now()
+  });
+  if (logs.entries.length > logs.maxLogs) {
+    logs.entries.shift();
+  }
+  originalConsoleError.apply(console, args);
+};
+
+console.warn = function(...args) {
+  const message = args.map(arg => typeof arg === 'object' ? JSON.stringify(arg) : String(arg)).join(' ');
+  logs.entries.push({
+    type: 'warn',
+    message: message,
+    timestamp: new Date().toISOString(),
+    time: Date.now()
+  });
+  if (logs.entries.length > logs.maxLogs) {
+    logs.entries.shift();
+  }
+  originalConsoleWarn.apply(console, args);
+};
+
+const FRONTEND_URL = process.env.FRONTEND_URL || "videoscrambler.com";
 
 // USE this CORS CONFIG Later
 
@@ -50,6 +112,7 @@ const corsOptions = {
       'http://localhost:5001',
       'https://key-ching.com',
       'https://videoscrambler.com',
+      'https://www.videoscrambler.com',
       'https://microtrax.netlify.app',
       "https://servers4sqldb.uc.r.appspot.com",
       "https://orca-app-j32vd.ondigitalocean.app",
@@ -70,11 +133,14 @@ const corsOptions = {
     }
   },
   credentials: true,
+  // Allow Authorization header and other custom headers
+  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With', 'Accept'],
+  // Expose headers that the client can access
+  exposedHeaders: ['Authorization'],
   optionsSuccessStatus: 200
 };
 
 server.use(cors(corsOptions));
-// server.use(express.json());
 
 const LOG_FILE = path.join(__dirname, 'universal.log');
 
@@ -137,32 +203,19 @@ console.warn("This is a sample warning message!");
 console.error("This is a sample error message!");
 
 
-// Endpoint to fetch and display the raw logs
-server.get('/logs', (req, res) => {
-  fs.readFile(LOG_FILE, 'utf8', (err, data) => {
-    if (err) {
-      console.error('Error reading log file for endpoint:', err);
-      return res.status(500).send('Error reading logs.');
-    }
-    res.setHeader('Content-Type', 'text/plain');
-    res.send(data);
-  });
-});
 
-// A sample endpoint to generate more log activity
-server.get('/generate-activity', (req, res) => {
-  console.log(`User accessed /generate-activity endpoint (IP: ${req.ip})`);
-  res.send('Activity logged using console.log()! Check your main page.');
-});
+
 
 
 // ###########################################################
+//                    server routes
+// ###########################################################
 
-server.use(express.json({ limit: '10mb' }));
-server.use(express.urlencoded({ extended: true, limit: '10mb' }));
+server.use(express.json({ limit: '250mb' }));
+server.use(express.urlencoded({ extended: true, limit: '250mb' }));
 
 // Admin Dashboard Page
-// // Data storage for admin page
+
 // let pageVisits = [];
 // let recentRequests = [];
 // const startTime = Date.now();
@@ -192,26 +245,1107 @@ server.use(express.urlencoded({ extended: true, limit: '10mb' }));
 //   next();
 // });
 
-// Request logging middleware
+// // Request logging middleware
+// server.use((req, res, next) => {
+//   console.log(`${new Date().toISOString()} - ${req.method} ${req.path}`);
+//   next();
+// });
+
+// // Root route
+// server.get('/', (req, res) => {
+//   res.sendFile(path.join(__dirname, 'public', 'index.html'));
+// });
+
+// Serve static files from public directory
+server.use(express.static('public'));
+
+// Request logging middleware with analytics
 server.use((req, res, next) => {
   console.log(`${new Date().toISOString()} - ${req.method} ${req.path}`);
+  
+  // Track visitor IP
+  const ip = req.ip || req.connection.remoteAddress || req.socket.remoteAddress;
+  if (ip) {
+    analytics.visitors.add(ip);
+  }
+  
+  // Track total requests
+  analytics.totalRequests++;
+  
+  // Track data received (request size)
+  const contentLength = parseInt(req.headers['content-length']) || 0;
+  analytics.dataRx += contentLength;
+  
+  // Track endpoint calls
+  const endpoint = `${req.method} ${req.path}`;
+  analytics.endpointCalls[endpoint] = (analytics.endpointCalls[endpoint] || 0) + 1;
+  
+  // Track data transmitted (response size)
+  const originalSend = res.send;
+  res.send = function(data) {
+    if (data) {
+      const size = Buffer.byteLength(typeof data === 'string' ? data : JSON.stringify(data));
+      analytics.dataTx += size;
+    }
+    originalSend.call(this, data);
+  };
+  
   next();
 });
 
 // Root route
 server.get('/', (req, res) => {
-  res.sendFile(path.join(__dirname, 'public', 'index.html'));
+  res.sendFile(__dirname + '/public/index.html');
+});
+
+// Endpoint to fetch and display the raw logs
+server.get('/log-file', (req, res) => {
+  fs.readFile(LOG_FILE, 'utf8', (err, data) => {
+    if (err) {
+      console.error('Error reading log file for endpoint:', err);
+      return res.status(500).send('Error reading logs.');
+    }
+    res.setHeader('Content-Type', 'text/plain');
+    res.send(data);
+  });
+});
+
+// A sample endpoint to generate more log activity
+server.get('/generate-activity', (req, res) => {
+  console.log(`User accessed /generate-activity endpoint (IP: ${req.ip})`);
+  res.send('Activity logged using console.log()! Check your main page.');
+});
+
+// Server landing page route
+server.get('/server', async (req, res) => {
+  try {
+    const uptime = process.uptime();
+    const uptimeFormatted = {
+      days: Math.floor(uptime / 86400),
+      hours: Math.floor((uptime % 86400) / 3600),
+      minutes: Math.floor((uptime % 3600) / 60),
+      seconds: Math.floor(uptime % 60)
+    };
+
+    const memoryUsage = process.memoryUsage();
+    const memoryFormatted = {
+      rss: `${Math.round(memoryUsage.rss / 1024 / 1024)} MB`,
+      heapTotal: `${Math.round(memoryUsage.heapTotal / 1024 / 1024)} MB`,
+      heapUsed: `${Math.round(memoryUsage.heapUsed / 1024 / 1024)} MB`,
+      external: `${Math.round(memoryUsage.external / 1024 / 1024)} MB`
+    };
+
+    // Get database stats
+    const [dbStats] = await pool.execute('SHOW STATUS LIKE "Threads_connected"');
+    const dbConnections = dbStats[0]?.Value || 'N/A';
+
+    const html = `
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Key-Ching Server - Dashboard</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      color: #333;
+      min-height: 100vh;
+      padding: 20px;
+    }
+    .container {
+      max-width: 1200px;
+      margin: 0 auto;
+    }
+    .header {
+      text-align: center;
+      color: white;
+      margin-bottom: 40px;
+    }
+    .header h1 {
+      font-size: 3em;
+      margin-bottom: 10px;
+      text-shadow: 2px 2px 4px rgba(0,0,0,0.3);
+    }
+    .header p {
+      font-size: 1.2em;
+      opacity: 0.9;
+    }
+    .stats-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+      gap: 20px;
+      margin-bottom: 30px;
+    }
+    .stat-card {
+      background: white;
+      border-radius: 12px;
+      padding: 25px;
+      box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+      transition: transform 0.3s ease;
+    }
+    .stat-card:hover {
+      transform: translateY(-5px);
+    }
+    .stat-card h3 {
+      color: #667eea;
+      margin-bottom: 15px;
+      font-size: 1.1em;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+    }
+    .stat-value {
+      font-size: 2em;
+      font-weight: bold;
+      color: #333;
+      margin: 10px 0;
+    }
+    .stat-label {
+      color: #666;
+      font-size: 0.9em;
+    }
+    .console-box {
+      background: #1e1e1e;
+      border-radius: 12px;
+      padding: 20px;
+      color: #d4d4d4;
+      font-family: 'Courier New', monospace;
+      font-size: 0.9em;
+      max-height: 400px;
+      overflow-y: auto;
+      box-shadow: 0 10px 30px rgba(0,0,0,0.3);
+    }
+    .console-box h3 {
+      color: #4ec9b0;
+      margin-bottom: 15px;
+    }
+    .log-entry {
+      padding: 5px 0;
+      border-bottom: 1px solid #333;
+    }
+    .log-time {
+      color: #858585;
+    }
+    .log-error {
+      color: #f48771;
+    }
+    .log-info {
+      color: #4ec9b0;
+    }
+    .log-warn {
+      color: #dcdcaa;
+    }
+    .status-indicator {
+      display: inline-block;
+      width: 12px;
+      height: 12px;
+      border-radius: 50%;
+      background: #4caf50;
+      animation: pulse 2s infinite;
+      margin-right: 8px;
+    }
+    @keyframes pulse {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.5; }
+    }
+    .endpoints {
+      background: white;
+      border-radius: 12px;
+      padding: 25px;
+      margin-top: 20px;
+      box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+    }
+    .endpoints h3 {
+      color: #667eea;
+      margin-bottom: 15px;
+    }
+    .endpoint-item {
+      padding: 10px;
+      margin: 5px 0;
+      background: #f5f5f5;
+      border-radius: 6px;
+      font-family: monospace;
+    }
+    .method {
+      display: inline-block;
+      padding: 3px 8px;
+      border-radius: 4px;
+      font-weight: bold;
+      margin-right: 10px;
+      font-size: 0.85em;
+    }
+    .get { background: #61affe; color: white; }
+    .post { background: #49cc90; color: white; }
+    .patch { background: #fca130; color: white; }
+    .delete { background: #f93e3e; color: white; }
+    .request-count {
+      float: right;
+      background: #667eea;
+      color: white;
+      padding: 3px 10px;
+      border-radius: 12px;
+      font-size: 0.85em;
+      font-weight: bold;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="header">
+      <h1>🔑 Key-Ching Server</h1>
+      <p><span class="status-indicator"></span>Server is running</p>
+    </div>
+
+    <div class="stats-grid">
+      <div class="stat-card">
+        <h3>⏱️ Uptime</h3>
+        <div class="stat-value">${uptimeFormatted.days}d ${uptimeFormatted.hours}h ${uptimeFormatted.minutes}m</div>
+        <div class="stat-label">${Math.floor(uptime)} seconds total</div>
+      </div>
+
+      <div class="stat-card">
+        <h3>💾 Memory Usage</h3>
+        <div class="stat-value">${memoryFormatted.heapUsed}</div>
+        <div class="stat-label">Heap: ${memoryFormatted.heapTotal}</div>
+      </div>
+
+      <div class="stat-card">
+        <h3>🔌 Database</h3>
+        <div class="stat-value">${dbConnections}</div>
+        <div class="stat-label">Active connections</div>
+      </div>
+
+      <div class="stat-card">
+        <h3>🌐 Environment</h3>
+        <div class="stat-value">${process.env.NODE_ENV || 'development'}</div>
+        <div class="stat-label">Port: ${PORT}</div>
+      </div>
+
+      <div class="stat-card">
+        <h3>👥 Visitors</h3>
+        <div class="stat-value">${analytics.visitors.size}</div>
+        <div class="stat-label">Unique IP addresses</div>
+      </div>
+
+      <div class="stat-card">
+        <h3>👤 Users</h3>
+        <div class="stat-value">${analytics.users.size}</div>
+        <div class="stat-label">Registered accounts accessed</div>
+      </div>
+
+      <div class="stat-card">
+        <h3>📊 Total Requests</h3>
+        <div class="stat-value">${analytics.totalRequests.toLocaleString()}</div>
+        <div class="stat-label">Since server start</div>
+      </div>
+
+      <div class="stat-card">
+        <h3>📤 Data Transmitted</h3>
+        <div class="stat-value">${(analytics.dataTx / 1024 / 1024).toFixed(2)} MB</div>
+        <div class="stat-label">Total sent: ${(analytics.dataTx / 1024).toFixed(2)} KB</div>
+      </div>
+
+      <div class="stat-card">
+        <h3>📥 Data Received</h3>
+        <div class="stat-value">${(analytics.dataRx / 1024 / 1024).toFixed(2)} MB</div>
+        <div class="stat-label">Total received: ${(analytics.dataRx / 1024).toFixed(2)} KB</div>
+      </div>
+    </div>
+
+    <div class="console-box">
+      <h3>📋 Server Console</h3>
+      <div id="console-logs">
+        <div class="log-entry">
+          <span class="log-time">[${new Date().toISOString()}]</span>
+          <span class="log-info">INFO:</span> Server started successfully
+        </div>
+        <div class="log-entry">
+          <span class="log-time">[${new Date().toISOString()}]</span>
+          <span class="log-info">INFO:</span> Database connection established
+        </div>
+        <div class="log-entry">
+          <span class="log-time">[${new Date().toISOString()}]</span>
+          <span class="log-info">INFO:</span> CORS configured for multiple origins
+        </div>
+      </div>
+    </div>
+
+    <div class="endpoints">
+      <h3>🛣️ Active API Endpoints</h3>
+      ${Object.entries(analytics.endpointCalls)
+        .sort((a, b) => b[1] - a[1])
+        .map(([endpoint, count]) => {
+          const [method, ...pathParts] = endpoint.split(' ');
+          const path = pathParts.join(' ');
+          const methodClass = method.toLowerCase();
+          return `<div class="endpoint-item">
+            <span class="method ${methodClass}">${method}</span> ${path}
+            <span class="request-count">${count}</span>
+          </div>`;
+        }).join('')}
+    </div>
+
+     <div class="endpoints">
+      <h3>🛣️ Available API Endpoints</h3>
+      <div class="endpoint-item"><span class="method get">GET</span> /health - Health check</div>
+      <div class="endpoint-item"><span class="method post">POST</span> /api/auth/login - User login</div>
+      <div class="endpoint-item"><span class="method post">POST</span> /api/auth/register - User registration</div>
+      <div class="endpoint-item"><span class="method post">POST</span> /api/auth/logout - User logout</div>
+      <div class="endpoint-item"><span class="method get">GET</span> /api/wallet/balance/:username - Get wallet balance</div>
+      <div class="endpoint-item"><span class="method post">POST</span> /api/unlock/:keyId - Unlock a key</div>
+      <div class="endpoint-item"><span class="method get">GET</span> /api/listings/:username - User listings</div>
+      <div class="endpoint-item"><span class="method post">POST</span> /api/create-key - Create new key listing</div>
+      <div class="endpoint-item"><span class="method get">GET</span> /api/notifications/:username - Get notifications</div>
+      <div class="endpoint-item"><span class="method get">GET</span> /api/purchases/:username - Get purchase history</div>
+      <div class="endpoint-item"><span class="method post">POST</span> /api/profile-picture/:username - Upload profile picture</div>
+    </div>
+  </div>
+
+  <script>
+    // Auto-refresh every 30 seconds
+    setTimeout(() => location.reload(), 30000);
+  </script>
+</body>
+</html>
+    `;
+
+    res.send(html);
+  } catch (error) {
+    console.error('Landing page error:', error);
+    res.status(500).send('<h1>Error loading dashboard</h1>');
+  }
+});
+
+// Logs viewer route
+server.get('/logs', (req, res) => {
+  const type = req.query.type || 'all'; // Filter by type: all, info, error, warn
+  const limit = parseInt(req.query.limit) || 100;
+  
+  let filteredLogs = logs.entries;
+  if (type !== 'all') {
+    filteredLogs = logs.entries.filter(log => log.type === type);
+  }
+  
+  const displayLogs = filteredLogs.slice(-limit).reverse();
+  
+  const html = `
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Server Logs - KeyChing</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, monospace;
+      background: #1e1e1e;
+      color: #d4d4d4;
+      padding: 20px;
+    }
+    .container {
+      max-width: 1400px;
+      margin: 0 auto;
+    }
+    .header {
+      background: #252526;
+      padding: 20px;
+      border-radius: 8px;
+      margin-bottom: 20px;
+      border-left: 4px solid #007acc;
+    }
+    .header h1 {
+      color: #4ec9b0;
+      margin-bottom: 10px;
+    }
+    .stats {
+      display: flex;
+      gap: 20px;
+      font-size: 14px;
+    }
+    .stat-item {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .badge {
+      padding: 4px 10px;
+      border-radius: 12px;
+      font-weight: bold;
+      font-size: 12px;
+    }
+    .badge.info { background: #007acc; color: white; }
+    .badge.error { background: #f48771; color: white; }
+    .badge.warn { background: #dcdcaa; color: #1e1e1e; }
+    .badge.all { background: #4ec9b0; color: #1e1e1e; }
+    .controls {
+      background: #252526;
+      padding: 15px 20px;
+      border-radius: 8px;
+      margin-bottom: 20px;
+      display: flex;
+      gap: 15px;
+      align-items: center;
+      flex-wrap: wrap;
+    }
+    .controls label {
+      color: #858585;
+      font-size: 14px;
+    }
+    .controls select,
+    .controls input {
+      background: #3c3c3c;
+      border: 1px solid #555;
+      color: #d4d4d4;
+      padding: 8px 12px;
+      border-radius: 4px;
+      font-size: 14px;
+    }
+    .controls button {
+      background: #007acc;
+      color: white;
+      border: none;
+      padding: 8px 16px;
+      border-radius: 4px;
+      cursor: pointer;
+      font-size: 14px;
+      transition: background 0.3s;
+    }
+    .controls button:hover {
+      background: #005a9e;
+    }
+    .controls button.clear {
+      background: #f48771;
+    }
+    .controls button.clear:hover {
+      background: #d9534f;
+    }
+    .log-container {
+      background: #252526;
+      border-radius: 8px;
+      padding: 15px;
+      max-height: calc(100vh - 300px);
+      overflow-y: auto;
+    }
+    .log-entry {
+      padding: 10px 12px;
+      border-left: 3px solid transparent;
+      margin-bottom: 8px;
+      border-radius: 4px;
+      background: #1e1e1e;
+      font-family: 'Courier New', monospace;
+      font-size: 13px;
+      line-height: 1.6;
+    }
+    .log-entry.info {
+      border-left-color: #4ec9b0;
+    }
+    .log-entry.error {
+      border-left-color: #f48771;
+      background: #2d1f1f;
+    }
+    .log-entry.warn {
+      border-left-color: #dcdcaa;
+      background: #2d2d1f;
+    }
+    .log-time {
+      color: #858585;
+      font-size: 11px;
+      margin-right: 10px;
+    }
+    .log-type {
+      display: inline-block;
+      padding: 2px 8px;
+      border-radius: 3px;
+      font-size: 10px;
+      font-weight: bold;
+      margin-right: 10px;
+      text-transform: uppercase;
+    }
+    .log-type.info { background: #007acc; color: white; }
+    .log-type.error { background: #f48771; color: white; }
+    .log-type.warn { background: #dcdcaa; color: #1e1e1e; }
+    .log-message {
+      color: #d4d4d4;
+      word-wrap: break-word;
+    }
+    .no-logs {
+      text-align: center;
+      padding: 40px;
+      color: #858585;
+    }
+    .auto-refresh {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .auto-refresh input[type="checkbox"] {
+      width: 16px;
+      height: 16px;
+      cursor: pointer;
+    }
+    .scroll-to-bottom {
+      position: fixed;
+      bottom: 30px;
+      right: 30px;
+      background: #007acc;
+      color: white;
+      border: none;
+      padding: 12px 20px;
+      border-radius: 50px;
+      cursor: pointer;
+      font-size: 14px;
+      box-shadow: 0 4px 12px rgba(0, 122, 204, 0.4);
+      transition: all 0.3s;
+    }
+    .scroll-to-bottom:hover {
+      background: #005a9e;
+      transform: translateY(-2px);
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="header">
+      <h1>📋 Server Logs</h1>
+      <div class="stats">
+        <div class="stat-item">
+          <span class="badge all">${logs.entries.length}</span>
+          <span>Total Logs</span>
+        </div>
+        <div class="stat-item">
+          <span class="badge info">${logs.entries.filter(l => l.type === 'info').length}</span>
+          <span>Info</span>
+        </div>
+        <div class="stat-item">
+          <span class="badge warn">${logs.entries.filter(l => l.type === 'warn').length}</span>
+          <span>Warnings</span>
+        </div>
+        <div class="stat-item">
+          <span class="badge error">${logs.entries.filter(l => l.type === 'error').length}</span>
+          <span>Errors</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="controls">
+      <label>Filter:</label>
+      <select id="typeFilter" onchange="filterLogs()">
+        <option value="all" ${type === 'all' ? 'selected' : ''}>All Types</option>
+        <option value="info" ${type === 'info' ? 'selected' : ''}>Info Only</option>
+        <option value="warn" ${type === 'warn' ? 'selected' : ''}>Warnings Only</option>
+        <option value="error" ${type === 'error' ? 'selected' : ''}>Errors Only</option>
+      </select>
+      
+      <label>Limit:</label>
+      <input type="number" id="limitInput" value="${limit}" min="10" max="500" step="10" onchange="filterLogs()">
+      
+      <div class="auto-refresh">
+        <input type="checkbox" id="autoRefresh" onchange="toggleAutoRefresh()">
+        <label for="autoRefresh">Auto-refresh (5s)</label>
+      </div>
+      
+      <button onclick="location.reload()">🔄 Refresh</button>
+      <button class="clear" onclick="clearLogs()">🗑️ Clear Logs</button>
+      <button onclick="exportLogs()">📥 Export</button>
+    </div>
+
+    <div class="log-container" id="logContainer">
+      ${displayLogs.length === 0 ? '<div class="no-logs">No logs to display</div>' : displayLogs.map(log => `
+        <div class="log-entry ${log.type}">
+          <span class="log-time">${new Date(log.timestamp).toLocaleString()}</span>
+          <span class="log-type ${log.type}">${log.type}</span>
+          <span class="log-message">${escapeHtml(log.message)}</span>
+        </div>
+      `).join('')}
+    </div>
+
+    <button class="scroll-to-bottom" onclick="scrollToBottom()">↓ Scroll to Bottom</button>
+  </div>
+
+  <script>
+    let autoRefreshInterval = null;
+
+    function filterLogs() {
+      const type = document.getElementById('typeFilter').value;
+      const limit = document.getElementById('limitInput').value;
+      window.location.href = \`/logs?type=\${type}&limit=\${limit}\`;
+    }
+
+    function toggleAutoRefresh() {
+      const checkbox = document.getElementById('autoRefresh');
+      if (checkbox.checked) {
+        autoRefreshInterval = setInterval(() => location.reload(), 5000);
+      } else {
+        if (autoRefreshInterval) {
+          clearInterval(autoRefreshInterval);
+          autoRefreshInterval = null;
+        }
+      }
+    }
+
+    function scrollToBottom() {
+      const container = document.getElementById('logContainer');
+      container.scrollTop = container.scrollHeight;
+    }
+
+    function clearLogs() {
+      if (confirm('Are you sure you want to clear all logs?')) {
+        fetch('/api/logs/clear', { method: 'POST' })
+          .then(() => location.reload())
+          .catch(err => alert('Error clearing logs: ' + err));
+      }
+    }
+
+    function exportLogs() {
+      fetch('/api/logs/export')
+        .then(res => res.json())
+        .then(data => {
+          const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+          const url = URL.createObjectURL(blob);
+          const a = document.createElement('a');
+          a.href = url;
+          a.download = \`server-logs-\${new Date().toISOString()}.json\`;
+          a.click();
+          URL.revokeObjectURL(url);
+        })
+        .catch(err => alert('Error exporting logs: ' + err));
+    }
+
+    // Auto-scroll to bottom on load
+    window.addEventListener('load', () => {
+      scrollToBottom();
+    });
+  </script>
+</body>
+</html>
+  `;
+  
+  function escapeHtml(text) {
+    const map = {
+      '&': '&amp;',
+      '<': '&lt;',
+      '>': '&gt;',
+      '"': '&quot;',
+      "'": '&#039;'
+    };
+    return text.replace(/[&<>"']/g, m => map[m]);
+  }
+  
+  res.send(html);
+});
+
+// API endpoint to clear logs
+server.post('/api/logs/clear', (req, res) => {
+  logs.entries = [];
+  res.json({ success: true, message: 'Logs cleared' });
+});
+
+// API endpoint to export logs
+server.get('/api/logs/export', (req, res) => {
+  res.json({
+    exportDate: new Date().toISOString(),
+    totalLogs: logs.entries.length,
+    logs: logs.entries
+  });
+});
+
+// API endpoint to get logs as JSON
+server.get('/api/logs', (req, res) => {
+  const type = req.query.type || 'all';
+  const limit = parseInt(req.query.limit) || 100;
+  
+  let filteredLogs = logs.entries;
+  if (type !== 'all') {
+    filteredLogs = logs.entries.filter(log => log.type === type);
+  }
+  
+  res.json({
+    total: filteredLogs.length,
+    logs: filteredLogs.slice(-limit).reverse()
+  });
 });
 
 // Health check endpoint
 server.get('/health', (req, res) => {
-  res.json({
-    status: 'OK',
-    timestamp: new Date().toISOString(),
-    uptime: process.uptime(),
-    environment: process.env.NODE_ENV || 'development'
-  });
+  const uptimeSeconds = process.uptime();
+  const uptimeFormatted = {
+    days: Math.floor(uptimeSeconds / 86400),
+    hours: Math.floor((uptimeSeconds % 86400) / 3600),
+    minutes: Math.floor((uptimeSeconds % 3600) / 60),
+    seconds: Math.floor(uptimeSeconds % 60)
+  };
+
+  const memoryUsage = process.memoryUsage();
+  const memoryFormatted = {
+    rss: `${Math.round(memoryUsage.rss / 1024 / 1024)} MB`,
+    heapTotal: `${Math.round(memoryUsage.heapTotal / 1024 / 1024)} MB`,
+    heapUsed: `${Math.round(memoryUsage.heapUsed / 1024 / 1024)} MB`
+  };
+
+  const html = `
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Health Check - Key-Ching Server</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 20px;
+    }
+    .container {
+      background: white;
+      border-radius: 16px;
+      padding: 40px;
+      max-width: 600px;
+      width: 100%;
+      box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+    }
+    .status-badge {
+      display: inline-flex;
+      align-items: center;
+      background: #10b981;
+      color: white;
+      padding: 12px 24px;
+      border-radius: 50px;
+      font-weight: bold;
+      font-size: 1.2em;
+      margin-bottom: 30px;
+    }
+    .status-indicator {
+      width: 12px;
+      height: 12px;
+      background: white;
+      border-radius: 50%;
+      margin-right: 10px;
+      animation: pulse 2s infinite;
+    }
+    @keyframes pulse {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.5; }
+    }
+    h1 {
+      color: #333;
+      margin-bottom: 30px;
+      font-size: 2em;
+    }
+    .info-grid {
+      display: grid;
+      gap: 20px;
+    }
+    .info-item {
+      background: #f8fafc;
+      padding: 20px;
+      border-radius: 12px;
+      border-left: 4px solid #667eea;
+    }
+    .info-label {
+      color: #64748b;
+      font-size: 0.85em;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      margin-bottom: 8px;
+    }
+    .info-value {
+      color: #1e293b;
+      font-size: 1.3em;
+      font-weight: 600;
+    }
+    .timestamp {
+      text-align: center;
+      color: #64748b;
+      font-size: 0.9em;
+      margin-top: 30px;
+      padding-top: 20px;
+      border-top: 1px solid #e2e8f0;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="status-badge">
+      <span class="status-indicator"></span>
+      System Healthy
+    </div>
+    
+    <h1>🔑 Key-Ching Server</h1>
+    
+    <div class="info-grid">
+      <div class="info-item">
+        <div class="info-label">Environment</div>
+        <div class="info-value">${process.env.NODE_ENV || 'development'}</div>
+      </div>
+      
+      <div class="info-item">
+        <div class="info-label">Server Uptime</div>
+        <div class="info-value">${uptimeFormatted.days}d ${uptimeFormatted.hours}h ${uptimeFormatted.minutes}m ${uptimeFormatted.seconds}s</div>
+      </div>
+      
+      <div class="info-item">
+        <div class="info-label">Memory Usage</div>
+        <div class="info-value">${memoryFormatted.heapUsed} / ${memoryFormatted.heapTotal}</div>
+      </div>
+      
+      <div class="info-item">
+        <div class="info-label">Database</div>
+        <div class="info-value">Configured (${dbConfig.database})</div>
+      </div>
+      
+      <div class="info-item">
+        <div class="info-label">Port</div>
+        <div class="info-value">${PORT}</div>
+      </div>
+    </div>
+    
+    <div class="timestamp">
+      Last checked: ${new Date().toISOString()}
+    </div>
+  </div>
+  
+  <script>
+    (function() {
+      const RELOAD_INTERVAL = 30000;
+
+      function scheduleReload() {
+        return setTimeout(() => {
+          if (document.visibilityState === 'visible') {
+            location.reload();
+          }
+        }, RELOAD_INTERVAL);
+      }
+
+      let reloadTimeoutId = scheduleReload();
+
+      document.addEventListener('visibilitychange', () => {
+        if (document.visibilityState === 'visible') {
+          clearTimeout(reloadTimeoutId);
+          reloadTimeoutId = scheduleReload();
+        } else {
+          clearTimeout(reloadTimeoutId);
+        }
+      });
+    })();
+  </script>
+</body>
+</html>
+  `;
+
+  res.send(html);
 });
+
+
+// ============================================
+// DATABASE MANAGEMENT ENDPOINTS
+// ============================================
+
+// Serve database manager HTML page
+server.get('/db-manager', (req, res) => {
+  res.sendFile(__dirname + '/public/db-manager.html');
+});
+
+// Get database statistics
+server.get('/api/db-stats', async (req, res) => {
+  try {
+    // Get database size
+    const [sizeResult] = await pool.execute(`
+      SELECT 
+        ROUND(SUM(data_length + index_length) / 1024 / 1024, 2) AS size_mb
+      FROM information_schema.TABLES 
+      WHERE table_schema = ?
+    `, [dbConfig.database]);
+
+    // Get total tables
+    const [tablesResult] = await pool.execute(`
+      SELECT COUNT(*) as count 
+      FROM information_schema.TABLES 
+      WHERE table_schema = ?
+    `, [dbConfig.database]);
+
+    // Get active connections
+    const [connectionsResult] = await pool.execute(`
+      SELECT COUNT(*) as count 
+      FROM information_schema.PROCESSLIST 
+      WHERE DB = ?
+    `, [dbConfig.database]);
+
+    // Get total records across all tables
+    const [allTables] = await pool.execute(`
+      SELECT table_name 
+      FROM information_schema.TABLES 
+      WHERE table_schema = ?
+    `, [dbConfig.database]);
+
+    let totalRecords = 0;
+    for (const table of allTables) {
+      const [countResult] = await pool.execute(`SELECT COUNT(*) as count FROM ${table.table_name}`);
+      totalRecords += countResult[0].count;
+    }
+
+    // Get table details
+    const [tableDetails] = await pool.execute(`
+      SELECT 
+        table_name,
+        table_rows,
+        ROUND((data_length + index_length) / 1024 / 1024, 2) AS size_mb,
+        engine,
+        table_collation
+      FROM information_schema.TABLES 
+      WHERE table_schema = ?
+      ORDER BY table_name
+    `, [dbConfig.database]);
+
+    res.json({
+      databaseSize: sizeResult[0].size_mb,
+      totalTables: tablesResult[0].count,
+      activeConnections: connectionsResult[0].count,
+      totalRecords: totalRecords,
+      tables: tableDetails,
+      databaseName: dbConfig.database,
+      host: dbConfig.host,
+      port: dbConfig.port
+    });
+  } catch (error) {
+    console.error('Database stats error:', error);
+    res.status(500).json({ error: 'Failed to retrieve database statistics', message: error.message });
+  }
+});
+
+// Get list of tables with details
+server.get('/api/db-tables', async (req, res) => {
+  try {
+    const [tables] = await pool.execute(`
+      SELECT 
+        table_name as name,
+        table_rows as rows,
+        ROUND((data_length + index_length) / 1024 / 1024, 2) AS size,
+        engine,
+        create_time,
+        update_time
+      FROM information_schema.TABLES 
+      WHERE table_schema = ?
+      ORDER BY table_name
+    `, [dbConfig.database]);
+
+    const formattedTables = tables.map(table => ({
+      name: table.name,
+      rows: table.rows,
+      size: `${table.size} MB`,
+      engine: table.engine,
+      created: table.create_time,
+      updated: table.update_time
+    }));
+
+    res.json({ tables: formattedTables });
+  } catch (error) {
+    console.error('Get tables error:', error);
+    res.status(500).json({ error: 'Failed to retrieve tables', message: error.message });
+  }
+});
+
+// Get records from a specific table with pagination and search
+server.get('/api/db-records/:tableName', async (req, res) => {
+  try {
+    const { tableName } = req.params;
+    const limit = parseInt(req.query.limit) || 50;
+    const offset = parseInt(req.query.offset) || 0;
+    const search = req.query.search || '';
+
+    // Validate table name exists
+    const [tableCheck] = await pool.execute(`
+      SELECT table_name 
+      FROM information_schema.TABLES 
+      WHERE table_schema = ? AND table_name = ?
+    `, [dbConfig.database, tableName]);
+
+    if (tableCheck.length === 0) {
+      return res.status(404).json({ error: 'Table not found' });
+    }
+
+    // Get total count
+    let countQuery = `SELECT COUNT(*) as total FROM ${tableName}`;
+    let dataQuery = `SELECT * FROM ${tableName}`;
+    const params = [];
+
+    // Add search filter if provided
+    if (search) {
+      // Get column names
+      const [columns] = await pool.execute(`
+        SELECT COLUMN_NAME 
+        FROM information_schema.COLUMNS 
+        WHERE table_schema = ? AND table_name = ?
+      `, [dbConfig.database, tableName]);
+
+      const searchConditions = columns.map(col => `${col.COLUMN_NAME} LIKE ?`).join(' OR ');
+      const searchParams = columns.map(() => `%${search}%`);
+
+      countQuery += ` WHERE ${searchConditions}`;
+      dataQuery += ` WHERE ${searchConditions}`;
+      params.push(...searchParams);
+    }
+
+    // Get total count
+    const [countResult] = await pool.execute(countQuery, params);
+    const total = countResult[0].total;
+
+    // Get records with pagination
+    dataQuery += ` LIMIT ? OFFSET ?`;
+    const [records] = await pool.execute(dataQuery, [...params, limit, offset]);
+
+    res.json({
+      records,
+      total,
+      limit,
+      offset
+    });
+  } catch (error) {
+    console.error('Get records error:', error);
+    res.status(500).json({ error: 'Failed to retrieve records', message: error.message });
+  }
+});
+
+// Execute raw SQL query (SELECT only for safety)
+server.post('/api/db-query', async (req, res) => {
+  try {
+    const { query } = req.body;
+
+    if (!query) {
+      return res.status(400).json({ error: 'Query is required' });
+    }
+
+    // Only allow SELECT queries for safety
+    const trimmedQuery = query.trim().toUpperCase();
+    if (!trimmedQuery.startsWith('SELECT') && !trimmedQuery.startsWith('SHOW') && !trimmedQuery.startsWith('DESCRIBE')) {
+      return res.status(403).json({ error: 'Only SELECT, SHOW, and DESCRIBE queries are allowed' });
+    }
+
+    const [results] = await pool.execute(query);
+
+    res.json({
+      success: true,
+      results,
+      rowCount: results.length
+    });
+  } catch (error) {
+    console.error('Query execution error:', error);
+    res.status(500).json({ error: 'Query execution failed', message: error.message });
+  }
+});
+
+
+
+// ----------------------------------------------------
+                // Authentication Routes
+// ----------------------------------------------------
 
 // Custom authentication route
 server.post(PROXY + '/api/auth/login', async (req, res) => {
@@ -288,6 +1422,8 @@ server.post(PROXY + '/api/auth/login', async (req, res) => {
   }
 });
 
+
+
 // Custom fetch account details route
 server.post(PROXY + '/api/user', async (req, res) => {
   console.log("Fetching user details...");
@@ -308,31 +1444,13 @@ server.post(PROXY + '/api/user', async (req, res) => {
     );
 
     const user = users[0];
-    let earnings = [];
-    let unlocks = [];
-
-    // if (user.accountType == 'seller') {
-    //   const [earnings_db] = await pool.execute(
-    //     'SELECT * FROM earnings WHERE username = ?',
-    //     [username]
-    //   );
-    //   earnings = earnings_db;
-    // } else {
-    // const [unlocks_db] = await pool.execute(
-    //   'SELECT * FROM unlocks WHERE email = ?',
-    //   [email]
-    // );
-    // unlocks = unlocks_db;
 
     const [action_db] = await pool.execute(
       'SELECT * FROM actions WHERE email = ?',
       [email]
     );
+
     actions = action_db;
-    // }
-
-
-    // const unlock = unlocks[0];
 
     if (!user) {
       return res.status(401).json({
@@ -361,28 +1479,18 @@ server.post(PROXY + '/api/user', async (req, res) => {
       // Update last login with proper MySQL datetime format
       // const currentDateTime = new Date().toISOString().slice(0, 19).replace('T', ' ');
 
-      // await pool.execute(
-      //   'UPDATE userData SET loginStatus = true, lastLogin = ? WHERE email = ?',
-      //   [currentDateTime, email]
-      // );
-
       // Generate a proper JWT-like token (in production, use actual JWT)
-      // const token = Buffer.from(`${user.id}_${Date.now()}_${Math.random()}`).toString('base64');
+      const token = Buffer.from(`${user.id}_${Date.now()}_${Math.random()}`).toString('base64');
 
-      // if (user.accountType === 'seller') {
-      //   res.json({
-      //     success: true,
-      //     user: userData,
-      //     earnings: earnings,
-      //     // token: token,
-      //     message: 'Login successful'
-      //   });
-      // } else {
+
       res.json({
         success: true,
         user: userData,
         unlocks: actions,
-        // token: token,
+        dayPassExpiry: user.dayPassExpiry,
+        dayPassMode: user.dayPassMode,
+        planExpiry: user.planExpiry,
+        token: token,
         message: 'Login successful'
       });
       // }
@@ -401,6 +1509,8 @@ server.post(PROXY + '/api/user', async (req, res) => {
     });
   }
 });
+
+
 
 // Custom registration route
 server.post(PROXY + '/api/auth/register', async (req, res) => {
@@ -618,42 +1728,228 @@ server.post(PROXY + '/api/auth/logout', async (req, res) => {
 });
 
 // Custom wallet balance route
-server.post(PROXY + '/api/wallet/balance/:username', async (req, res) => {
+server.post(PROXY + '/api/wallet/balance/:username', authenticateToken, async (req, res) => {
   try {
-    // const username = req.query.username || 'user_123'; // Default for demo
-    const username = req.params.username;
-    // const password = req.body.password || '';
-    const email = req.body.email;
+    // Get authenticated user from JWT token (set by authenticateToken middleware)
+    const authenticatedUsername = req.user.username;
+    const requestedUsername = req.params.username;
 
-    if (!username) {
-      return res.status(400).json({ error: 'Username is required' });
+    // Security: Ensure users can only access their own wallet balance
+    if (authenticatedUsername !== requestedUsername) {
+      return res.status(403).json({ 
+        success: false, 
+        message: 'Access denied. You can only view your own wallet balance.' 
+      });
     }
 
-    // const [wallets] = await pool.execute(
-    //   'SELECT * FROM wallet WHERE username = ?',
-    //   [username]
-    // );
+    console.log("Fetching wallet balance for authenticated user:", authenticatedUsername);
 
+    // Query using the authenticated user's info from the JWT token
     const [users] = await pool.execute(
-      'SELECT credits FROM userData WHERE username = ? and email = ?',
-      [username, email]
+      'SELECT credits, username, email FROM userData WHERE username = ?',
+      [authenticatedUsername]
     );
-
-
 
     const user = users[0];
 
     if (user) {
       res.json({
+        success: true,
         balance: user.credits,
         credits: user.credits,
+        username: user.username
       });
     } else {
-      res.json({ balance: 750, credits: 750 }); // Default demo values
+      // User not found - this shouldn't happen if JWT is valid
+      res.status(404).json({ 
+        success: false, 
+        message: 'User account not found' 
+      });
     }
   } catch (error) {
     console.error('Wallet balance error:', error);
-    res.status(500).json({ error: 'Database error - wallet balance retrieval failed' });
+    res.status(500).json({ 
+      success: false, 
+      message: 'Database error - wallet balance retrieval failed' 
+    });
+  }
+});
+
+
+
+const handlePurchasePass = async () => {
+  const cost = modeCredits[selectedMode];
+
+  if (balance < cost) {
+    error(`Insufficient credits. You need ${cost} credits but only have ${balance}.`);
+    setShowModeModal(false);
+    return;
+  }
+
+  try {
+    // Placeholder API call - will be connected to backend later
+    const response = await api.post('/api/purchase-mode-pass', {
+      username: userData.username,
+      mode: selectedMode,
+      cost: cost,
+      timestamp: new Date().toISOString()
+    });
+
+    if (response.data.success) {
+      setBalance(balance - cost);
+      setServiceMode(selectedMode);
+      setShowModeModal(false);
+      success(`🎉 ${selectedMode.charAt(0).toUpperCase() + selectedMode.slice(1)} pass activated! ${cost} credits deducted.`);
+    }
+  } catch (err) {
+    console.error('Mode pass purchase error:', err);
+    error('Failed to purchase mode pass. Please try again.');
+  }
+};
+
+
+// Custom route for purchasing mode pass 24 hours
+server.post(PROXY + '/api/purchase-mode-pass', authenticateToken, async (req, res) => {
+
+  try {
+    const { username, mode, cost, timestamp } = req.body;
+    console.log("Purchase mode pass request:", req.body);
+
+
+    // Basic validation
+    if (!username) {
+      return res.status(400).json({ success: false, message: 'username and action (with cost) are required' });
+    }
+
+    // const cost = Number(cost);
+    if (Number.isNaN(cost) || cost <= 0) {
+      return res.status(400).json({ success: false, message: 'Invalid action cost' });
+    }
+
+    const [users] = await pool.execute(
+      'SELECT * FROM userData WHERE username = ?',
+      [username]
+    );
+
+    const user = users[0];
+
+    if (!user) {
+      return res.status(404).json({ success: false, message: 'User not found' });
+    }
+
+    console.log(`User ${username} is attempting to spend ${cost} credits.`);
+
+    if (user.credits < cost) {
+      return res.status(400).json({ success: false, message: 'Insufficient credits' });
+    }
+
+    // Deduct buyer credits
+    await pool.execute(
+      'UPDATE userData SET credits = credits - ? WHERE email = ?',
+      [cost, user.email]
+    );
+
+    // set the value of the day pass expiry for the buyer to now + 24 hours
+    await pool.execute(
+      'UPDATE userData SET dayPassExpiry = DATE_ADD(NOW(), INTERVAL 1 DAY) WHERE email = ?',
+      [user.email]
+    );
+
+    // set the value of the day pass expiry for the buyer to now + 24 hours
+    await pool.execute(
+      'UPDATE userData SET dayPassMode = ? WHERE email = ?',
+      [mode, user.email]
+    );
+
+    // Get updated credits
+    const [updatedRows] = await pool.execute(
+      'SELECT credits FROM userData WHERE email = ?',
+      [user.email]
+    );
+
+    // CREATE TABLE
+    // `dayPasses` (
+    //   `id` bigint NOT NULL AUTO_INCREMENT,
+    //   `user_id` bigint NOT NULL,
+    //   `pass_id` varchar(50) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL,
+    //   `pass_type` varchar(100) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL,
+    //   `status` varchar(50) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL,
+    //   `begins_at` timestamp NULL DEFAULT NULL,
+    //   `expires_at` timestamp NULL DEFAULT NULL,
+    //   `created_at` timestamp NULL DEFAULT CURRENT_TIMESTAMP,
+    //   `updated_at` timestamp NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    //   `email` varchar(64) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+    //   `username` varchar(30) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+    //   PRIMARY KEY (`id`),
+    //   KEY `idx_user_id` (`user_id`),
+    //   KEY `idx_status` (`status`),
+    //   KEY `idx_user_status` (`user_id`, `status`)
+    // ) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4 COLLATE = utf8mb4_unicode_ci
+
+    // Insert day pass record into database
+    const passId = uuidv4();
+    const beginsAt = new Date();
+    const expiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000);
+
+    await pool.execute(
+      'INSERT INTO dayPasses (user_id, pass_id, pass_type, status, begins_at, expires_at, email, username) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
+      [
+        user.id,
+        passId,
+        mode,
+        'active',
+        beginsAt.toISOString().slice(0, 19).replace('T', ' '),
+        expiresAt.toISOString().slice(0, 19).replace('T', ' '),
+        user.email,
+        user.username
+      ]
+    );
+
+
+    const updatedCredits = updatedRows[0] ? updatedRows[0].credits : (user.credits - cost);
+
+    // Create credit spend record
+    const transactionId = uuidv4();
+
+    await pool.execute(
+      'INSERT INTO actions (id, transactionId, username, email, date, time, credits, action_type, action_cost, action_description) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
+      [
+        uuidv4(),
+        transactionId,
+        user.username, // Demo user
+        user.email,
+        Date.now(),
+        new Date().toLocaleTimeString(),
+        updatedCredits,
+        "purchase_mode_pass",
+        cost,
+        "Purchased " + mode + " mode pass"
+      ]
+    );
+
+    await CreateNotification(
+      'credits_spent',
+      `Credits Spent: Purchased ${mode} mode pass`,
+      `You have spent ${cost} credits to purchase a ${mode} mode pass (24 hours).`,
+      "purchase_mode_pass",
+      username || 'anonymous'
+    );
+
+    res.json({
+      success: true,
+      transactionId: transactionId,
+      credits: updatedCredits,
+      dayPassMode: mode,
+      dayPassExpiry: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(),
+      message: 'Credits spent successfully'
+    });
+
+    console.log(`User ${username} successfully spent ${cost} credits to purchase a ${mode} mode pass (24 hours).`);
+
+
+  } catch (error) {
+    console.error('Purchase mode pass error:', error);
+    res.status(500).json({ success: false, message: 'Database error - mode pass purchase failed' });
   }
 });
 
@@ -662,7 +1958,7 @@ server.post(PROXY + '/api/wallet/balance/:username', async (req, res) => {
 
 // Custom unlock key route
 // spend credits route
-server.post(PROXY + '/api/spend-credits/:username', async (req, res) => {
+server.post(PROXY + '/api/spend-credits/:username', authenticateToken, async (req, res) => {
   try {
 
     const { action } = req.body;
@@ -713,7 +2009,7 @@ server.post(PROXY + '/api/spend-credits/:username', async (req, res) => {
     const transactionId = uuidv4();
 
     await pool.execute(
-      'INSERT INTO actions (id, transactionId, username, email, date, time, credits, action_type, action_cost, action_description) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
+      'INSERT INTO actions (id, transactionId, username, email, date, time, credits, action_type, action_cost, action_description, action_details) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
       [
         uuidv4(),
         transactionId,
@@ -724,7 +2020,8 @@ server.post(PROXY + '/api/spend-credits/:username', async (req, res) => {
         updatedCredits,
         action.type || null,
         cost,
-        action.description || ''
+        action.description || '',
+        action.details || ''
       ]
     );
 
@@ -753,7 +2050,7 @@ server.post(PROXY + '/api/spend-credits/:username', async (req, res) => {
 
 
 // Custom route for user notifications
-server.get(PROXY + '/api/notifications/:username', async (req, res) => {
+server.get(PROXY + '/api/notifications/:username', authenticateToken, async (req, res) => {
   try {
     const username = req.params.username;
 
@@ -769,6 +2066,43 @@ server.get(PROXY + '/api/notifications/:username', async (req, res) => {
   }
 
 });
+
+
+// Custom route for deleting user notifications
+server.delete(PROXY + '/api/notifications/:username/delete/:id', async (req, res) => {
+  try {
+    const notificationId = req.params.id;
+    const username = req.params.id;
+
+    await pool.execute(
+      'DELETE FROM notifications WHERE id = ? AND username = ?',
+      [notificationId, username]
+    );
+
+    res.json({ success: true, message: 'Notification deleted successfully' });
+  } catch (error) {
+    console.error('Delete notification error:', error);
+    res.status(500).json({ error: 'Database error - notification deletion failed' });
+  }
+});
+
+// Custom route for deleting user notifications
+server.delete(PROXY + '/api/notifications/delete/:id', async (req, res) => {
+  try {
+    const notificationId = req.params.id;
+
+    await pool.execute(
+      'DELETE FROM notifications WHERE id = ?',
+      [notificationId]
+    );
+
+    res.json({ success: true, message: 'Notification deleted successfully' });
+  } catch (error) {
+    console.error('Delete notification error:', error);
+    res.status(500).json({ error: 'Database error - notification deletion failed' });
+  }
+});
+
 
 // CREATE TABLE
 //   `notifications` (
@@ -938,7 +2272,7 @@ server.get(PROXY + '/api/purchases/:username', async (req, res) => {
 });
 
 // Custom route for user redemptions
-server.get(PROXY + '/api/redemptions/:username', async (req, res) => {
+server.get(PROXY + '/api/redemptions/:username', authenticateToken, async (req, res) => {
   try {
     const username = req.params.username;
 
@@ -1064,7 +2398,71 @@ async function checkTransaction(crypto, txHash, walletAddress, amount) {
   }
 }
 
-server.post(PROXY + '/api/purchases/:username', async (req, res) => {
+// Get actions for a specific user
+server.get(PROXY + '/api/actions/:username', authenticateToken, async (req, res) => {
+  try {
+    const { username } = req.params;
+
+    const [actions] = await pool.execute(
+      'SELECT * FROM actions WHERE username = ? ORDER BY date DESC',
+      [username]
+    );
+
+    res.json(actions);
+  } catch (error) {
+    console.error('Get actions error:', error);
+    res.status(500).json({ error: 'Database error - actions retrieval failed' });
+  }
+});
+
+// Get all actions (admin/debug use)
+server.get(PROXY + '/api/actions', authenticateToken, async (req, res) => {
+  try {
+    const [actions] = await pool.execute(
+      'SELECT * FROM actions ORDER BY date DESC'
+    );
+
+    res.json(actions);
+  } catch (error) {
+    console.error('Get all actions error:', error);
+    res.status(500).json({ error: 'Database error - actions retrieval failed' });
+  }
+});
+
+// Get credit purchases for a specific user
+server.get(PROXY + '/api/buyCredits/:username', authenticateToken, async (req, res) => {
+  try {
+    const { username } = req.params;
+
+    const [purchases] = await pool.execute(
+      'SELECT * FROM buyCredits WHERE username = ? ORDER BY date DESC',
+      [username]
+    );
+
+    res.json(purchases);
+  } catch (error) {
+    console.error('Get buyCredits error:', error);
+    res.status(500).json({ error: 'Database error - credit purchases retrieval failed' });
+  }
+});
+
+// Get all credit purchases (admin/debug use)
+server.get(PROXY + '/api/buyCredits', authenticateToken, async (req, res) => {
+  try {
+    const [purchases] = await pool.execute(
+      'SELECT * FROM buyCredits ORDER BY date DESC'
+    );
+
+    res.json(purchases);
+  } catch (error) {
+    console.error('Get all buyCredits error:', error);
+    res.status(500).json({ error: 'Database error - credit purchases retrieval failed' });
+  }
+});
+
+
+
+server.post(PROXY + '/api/purchases/:username', authenticateToken, async (req, res) => {
   try {
     const {
       username,
@@ -1556,7 +2954,7 @@ const MIME_TO_EXT = {
 
 
 // Endpoint to handle transaction screenshot upload
-server.post(PROXY + '/api/upload/transaction-screenshot/:username/:txHash', async (req, res) => {
+server.post(PROXY + '/api/upload/transaction-screenshot/:username/:txHash', authenticateToken, async (req, res) => {
   console.log("Transaction screenshot upload request received");
 
   const { username, txHash } = req.params;
@@ -1758,7 +3156,7 @@ server.post(PROXY + '/api/upload/transaction-screenshot/:username/:txHash', asyn
  * Accepts a multipart/form-data upload for a user's profile picture.
  * Stores the image in Google Cloud Storage and updates the user's profilePicture field.
  */
-server.post(PROXY + '/api/profile-picture/:username', async (req, res) => {
+server.post(PROXY + '/api/profile-picture/:username', authenticateToken, async (req, res) => {
   const { username } = req.params;
   let busboy;
   try {
@@ -1905,76 +3303,6 @@ server.post(PROXY + '/api/profile-picture/:username', async (req, res) => {
   req.pipe(busboy);
 });
 
-// // Custom route for user redemptions
-// server.post(PROXY+'/api/redemptions/:username', async (req, res) => {
-//   try {
-//     const username = req.params.username;
-//     [walletAddress, currency, credits] = req.body;
-
-//     const [users] = await pool.execute(
-//       'SELECT * FROM userData WHERE username = ?',
-//       [username]
-//     );
-
-//     const user = users[0];
-
-//     // const [wallets] = await pool.execute(
-//     //   'SELECT * FROM wallet WHERE username = ?',
-//     //   [username]
-//     // );
-
-
-//     // const wallet = wallets[0];
-
-//     // Update availability
-//     await pool.execute(
-//       'UPDATE wallet SET available = available - ? WHERE username = ?',
-//       [credits, username]
-//     );
-
-//     const [usersCredits] = await pool.execute(
-//       'SELECT credits FROM userData WHERE username = ?',
-//       [username]
-//     );
-
-//     const userCredits = usersCredits[0];
-
-//     const [redemptions] = await pool.execute(
-//       'SELECT * FROM redeemCredits WHERE username = ? ORDER BY date DESC',
-//       [username]
-//     );
-
-//     const [redemption] = await pool.execute(
-//       'INSERT INTO redemption (transactionId, username, email, date, time, credits, currency, walletAddress, status) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
-//       [
-//         transactionId,
-//         user.username, // Demo user
-//         user.email,
-//         Date.now(),
-//         new Date().toLocaleTimeString(),
-//         credits,
-//         currency,
-//         walletAddress,
-//         'Pending'
-//       ]
-//     );
-
-//     await CreateNotification(
-//       'redemption_status',
-//       'Credits Redemption Requested',
-//       `User ${username} has requested a redemption of ${credits} credits.`,
-//       'redemption',
-//       username || 'anonymous'
-//     );
-
-//     res.json(redemption);
-//   } catch (error) {
-//     console.error('Redemptions error:', error);
-//     res.status(500).json({ error: 'Database error' });
-//   }
-// });
-
-
 
 // Basic RESTful routes for all tables
 server.get(PROXY + '/api/:table', async (req, res) => {
@@ -2064,6 +3392,7 @@ const walletAddressMap = {
 const cron = require('node-cron');
 const { time } = require('console');
 const { Server } = require('http');
+const { json } = require('stream/consumers');
 
 cron.schedule('*/30 * * * *', async () => {
 
@@ -2162,7 +3491,7 @@ async function FetchRecentTransactionsCron() {
 // ========================================
 
 // Save or update device fingerprint
-server.post(PROXY + '/api/fingerprint/save', async (req, res) => {
+server.post(PROXY + '/api/fingerprint/save', authenticateToken, async (req, res) => {
   try {
     const {
       userId,
@@ -2188,9 +3517,21 @@ server.post(PROXY + '/api/fingerprint/save', async (req, res) => {
       });
     }
 
-    // Call stored procedure to save or update fingerprint
-    const [result] = await pool.execute(
-      'CALL save_device_fingerprint(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
+    // Insert or update fingerprint using INSERT ... ON DUPLICATE KEY UPDATE
+    await pool.execute(
+      `INSERT INTO device_fingerprints 
+        (user_id, fingerprint_hash, short_hash, device_type, browser, os, 
+         screen_resolution, timezone, language, ip_address, full_fingerprint, 
+         compact_fingerprint, user_agent, first_seen, last_seen, login_count)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, 1)
+       ON DUPLICATE KEY UPDATE
+         last_seen = CURRENT_TIMESTAMP,
+         login_count = login_count + 1,
+         ip_address = VALUES(ip_address),
+         full_fingerprint = VALUES(full_fingerprint),
+         compact_fingerprint = VALUES(compact_fingerprint),
+         user_agent = VALUES(user_agent),
+         updated_at = CURRENT_TIMESTAMP`,
       [
         userId,
         fingerprintHash,
@@ -2208,8 +3549,12 @@ server.post(PROXY + '/api/fingerprint/save', async (req, res) => {
       ]
     );
 
-    // The stored procedure returns the saved/updated record
-    const savedFingerprint = result[0][0];
+    // Fetch the saved/updated record
+    const [savedRows] = await pool.execute(
+      'SELECT * FROM device_fingerprints WHERE user_id = ? AND fingerprint_hash = ?',
+      [userId, fingerprintHash]
+    );
+    const savedFingerprint = savedRows[0];
 
     console.log(`✅ Fingerprint saved for user ${userId}: ${shortHash || fingerprintHash.substring(0, 16)}`);
 
@@ -2266,7 +3611,7 @@ server.post(PROXY + '/api/fingerprint/save', async (req, res) => {
 });
 
 // Get all fingerprints for a user
-server.get(PROXY + '/api/fingerprint/user/:userId', async (req, res) => {
+server.get(PROXY + '/api/fingerprint/user/:userId', authenticateToken, async (req, res) => {
   try {
     const { userId } = req.params;
 
@@ -2317,7 +3662,7 @@ server.get(PROXY + '/api/fingerprint/user/:userId', async (req, res) => {
 });
 
 // Get full fingerprint details by hash
-server.get(PROXY + '/api/fingerprint/details/:hash', async (req, res) => {
+server.get(PROXY + '/api/fingerprint/details/:hash', authenticateToken, async (req, res) => {
   try {
     const { hash } = req.params;
 
@@ -2347,7 +3692,7 @@ server.get(PROXY + '/api/fingerprint/details/:hash', async (req, res) => {
 });
 
 // Increment unscramble count when content is unscrambled
-server.post(PROXY + '/api/fingerprint/unscramble/:hash', async (req, res) => {
+server.post(PROXY + '/api/fingerprint/unscramble/:hash', authenticateToken, async (req, res) => {
   try {
     const { hash } = req.params;
 
@@ -2370,7 +3715,7 @@ server.post(PROXY + '/api/fingerprint/unscramble/:hash', async (req, res) => {
 });
 
 // Mark device as leaked (when leaked content is detected)
-server.post(PROXY + '/api/fingerprint/leaked/:hash', async (req, res) => {
+server.post(PROXY + '/api/fingerprint/leaked/:hash', authenticateToken, async (req, res) => {
   try {
     const { hash } = req.params;
     const { reason } = req.body;
@@ -2394,7 +3739,7 @@ server.post(PROXY + '/api/fingerprint/leaked/:hash', async (req, res) => {
 });
 
 // Block/unblock a device
-server.patch(PROXY + '/api/fingerprint/block/:id', async (req, res) => {
+server.patch(PROXY + '/api/fingerprint/block/:id', authenticateToken, async (req, res) => {
   try {
     const { id } = req.params;
     const { isBlocked, blockReason } = req.body;
@@ -2418,7 +3763,7 @@ server.patch(PROXY + '/api/fingerprint/block/:id', async (req, res) => {
 });
 
 // Get device statistics for admin
-server.get(PROXY + '/api/fingerprint/stats', async (req, res) => {
+server.get(PROXY + '/api/fingerprint/stats', authenticateToken, async (req, res) => {
   try {
     const [stats] = await pool.execute(`
       SELECT 
@@ -2456,87 +3801,6 @@ server.get(PROXY + '/api/fingerprint/stats', async (req, res) => {
 
 // const FLASKAPP_LINK = 'http://localhost:5000';
 const FLASKAPP_LINK = process.env.FLASKAPP_LINK || 'http://localhost:5000';
-
-
-// server.post(PROXY+'/api/flask-python/upload', (req, res) => {
-//   // Proxy the request to the Flask app
-//   const axios = require('axios');
-//   const FormData = require('form-data');
-//   const form = new FormData();
-
-//   form.append('file', req.files.file.data, req.files.file.name);
-
-
-
-//   // if the user has enough credits, proceed to upload
-//   // 
-//   // Use multer to save image locally first
-
-
-//   const upload = multer({ dest: 'python/inputs' });
-
-
-
-//   upload.single('file')(req, res, (err) => {
-//     if (err) {
-//       return res.status(500).json({ error: 'Failed to save file locally' });
-//     }
-
-//     // send the filename to the Flask app
-//     const localFilePath = req.file.path;
-//     const localFileName = req.file.filename;
-
-//     form.append('file', fs.createReadStream(localFilePath), localFileName);
-
-//     axios.post(`${FLASKAPP_LINK}/scramble-photo`, form, {
-//       headers: form.getHeaders()
-//     })
-//       .then(response => {
-//         res.json(response.data);
-//       })
-//       .catch(error => {
-//         console.error('Error uploading to Flask app:', error);
-//         res.status(500).json({ error: 'Failed to upload file to Python service' });
-//       });
-//   });
-
-//     .then(response => {
-//       res.json(response.data);
-//     })
-
-//     .catch(error => {
-//       console.error('Error uploading to Flask app:', error);
-//       res.status(500).json({ error: 'Failed to upload file to Python service' });
-//     });
-// });
-
-// Below is the Python Flask app code (for reference, not part of server.cjs)
-
-// from flask import Flask, request, send_from_directory, jsonify, current_app
-// from werkzeug.utils import secure_filename
-// import os
-// import subprocess
-
-// @app.route('/upload', methods=['POST'])
-// def upload_file():
-//     if 'file' not in request.files:
-//         return jsonify({'error': 'No file part'}), 400
-
-//     file = request.files['file']
-//     if file.filename == '':
-//         return jsonify({'error': 'No selected file'}), 400
-
-//     if file and allowed_file(file.filename):
-//         filename = secure_filename(file.filename)
-//         file_path = os.path.join(app.config['UPLOAD_FOLDER'], filename)
-//         file.save(file_path)
-//         return jsonify({
-//             'message': 'File uploaded successfully',
-//             'filename': filename,
-//             'download_url': f'/download/{filename}'
-//         }), 200
-//     else:
-//         return jsonify({'error': 'File type not allowed'}), 400
 
 
 server.get(PROXY + '/api/flask-python/download', (req, res) => {
@@ -2584,7 +3848,7 @@ const py_storage = multer.diskStorage({
 const upload = multer({
   storage: py_storage,
   dest: 'python/inputs',
-  limits: { fileSize: 10 * 1024 * 1024 }, // 10MB limit
+  limits: { fileSize: 250 * 1024 * 1024 }, // 10MB limit
   fileFilter: function (req, file, cb) {
     // Accept images and videos only
     if (!file.mimetype.startsWith('image/') && !file.mimetype.startsWith('video/')) {
@@ -2595,123 +3859,11 @@ const upload = multer({
 });
 
 // =============================
-// SCRAMBLE PHOTO ENDPOINT
-// =============================
-// server.post(PROXY+'/api/scramble-photo', upload.single('file'), async (req, res) => {
-//   console.log('📸 Scramble photo request received');
-
-//   try {
-//     // Check if file was uploaded
-//     if (!req.file) {
-//       return res.status(400).json({ error: 'No image file provided' });
-//     }
-
-//     console.log('✅ File uploaded:', req.file.filename);
-//     console.log('📁 File path:', req.file.path);
-
-//     // Parse parameters from request body
-//     let params;
-//     try {
-//       params = typeof req.body.params === 'string' 
-//         ? JSON.parse(req.body.params) 
-//         : req.body.params;
-//     } catch (parseError) {
-//       console.error('❌ Failed to parse parameters:', parseError);
-//       return res.status(400).json({ error: 'Invalid parameters format' });
-//     }
-
-//     console.log('📋 Scrambling parameters:', params);
-
-//     // Optional: Check user credits (if authentication is implemented)
-//     // if (req.user) {
-//     //   const [users] = await pool.execute(
-//     //     'SELECT credits FROM userData WHERE id = ?',
-//     //     [req.user.id]
-//     //   );
-//     //   if (users[0] && users[0].credits < 1) {
-//     //     return res.status(403).json({ error: 'Insufficient credits' });
-//     //   }
-//     // }
-
-//     // Prepare data to send to Flask
-//     const flaskPayload = {
-//       localFileName: req.file.filename,
-//       localFilePath: req.file.path,
-//       params: params
-//     };
-
-//     console.log('🔄 Sending to Flask service:', FLASKAPP_LINK + '/scramble-photo');
-
-//     // Send request to Flask/Python service
-//     const flaskResponse = await axios.post(
-//       `${FLASKAPP_LINK}/scramble-photo`,
-//       flaskPayload,
-//       {
-//         timeout: 30000, // 30 second timeout
-//         headers: {
-//           'Content-Type': 'application/json'
-//         }
-//       }
-//     );
-
-//     console.log('✅ Flask response received:', flaskResponse.data);
-
-//     // Optional: Deduct credits after successful scrambling
-//     // if (req.user) {
-//     //   await pool.execute(
-//     //     'UPDATE userData SET credits = credits - 1 WHERE id = ?',
-//     //     [req.user.id]
-//     //   );
-//     // }
-
-//     // Return Flask response to frontend
-//     res.json({
-//       success: true,
-//       output_file: flaskResponse.data.output_file || flaskResponse.data.scrambledFileName,
-//       scrambledImageUrl: flaskResponse.data.scrambledImageUrl,
-//       message: 'Image scrambled successfully',
-//       ...flaskResponse.data
-//     });
-
-//   } catch (error) {
-//     console.error('❌ Error in scramble-photo endpoint:', error);
-
-//     // Clean up uploaded file if processing failed
-//     if (req.file && fs.existsSync(req.file.path)) {
-//       try {
-//         fs.unlinkSync(req.file.path);
-//         console.log('🗑️  Cleaned up failed upload:', req.file.filename);
-//       } catch (unlinkError) {
-//         console.error('Failed to delete file:', unlinkError);
-//       }
-//     }
-
-//     if (error.code === 'ECONNREFUSED') {
-//       return res.status(503).json({ 
-//         error: 'Python/Flask service is not running. Please start the Flask server on port 5000.' 
-//       });
-//     }
-
-//     if (error.response) {
-//       // Flask returned an error
-//       return res.status(error.response.status || 500).json({ 
-//         error: error.response.data?.error || 'Scrambling failed in Python service',
-//         details: error.response.data
-//       });
-//     }
-
-//     res.status(500).json({ 
-//       error: 'Failed to scramble photo',
-//       message: error.message 
-//     });
-//   }
-// });
-
-// =============================
-// SCRAMBLE PHOTO ENDPOINT
+// SCRAMBLE PHOTO ENDPOINT - UPDATED VERSION
+// Handles both old flat format and new nested format with noise parameters
 // =============================
 
-server.post(PROXY + '/api/scramble-photo', upload.single('file'), async (req, res) => {
+server.post(PROXY + '/api/scramble-photo', upload.single('file'), authenticateToken, async (req, res) => {
   console.log('📸 Scramble photo request received');
 
   try {
@@ -2741,28 +3893,60 @@ server.post(PROXY + '/api/scramble-photo', upload.single('file'), async (req, re
     // IMPORTANT:
     // - Ignore params.input from the client and instead use the actual stored filename.
     // - Optionally reuse params.output, but better to tie it to the stored filename.
+    // - Handle both old flat format and new nested format (with scramble/noise objects)
     const inputFile = req.file.filename; // file as saved by multer
     const outputFile = `scrambled_${inputFile}`;
+
+    // Check if params has nested structure (new format) or flat structure (old format)
+    let scrambleParams = params;
+    let noiseParams = null;
+    let metadata = null;
+
+    if (params.scramble) {
+      // New nested format
+      scrambleParams = params.scramble;
+      noiseParams = params.noise;
+      metadata = params.metadata;
+      console.log('🆕 Detected new nested parameter format');
+    } else {
+      // Old flat format - for backwards compatibility
+      console.log('📦 Using legacy flat parameter format');
+    }
 
     // Build the payload in the exact shape Flask expects
     const flaskPayload = {
       input: inputFile,
       output: outputFile,
-      seed: params.seed ?? 123456,
-      mode: params.mode || 'scramble',
-      algorithm: params.algorithm || 'position',
-      percentage: params.percentage ?? 100,
-      // Algorithm-specific params
-      rows: params.rows,
-      cols: params.cols,
-      max_hue_shift: params.max_hue_shift,
-      max_intensity_shift: params.max_intensity_shift
+      seed: scrambleParams.seed ?? params.seed ?? 123456,
+      mode: scrambleParams.mode || params.mode || 'scramble',
+      algorithm: scrambleParams.algorithm || params.algorithm || 'position',
+      percentage: scrambleParams.percentage ?? params.percentage ?? 100,
+      // Algorithm-specific params (check both nested and flat structure)
+      rows: scrambleParams.rows ?? params.rows,
+      cols: scrambleParams.cols ?? params.cols,
+      max_hue_shift: scrambleParams.max_hue_shift ?? scrambleParams.maxHueShift ?? params.max_hue_shift ?? params.maxHueShift,
+      max_intensity_shift: scrambleParams.max_intensity_shift ?? scrambleParams.maxIntensityShift ?? params.max_intensity_shift ?? params.maxIntensityShift,
+      // Noise parameters (if present)
+      noise_seed: params.noise_seed ?? noiseParams?.seed,
+      noise_intensity: params.noise_intensity ?? noiseParams?.intensity,
+      noise_mode: params.noise_mode ?? noiseParams?.mode,
+      noise_prng: params.noise_prng ?? noiseParams?.prng,
+      noise_tile_size: params.noise_tile_size ?? noiseParams?.tile_size ?? noiseParams?.tileSize
     };
 
-    // Remove undefined keys so Flask doesn’t see them at all
+    // Remove undefined keys so Flask doesn't see them at all
     Object.keys(flaskPayload).forEach((key) => {
       if (flaskPayload[key] === undefined) delete flaskPayload[key];
     });
+
+    // Log noise parameters if present
+    if (noiseParams) {
+      console.log('🔊 Noise parameters:', {
+        seed: noiseParams.seed,
+        intensity: noiseParams.intensity,
+        mode: noiseParams.mode
+      });
+    }
 
     console.log('🔄 Sending normalized payload to Flask:', flaskPayload);
     console.log('📡 Flask URL:', `${FLASKAPP_LINK}/scramble-photo`);
@@ -2790,6 +3974,15 @@ server.post(PROXY + '/api/scramble-photo', upload.single('file'), async (req, re
       seed: data.seed,
       download_url: data.download_url,
       message: data.message || 'Image scrambled successfully',
+      // Include noise parameters if they were used
+      noise: noiseParams ? {
+        seed: noiseParams.seed,
+        intensity: noiseParams.intensity,
+        mode: noiseParams.mode,
+        prng: noiseParams.prng
+      } : undefined,
+      // Include metadata if present
+      metadata: metadata,
       // Include everything else from Flask, just in case
       ...data
     });
@@ -2828,11 +4021,23 @@ server.post(PROXY + '/api/scramble-photo', upload.single('file'), async (req, re
   }
 });
 
+// =============================
+// KEY CHANGES SUMMARY:
+// =============================
+// 1. Added detection for nested parameter format (params.scramble, params.noise, params.metadata)
+// 2. Maintains backward compatibility with old flat format
+// 3. Extracts noise parameters if present: seed, intensity, mode, prng
+// 4. Passes noise parameters to Flask (as noise_seed, noise_intensity, etc.)
+// 5. Includes noise parameters in response back to frontend
+// 6. Handles both camelCase (maxHueShift) and snake_case (max_hue_shift) for flexibility
+// 7. Logs noise parameters when present for debugging
 
 // =============================
-// UNSCRAMBLE PHOTO ENDPOINT
+// UNSCRAMBLE PHOTO ENDPOINT - UPDATED VERSION
+// Handles both old flat format and new nested format with noise parameters
 // =============================
-server.post(PROXY + '/api/unscramble-photo', upload.single('file'), async (req, res) => {
+
+server.post(PROXY + '/api/unscramble-photo', upload.single('file'), authenticateToken, async (req, res) => {
   console.log('🔓 Unscramble photo request received');
 
   try {
@@ -2855,14 +4060,58 @@ server.post(PROXY + '/api/unscramble-photo', upload.single('file'), async (req, 
       return res.status(400).json({ error: 'Invalid parameters format' });
     }
 
-    console.log('📋 Unscrambling parameters:', params);
+    console.log('📋 Unscrambling parameters (from frontend):', params);
+
+    // Check if params has nested structure (new format) or flat structure (old format)
+    let scrambleParams = params;
+    let noiseParams = null;
+    let metadata = null;
+
+    if (params.scramble) {
+      // New nested format
+      scrambleParams = params.scramble;
+      noiseParams = params.noise;
+      metadata = params.metadata;
+      console.log('🆕 Detected new nested parameter format');
+    } else {
+      // Old flat format - for backwards compatibility
+      console.log('📦 Using legacy flat parameter format');
+    }
 
     // Prepare data to send to Flask
     const flaskPayload = {
-      localFileName: req.file.filename,
-      localFilePath: req.file.path,
-      params: params
+      input: req.file.filename,
+      output: `unscrambled_${req.file.filename}`,
+      seed: scrambleParams.seed ?? params.seed,
+      mode: 'unscramble',
+      algorithm: scrambleParams.algorithm ?? params.algorithm,
+      percentage: scrambleParams.percentage ?? params.percentage ?? 100,
+      // Algorithm-specific params (check both nested and flat structure)
+      rows: scrambleParams.rows ?? params.rows,
+      cols: scrambleParams.cols ?? params.cols,
+      max_hue_shift: scrambleParams.max_hue_shift ?? scrambleParams.maxHueShift ?? params.max_hue_shift ?? params.maxHueShift,
+      max_intensity_shift: scrambleParams.max_intensity_shift ?? scrambleParams.maxIntensityShift ?? params.max_intensity_shift ?? params.maxIntensityShift,
+      // Noise parameters (if present)
+       noise_seed: params.noise_seed ?? noiseParams?.seed,
+      noise_intensity: params.noise_intensity ?? noiseParams?.intensity,
+      noise_mode: params.noise_mode ?? noiseParams?.mode,
+      noise_prng: params.noise_prng ?? noiseParams?.prng,
+      noise_tile_size: params.noise_tile_size ?? noiseParams?.tile_size ?? noiseParams?.tileSize
     };
+
+    // Remove undefined keys so Flask doesn't see them at all
+    Object.keys(flaskPayload).forEach((key) => {
+      if (flaskPayload[key] === undefined) delete flaskPayload[key];
+    });
+
+    // Log noise parameters if present
+    if (noiseParams) {
+      console.log('🔊 Noise parameters detected:', {
+        seed: noiseParams.seed,
+        intensity: noiseParams.intensity,
+        mode: noiseParams.mode
+      });
+    }
 
     console.log('🔄 Sending normalized payload to Flask:', flaskPayload);
     console.log('🔄 Sending to Flask service:', FLASKAPP_LINK + '/unscramble-photo');
@@ -2881,12 +4130,21 @@ server.post(PROXY + '/api/unscramble-photo', upload.single('file'), async (req, 
 
     console.log('✅ Flask response received:', flaskResponse.data);
 
-    // Return Flask response to frontend
+    // Return Flask response to frontend with noise parameters included
     res.json({
       success: true,
       output_file: flaskResponse.data.output_file || flaskResponse.data.unscrambledFileName,
       unscrambledImageUrl: flaskResponse.data.unscrambledImageUrl,
       message: 'Image unscrambled successfully',
+      // Include noise parameters so frontend knows to remove noise
+      noise: noiseParams ? {
+        seed: noiseParams.seed,
+        intensity: noiseParams.intensity,
+        mode: noiseParams.mode,
+        prng: noiseParams.prng
+      } : undefined,
+      // Include metadata if present
+      metadata: metadata,
       ...flaskResponse.data
     });
 
@@ -2925,7 +4183,8 @@ server.post(PROXY + '/api/unscramble-photo', upload.single('file'), async (req, 
 });
 
 
-server.post(PROXY + "/api/upload", async (req, res) => {
+
+server.post(PROXY + "/api/upload", authenticateToken, async (req, res) => {
 
 });
 
@@ -2933,7 +4192,7 @@ server.post(PROXY + "/api/upload", async (req, res) => {
 // SCRAMBLE VIDEO ENDPOINT
 // =============================
 
-server.post(PROXY + '/api/scramble-video', upload.single('file'), async (req, res) => {
+server.post(PROXY + '/api/scramble-video', upload.single('file'), authenticateToken, async (req, res) => {
   console.log('📸 Scramble video request received');
 
   try {
@@ -2994,7 +4253,7 @@ server.post(PROXY + '/api/scramble-video', upload.single('file'), async (req, re
       `${FLASKAPP_LINK}/scramble-video`,
       flaskPayload,
       {
-        timeout: 60000,
+        timeout: 180000, // 3 minutes for video processing + WebM conversion
         headers: { 'Content-Type': 'application/json' }
       }
     );
@@ -3054,7 +4313,7 @@ server.post(PROXY + '/api/scramble-video', upload.single('file'), async (req, re
 // =============================
 // UNSCRAMBLE VIDEO ENDPOINT
 // =============================
-server.post(PROXY + '/api/unscramble-video', upload.single('file'), async (req, res) => {
+server.post(PROXY + '/api/unscramble-video', upload.single('file'), authenticateToken, async (req, res) => {
   console.log('🔓 Unscramble video request received');
 
   try {
@@ -3089,19 +4348,18 @@ server.post(PROXY + '/api/unscramble-video', upload.single('file'), async (req, 
     console.log('🔄 Sending normalized payload to Flask:', flaskPayload);
     console.log('🔄 Sending to Flask service:', FLASKAPP_LINK + '/unscramble-video');
 
-    // Send request to Flask/Python service
+    // 4) Call Flask /unscramble-video as JSON
     const flaskResponse = await axios.post(
       `${FLASKAPP_LINK}/unscramble-video`,
       flaskPayload,
       {
-        timeout: 30000, // 30 second timeout
-        headers: {
-          'Content-Type': 'application/json'
-        }
+        timeout: 180000, // 3 minutes for video processing + WebM conversion
+        headers: { 'Content-Type': 'application/json' }
       }
     );
 
     console.log('✅ Flask response received:', flaskResponse.data);
+
 
     // Return Flask response to frontend
     res.json({
@@ -3115,15 +4373,7 @@ server.post(PROXY + '/api/unscramble-video', upload.single('file'), async (req, 
   } catch (error) {
     console.error('❌ Error in /api/unscramble-video endpoint:', error.message);
 
-    // Clean up uploaded file if processing failed
-    if (req.file && fs.existsSync(req.file.path)) {
-      try {
-        fs.unlinkSync(req.file.path);
-        console.log('🗑️  Cleaned up failed upload:', req.file.filename);
-      } catch (unlinkError) {
-        console.error('Failed to delete file:', unlinkError);
-      }
-    }
+
 
     if (error.code === 'ECONNREFUSED') {
       return res.status(503).json({
@@ -3173,186 +4423,9 @@ server.get(PROXY + '/api/download/:filename', (req, res) => {
   });
 });
 
-// @app.route('/scramble-photo', methods=['POST'])
-// def scramble_photo():
-//     """
-//     Scramble a photo using various algorithms
-//     Expects JSON with: input, output, seed, mode, algorithm, and algorithm-specific params
-//     """
-//     try:
-//         data = request.json
-//         if not data:
-//             return jsonify({'error': 'No JSON data provided'}), 400
-
-//         # Extract common parameters
-//         input_file = data.get('input')
-//         output_file = data.get('output')
-//         seed = data.get('seed', 123456)
-//         mode = data.get('mode', 'scramble')
-//         algorithm = data.get('algorithm', 'position')
-//         percentage = data.get('percentage', 100)
-
-//         if not input_file or not output_file:
-//             return jsonify({'error': 'input and output filenames required'}), 400
-
-//         # Build file paths
-//         input_path = os.path.join(app.config['UPLOAD_FOLDER'], input_file)
-//         output_path = os.path.join(app.config['UPLOAD_FOLDER'], output_file)
-
-//         if not os.path.exists(input_path):
-//             return jsonify({'error': f'Input file {input_file} not found'}), 404
-
-//         # Build command based on algorithm
-//         cmd = []
-
-//         if algorithm == 'position':
-//             # Position scrambling (default tile shuffling)
-//             rows = data.get('rows', 6)
-//             cols = data.get('cols', 6)
-//             cmd = [
-//                 'python3', 'scramble_photo.py',
-//                 '--input', input_path,
-//                 '--output', output_path,
-//                 '--seed', str(seed),
-//                 '--rows', str(rows),
-//                 '--cols', str(cols),
-//                 '--mode', mode,
-//                 '--percentage', str(percentage)
-//             ]
-
-//         elif algorithm == 'color':
-//             # Color scrambling (hue shifting)
-//             max_hue_shift = data.get('max_hue_shift', 64)
-//             cmd = [
-//                 'python3', 'scramble_photo.py',
-//                 '--input', input_path,
-//                 '--output', output_path,
-//                 '--algorithm', 'color',
-//                 '--max-hue-shift', str(max_hue_shift),
-//                 '--seed', str(seed),
-//                 '--mode', mode,
-//                 '--percentage', str(percentage)
-//             ]
-
-//         elif algorithm == 'rotation':
-//             # Rotation scrambling
-//             rows = data.get('rows', 6)
-//             cols = data.get('cols', 6)
-//             cmd = [
-//                 'python3', 'scramble_photo_rotate.py',
-//                 '--input', input_path,
-//                 '--output', output_path,
-//                 '--seed', str(seed),
-//                 '--rows', str(rows),
-//                 '--cols', str(cols),
-//                 '--mode', mode,
-//                 '--algorithm', 'rotation',
-//                 '--percentage', str(percentage)
-//             ]
-
-//         elif algorithm == 'mirror':
-//             # Mirror scrambling
-//             rows = data.get('rows', 6)
-//             cols = data.get('cols', 6)
-//             cmd = [
-//                 'python3', 'scramble_photo_mirror.py',
-//                 '--input', input_path,
-//                 '--output', output_path,
-//                 '--seed', str(seed),
-//                 '--rows', str(rows),
-//                 '--cols', str(cols),
-//                 '--mode', mode,
-//                 '--algorithm', 'mirror',
-//                 '--percentage', str(percentage)
-//             ]
-
-//         elif algorithm == 'intensity':
-//             # Intensity scrambling
-//             max_intensity_shift = data.get('max_intensity_shift', 128)
-//             cmd = [
-//                 'python3', 'scramble_photo_intensity.py',
-//                 '--input', input_path,
-//                 '--output', output_path,
-//                 '--algorithm', 'intensity',
-//                 '--max-intensity-shift', str(max_intensity_shift),
-//                 '--seed', str(seed),
-//                 '--mode', mode,
-//                 '--percentage', str(percentage)
-//             ]
-
-//         else:
-//             return jsonify({'error': f'Unknown algorithm: {algorithm}'}), 400
-
-//         # Execute the scrambling command
-//         result = subprocess.run(cmd, capture_output=True, text=True, timeout=60)
-
-//         if result.returncode != 0:
-//             return jsonify({
-//                 'error': 'Scrambling failed',
-//                 'details': result.stderr
-//             }), 500
-
-//         # Check if output file was created
-//         if not os.path.exists(output_path):
-//             return jsonify({'error': 'Output file was not created'}), 500
-
-//         return jsonify({
-//             'message': 'Photo scrambled successfully',
-//             'output_file': output_file,
-//             'algorithm': algorithm,
-//             'seed': seed,
-//             'download_url': f'/download/{output_file}'
-//         }), 200
-
-//     except subprocess.TimeoutExpired:
-//         return jsonify({'error': 'Scrambling operation timed out'}), 500
-//     except Exception as e:
-//         return jsonify({'error': str(e)}), 500
-
-
-
-server.post(PROXY + '/api/unscramble-photo', (req, res) => {
-  // Proxy the request to the Flask app
-  const axios = require('axios');
-  const FormData = require('form-data');
-  const form = new FormData();
-  axios.post(`${FLASKAPP_LINK}/unscramble-photo`, req.body)
-    .then(response => {
-      res.json(response.data);
-    })
-    .catch(error => {
-      console.error('Error unscrambling photo in Flask app:', error);
-      res.status(500).json({ error: 'Failed to unscramble photo in Python service' });
-    });
-});
-
-// @app.route('/unscramble-photo', methods=['POST'])
-// def unscramble_photo():
-//     """
-//     Unscramble a photo using the same algorithms
-//     Expects JSON with: input, output, seed, algorithm, and algorithm-specific params
-//     """
-//     try:
-//         data = request.json
-//         if not data:
-//             return jsonify({'error': 'No JSON data provided'}), 400
-
-//         # Set mode to unscramble
-//         data['mode'] = 'unscramble'
-
-//         # Reuse the scramble_photo logic
-//         return scramble_photo()
-
-//     except Exception as e:
-//         return jsonify({'error': str(e)}), 500
-
-// if __name__ == '__main__':
-//     # Use the development server only for testing, not production on a VPS
-//     app.run(host='0.0.0.0', port=5000)
-
 
 // Photo leak detection endpoint
-server.post(PROXY + '/api/check-photo-leak', async (req, res) => {
+server.post(PROXY + '/api/check-photo-leak', authenticateToken, async (req, res) => {
   console.log('\\n' + '='.repeat(60));
   console.log('🔍 NODE: Photo leak check request received');
   console.log('='.repeat(60));
@@ -3416,12 +4489,12 @@ server.post(PROXY + '/api/check-photo-leak', async (req, res) => {
       const [rows] = await pool.query(
         `SELECT 
           wc.*,
-          ud.username,
-          ud.email,
+          userData.username,
+          userData.email,
           p.id as purchase_id,
           p.createdAt as purchase_date
         FROM watermark_codes wc
-        LEFT JOIN userData ud ON wc.user_id = ud.id
+        LEFT JOIN userData ud ON wc.user_id = userData.id
         LEFT JOIN purchases p ON wc.purchase_id = p.id
         WHERE wc.code = ?`,
         [extracted_code]
@@ -3492,7 +4565,7 @@ server.post(PROXY + '/api/check-photo-leak', async (req, res) => {
 });
 
 // Audio leak detection endpoint
-server.post(PROXY + '/api/check-audio-leak', async (req, res) => {
+server.post(PROXY + '/api/check-audio-leak', authenticateToken, async (req, res) => {
   console.log('\\n' + '='.repeat(60));
   console.log('🔍 NODE: Audio leak check request received');
   console.log('='.repeat(60));
@@ -3556,12 +4629,12 @@ server.post(PROXY + '/api/check-audio-leak', async (req, res) => {
       const [rows] = await pool.query(
         `SELECT 
           wc.*,
-          ud.username,
-          ud.email,
+          userData.username,
+          userData.email,
           p.id as purchase_id,
           p.createdAt as purchase_date
         FROM watermark_codes wc
-        LEFT JOIN userData ud ON wc.user_id = ud.id
+        LEFT JOIN userData ud ON wc.user_id = userData.id
         LEFT JOIN purchases p ON wc.purchase_id = p.id
         WHERE wc.code = ?`,
         [extracted_code]
@@ -3632,7 +4705,7 @@ server.post(PROXY + '/api/check-audio-leak', async (req, res) => {
 });
 
 // Video leak detection endpoint
-server.post(PROXY + '/api/check-video-leak', async (req, res) => {
+server.post(PROXY + '/api/check-video-leak', authenticateToken, async (req, res) => {
   console.log('\\n' + '='.repeat(60));
   console.log('🎥 NODE: Video leak check request received');
   console.log('='.repeat(60));
@@ -3699,12 +4772,12 @@ server.post(PROXY + '/api/check-video-leak', async (req, res) => {
       const [rows] = await pool.query(
         `SELECT 
           wc.*,
-          ud.username,
-          ud.email,
+          userData.username,
+          userData.email,
           p.id as purchase_id,
           p.createdAt as purchase_date
         FROM watermark_codes wc
-        LEFT JOIN userData ud ON wc.user_id = ud.id
+        LEFT JOIN userData ud ON wc.user_id = userData.id
         LEFT JOIN purchases p ON wc.purchase_id = p.id
         WHERE wc.code = ?`,
         [extracted_code]
@@ -3809,26 +4882,50 @@ server.get('/download/:filename', (req, res) => {
 //             cost: SCRAMBLE_COST,
 //             params: params,
 //           }
-          
+
 //         });
 //         throw new Error(data.error || data.message || 'Scrambling failed');
 //       }
 // Handle refunding credits
-server.post(PROXY + '/api/refund-credits', async (req, res) => {
-  const { userId, credits, username, params, password } = req.body;
-  
+server.post(PROXY + '/api/refund-credits', authenticateToken, async (req, res) => {
+  const { userId, credits, username, email, currentCredits } = req.body;
+  console.log('💸 Refund credits request received for user:', username, 'Credits to refund:', credits, "userId: ", userId);
   try {
     if (!userId || !credits) {
       return res.status(400).json({ success: false, message: 'Missing userId or credits' });
     }
 
     // Refund credits to user
-    const [result] = await pool.execute(
+    await pool.execute(
       'UPDATE userData SET credits = credits + ? WHERE id = ?',
       [credits, userId]
     );
 
     console.log(`✅ Refunded ${credits} credits to user ${username} (ID: ${userId})`);
+
+    await CreateNotification(
+      'credits_refunded',
+      'Credits Refunded',
+      `You have been refunded ${credits} credits.`,
+      'refund',
+      username || 'anonymous'
+    );
+
+    await pool.execute(
+      'INSERT INTO actions (id, transactionId, username, email, date, time, credits, action_type, action_cost, action_description) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
+      [
+        uuidv4(),
+        uuidv4(),
+        username, // Demo user
+        email,
+        Date.now(),
+        new Date().toLocaleTimeString(),
+        currentCredits,
+        "refunded_credits",
+        credits,
+        "Credits refunded due to failed operation"
+      ]
+    );
 
     res.json({ success: true, message: 'Credits refunded successfully' });
   } catch (error) {
@@ -3844,7 +4941,7 @@ server.post(PROXY + '/api/refund-credits', async (req, res) => {
 // ========================================
 
 // const FRONTEND_URL = 'http://localhost:5174';
-const FRONTEND_URL = process.env.FLASKAPP_LINK || 'http://localhost:5174';
+
 
 server.post('/create-checkout-session', async (req, res) => {
   const amount = req.body.amount
@@ -4199,120 +5296,120 @@ server.post(PROXY + '/api/subscription/cancel', async (req, res) => {
 
 
 
-// Webhook handler for asynchronous events.
-server.post("/webhook", async (req, res) => {
-  let data;
-  let eventType;
-  // Check if webhook signing is configured.
-  if (process.env.STRIPE_WEBHOOK_SECRET) {
-    // Retrieve the event by verifying the signature using the raw body and secret.
-    let event;
-    let signature = req.headers["stripe-signature"];
+// // Webhook handler for asynchronous events.
+// server.post("/webhook", async (req, res) => {
+//   let data;
+//   let eventType;
+//   // Check if webhook signing is configured.
+//   if (process.env.STRIPE_WEBHOOK_SECRET) {
+//     // Retrieve the event by verifying the signature using the raw body and secret.
+//     let event;
+//     let signature = req.headers["stripe-signature"];
 
-    try {
-      event = stripe.webhooks.constructEvent(
-        req.rawBody,
-        signature,
-        process.env.STRIPE_WEBHOOK_SECRET
-      );
-    } catch (err) {
-      console.log(`⚠️  Webhook signature verification failed.`);
-      return res.sendStatus(400);
-    }
-    // Extract the object from the event.
-    data = event.data;
-    eventType = event.type;
-  } else {
-    // Webhook signing is recommended, but if the secret is not configured in `config.js`,
-    // retrieve the event data directly from the request body.
-    data = req.body.data;
-    eventType = req.body.type;
-  }
+//     try {
+//       event = stripe.webhooks.constructEvent(
+//         req.rawBody,
+//         signature,
+//         process.env.STRIPE_WEBHOOK_SECRET
+//       );
+//     } catch (err) {
+//       console.log(`⚠️  Webhook signature verification failed.`);
+//       return res.sendStatus(400);
+//     }
+//     // Extract the object from the event.
+//     data = event.data;
+//     eventType = event.type;
+//   } else {
+//     // Webhook signing is recommended, but if the secret is not configured in `config.js`,
+//     // retrieve the event data directly from the request body.
+//     data = req.body.data;
+//     eventType = req.body.type;
+//   }
 
-  if (eventType === "checkout.session.completed") {
-    console.log(`🔔  Payment received!`);
-  }
+//   if (eventType === "checkout.session.completed") {
+//     console.log(`🔔  Payment received!`);
+//   }
 
-  res.sendStatus(200);
-});
+//   res.sendStatus(200);
+// });
 
-// Stripe webhook handler
-server.post(PROXY + '/api/subscription/webhook', express.raw({ type: 'application/json' }), async (req, res) => {
-  const sig = req.headers['stripe-signature'];
-  const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET;
+// // Stripe webhook handler
+// server.post(PROXY + '/api/subscription/webhook', express.raw({ type: 'application/json' }), async (req, res) => {
+//   const sig = req.headers['stripe-signature'];
+//   const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET;
 
-  let event;
+//   let event;
 
-  try {
-    event = stripe.webhooks.constructEvent(req.body, sig, webhookSecret);
-  } catch (err) {
-    console.error('Webhook signature verification failed:', err.message);
-    return res.status(400).send(`Webhook Error: ${err.message}`);
-  }
+//   try {
+//     event = stripe.webhooks.constructEvent(req.body, sig, webhookSecret);
+//   } catch (err) {
+//     console.error('Webhook signature verification failed:', err.message);
+//     return res.status(400).send(`Webhook Error: ${err.message}`);
+//   }
 
-  // Handle the event
-  switch (event.type) {
-    case 'customer.subscription.updated':
-      console.log('Subscription updated event received.');
-      const updatedSubscription = event.data.object;
-      await pool.execute(
-        `UPDATE subscriptions 
-         SET status = ?, current_period_start = ?, current_period_end = ? 
-         WHERE stripe_subscription_id = ?`,
-        [
-          updatedSubscription.status,
-          new Date(updatedSubscription.current_period_start * 1000),
-          new Date(updatedSubscription.current_period_end * 1000),
-          updatedSubscription.id
-        ]
-      );
-      console.log(`✅ Subscription updated: ${updatedSubscription.id}`);
-      break;
-    case 'customer.subscription.created':
-      console.log('Subscription created event received.');
-      const subscription = event.data.object;
-      await pool.execute(
-        `UPDATE subscriptions 
-         SET status = ?, current_period_start = ?, current_period_end = ? 
-         WHERE stripe_subscription_id = ?`,
-        [
-          subscription.status,
-          new Date(subscription.current_period_start * 1000),
-          new Date(subscription.current_period_end * 1000),
-          subscription.id
-        ]
-      );
+//   // Handle the event
+//   switch (event.type) {
+//     case 'customer.subscription.updated':
+//       console.log('Subscription updated event received.');
+//       const updatedSubscription = event.data.object;
+//       await pool.execute(
+//         `UPDATE subscriptions 
+//          SET status = ?, current_period_start = ?, current_period_end = ? 
+//          WHERE stripe_subscription_id = ?`,
+//         [
+//           updatedSubscription.status,
+//           new Date(updatedSubscription.current_period_start * 1000),
+//           new Date(updatedSubscription.current_period_end * 1000),
+//           updatedSubscription.id
+//         ]
+//       );
+//       console.log(`✅ Subscription updated: ${updatedSubscription.id}`);
+//       break;
+//     case 'customer.subscription.created':
+//       console.log('Subscription created event received.');
+//       const subscription = event.data.object;
+//       await pool.execute(
+//         `UPDATE subscriptions 
+//          SET status = ?, current_period_start = ?, current_period_end = ? 
+//          WHERE stripe_subscription_id = ?`,
+//         [
+//           subscription.status,
+//           new Date(subscription.current_period_start * 1000),
+//           new Date(subscription.current_period_end * 1000),
+//           subscription.id
+//         ]
+//       );
 
-      let data = {
-        "subscription_type": subtype,
-        "subscription_cost": subcost,
-        "username": username,
-        "userId": userId,
-        "name": name,
-        "email": email,
-        "transactionId": transactionId,
-      };
+//       let data = {
+//         "subscription_type": subtype,
+//         "subscription_cost": subcost,
+//         "username": username,
+//         "userId": userId,
+//         "name": name,
+//         "email": email,
+//         "transactionId": transactionId,
+//       };
 
-      stripeBuycredits(data);
-      console.log(`✅ Subscription created: ${subscription.id}`);
-      break;
+//       stripeBuycredits(data);
+//       console.log(`✅ Subscription created: ${subscription.id}`);
+//       break;
 
-    case 'customer.subscription.deleted':
-      console.log('Subscription deleted event received.');
-      const deletedSub = event.data.object;
-      await pool.execute(
-        'UPDATE subscriptions SET status = ? WHERE stripe_subscription_id = ?',
-        ['canceled', deletedSub.id]
-      );
-      console.log(`✅ Subscription cancelled: ${deletedSub.id}`);
-      break;
+//     case 'customer.subscription.deleted':
+//       console.log('Subscription deleted event received.');
+//       const deletedSub = event.data.object;
+//       await pool.execute(
+//         'UPDATE subscriptions SET status = ? WHERE stripe_subscription_id = ?',
+//         ['canceled', deletedSub.id]
+//       );
+//       console.log(`✅ Subscription cancelled: ${deletedSub.id}`);
+//       break;
 
-    default:
-      console.log(`Unhandled event type ${event.type}`);
-  }
+//     default:
+//       console.log(`Unhandled event type ${event.type}`);
+//   }
 
-  res.json({ received: true });
-});
+//   res.json({ received: true });
+// });
 
 
 
@@ -4353,29 +5450,38 @@ server.get('/stripe/success', async (req, res) => {
       customer_id: paymentIntent.customer,
     };
 
+    const PACKAGES = [
+      { credits: 2500, dollars: 2.5, label: "$2.50", color: '#4caf50', priceId: 'price_1SR9nNEViYxfJNd2pijdhiBM' },
+      { credits: 5250, dollars: 5, label: "$5.00", color: '#2196f3', priceId: 'price_1SR9lZEViYxfJNd20x2uwukQ' },
+      { credits: 11200, dollars: 10, label: "$10.00", color: '#9c27b0', popular: true, priceId: 'price_1SR9kzEViYxfJNd27aLA7kFW' },
+      { credits: 26000, dollars: 20, label: "$20.00", color: '#f57c00', priceId: 'price_1SR9mrEViYxfJNd2dD5NHFoL' },
+    ];
+
+    const packageData = PACKAGES.find(pkg => pkg.dollars === potentialVerifiedPayment.amount / 100);
+
     // TODO: update your DB: mark sale as paid for `myUserOrOrderId` or `username`
     // e.g. await Orders.markPaid({ userId: myUserOrOrderId, stripePaymentIntentId: paymentIntent.id });
 
     const data = {
-        username: user.username,
-        userId: user.id,
-        name: user.name,
-        email: user.email,
-        walletAddress: "Stripe",
-        transactionId: paymentIntent.id,
-        blockExplorerLink: 'Stripe Payment',
-        currency: 'USD',
-        amount: paymentIntent.amount,
-        cryptoAmount: packageData.dollars,
-        rate: null,
-        session_id: user.id, // this is a useless metric here but i am keep it for reference and to maintain similar data structure
-        orderLoggingEnabled: false,
-        userAgent: user.userAgent,
-        ip: user.ip,
-        dollars: packageData.dollars,
-        credits: packageData.credits
+      username: user.username,
+      userId: user.id,
+      name: user.name,
+      email: user.email,
+      walletAddress: "Stripe",
+      transactionId: paymentIntent.id,
+      blockExplorerLink: 'Stripe Payment',
+      currency: 'USD',
+      amount: paymentIntent.amount,
+      cryptoAmount: packageData.dollars,
+      rate: null,
+      session_id: user.id, // this is a useless metric here but i am keep it for reference and to maintain similar data structure
+      orderLoggingEnabled: false,
+      userAgent: user.userAgent,
+      ip: user.ip,
+      dollars: packageData.dollars,
+      credits: packageData.credits
 
-      }
+    }
 
     await stripeBuycredits(data);
 
@@ -4611,16 +5717,15 @@ server.post(PROXY + '/api/verify-stripe-payment', async (req, res) => {
 
     console.log(`[INFO] Verified PaymentIntent: ${potentialVerifiedPayment.id}`);
 
-    // res.json({
-    //     success: true,
-    //     message: 'PaymentIntent verified successfully',
-    //     details: potentialVerifiedPayment
-    // });
+    const PACKAGES = [
+      { credits: 2500, dollars: 2.5, label: "$2.50", color: '#4caf50', priceId: 'price_1SR9nNEViYxfJNd2pijdhiBM' },
+      { credits: 5250, dollars: 5, label: "$5.00", color: '#2196f3', priceId: 'price_1SR9lZEViYxfJNd20x2uwukQ' },
+      { credits: 11200, dollars: 10, label: "$10.00", color: '#9c27b0', popular: true, priceId: 'price_1SR9kzEViYxfJNd27aLA7kFW' },
+      { credits: 26000, dollars: 20, label: "$20.00", color: '#f57c00', priceId: 'price_1SR9mrEViYxfJNd2dD5NHFoL' },
+    ];
 
-    // const verificationResult = flaskResponse.data;
-    // console.log('Payment verification result:', verificationResult.details);
-    // console.log('Payment verification message:', verificationResult.message);
-    // res.json(verificationResult);
+    const packageData = PACKAGES.find(pkg => pkg.dollars === potentialVerifiedPayment.amount / 100);
+
 
     if (potentialVerifiedPayment.status == 'succeeded') {
       // Log the purchase in the database
@@ -4690,10 +5795,6 @@ async function stripeBuycredits(data) {
 
     // check for duplicate transactionId
     if (transactionId) {
-      // const [existing] = await pool.execute(
-      //   'SELECT * FROM buyCredits WHERE transactionHash = ?',
-      //   [transactionId]
-      // );
       const [existing] = await pool.execute(
         'SELECT * FROM buyCredits WHERE transactionId = ?',
         [transactionId]
@@ -4708,16 +5809,19 @@ async function stripeBuycredits(data) {
     // Basic validation
     try {
 
-
-
-      // upload payment details to sql backend
-
-      // if (result.success) {
-
       console.log('✅ Logging purchase for user:', username);
 
+      const PACKAGES = [
+        { credits: 2500, dollars: 2.5, label: "$2.50 Package", color: '#4caf50', priceId: 'price_1SR9nNEViYxfJNd2pijdhiBM' },
+        { credits: 5250, dollars: 5, label: "$5.00 Package", color: '#2196f3', priceId: 'price_1SR9lZEViYxfJNd20x2uwukQ' },
+        { credits: 11200, dollars: 10, label: "$10.00 Package", color: '#9c27b0', popular: true, priceId: 'price_1SR9kzEViYxfJNd27aLA7kFW' },
+        { credits: 26000, dollars: 20, label: "$20.00 Package", color: '#f57c00', priceId: 'price_1SR9mrEViYxfJNd2dD5NHFoL' },
+      ];
+
+      const packageData = PACKAGES.find(pkg => pkg.dollars === amount / 100);
+
       const [purchases] = await pool.execute(
-        'INSERT into buyCredits (username, id, name, email, walletAddress, transactionHash, blockExplorerLink, currency, amount, cryptoAmount, rate, date, time, session_id, orderLoggingEnabled, userAgent, ip, credits) values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
+        'INSERT into buyCredits (username, id, name, email, walletAddress, transactionHash, blockExplorerLink, currency, amount, cryptoAmount, package, rate, date, time, session_id, orderLoggingEnabled, userAgent, ip, credits, paymentMethod) values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
         [
           username,
           Math.random().toString(36).substring(2, 10),
@@ -4725,10 +5829,11 @@ async function stripeBuycredits(data) {
           email,
           walletAddress,
           transactionId,
-          "Stripe",
+          "www.stripe.com",
           currency,
           amount,
           cryptoAmount,
+          packageData.label,
           rate,
           Date.now(),
           new Date().toISOString(),
@@ -4736,7 +5841,8 @@ async function stripeBuycredits(data) {
           orderLoggingEnabled,
           userAgent,
           ip,
-          amount !== undefined && amount !== null ? Math.floor(amount) : 0
+          packageData.credits,
+          'stripe'
         ]
       );
 
@@ -4768,11 +5874,6 @@ async function stripeBuycredits(data) {
 
     // Insert credits into USERDATA records
 
-
-
-
-
-
   } catch (error) {
     console.error('Purchases error:', error);
     return ({ error: 'Database error - purchase logging failed' });
@@ -4786,26 +5887,190 @@ async function stripeBuycredits(data) {
 /////////////////////////////////////////////////////////
 
 
+// Get subscription data from Stripe by subscription ID or customer ID
+server.get(PROXY + '/api/get-stripe-subscription', async (req, res) => {
+  const { subscriptionId, customerId, email } = req.query;
+
+  try {
+    let subscription = null;
+
+    // If subscription ID is provided, fetch that specific subscription
+    if (subscriptionId) {
+      console.log(`[INFO] Fetching subscription by ID: ${subscriptionId}`);
+
+      subscription = await stripe.subscriptions.retrieve(subscriptionId, {
+        expand: ['items.data.price.product', 'customer', 'latest_invoice']
+      });
+
+      return res.json({
+        success: true,
+        subscription: subscription
+      });
+    }
+
+    // If customer ID is provided, fetch all subscriptions for that customer
+    else if (customerId) {
+      console.log(`[INFO] Fetching subscriptions for customer ID: ${customerId}`);
+
+      const subscriptions = await stripe.subscriptions.list({
+        customer: customerId,
+        limit: 100,
+        expand: ['data.items.data.price.product', 'data.customer', 'data.latest_invoice']
+      });
+
+      return res.json({
+        success: true,
+        subscriptions: subscriptions.data,
+        count: subscriptions.data.length
+      });
+    }
+
+    // If email is provided, find customer by email first, then get subscriptions
+    else if (email) {
+      console.log(`[INFO] Fetching subscriptions for customer email: ${email}`);
+
+      // Search for customer by email
+      const customers = await stripe.customers.list({
+        email: email,
+        limit: 1
+      });
+
+      if (customers.data.length === 0) {
+        return res.status(404).json({
+          success: false,
+          error: 'No customer found with that email',
+          status: 'not_found'
+        });
+      }
+
+      const customer = customers.data[0];
+      console.log(`[INFO] Found customer: ${customer.id}`);
+
+      // Fetch subscriptions for this customer
+      const subscriptions = await stripe.subscriptions.list({
+        customer: customer.id,
+        limit: 100,
+        expand: ['data.items.data.price.product', 'data.customer', 'data.latest_invoice']
+      });
+
+      return res.json({
+        success: true,
+        customer: {
+          id: customer.id,
+          email: customer.email,
+          name: customer.name
+        },
+        subscriptions: subscriptions.data,
+        count: subscriptions.data.length
+      });
+    }
+
+    // No valid identifier provided
+    else {
+      return res.status(400).json({
+        success: false,
+        error: 'Must provide subscriptionId, customerId, or email as query parameter',
+        status: 'invalid_input',
+        examples: {
+          bySubscriptionId: '/api/get-stripe-subscription?subscriptionId=sub_xxxxx',
+          byCustomerId: '/api/get-stripe-subscription?customerId=cus_xxxxx',
+          byEmail: '/api/get-stripe-subscription?email=user@example.com'
+        }
+      });
+    }
+
+  } catch (error) {
+    console.error('[ERROR] Failed to fetch subscription:', error);
+
+    return res.status(500).json({
+      success: false,
+      error: error.message || 'Failed to fetch subscription data',
+      status: 'server_error',
+      code: error.code
+    });
+  }
+});
+
+
+// Get all active subscriptions (for admin/monitoring)
+server.get(PROXY + '/api/get-stripe-subscriptions-all', async (req, res) => {
+  const { status, limit = 10, starting_after, created_since, created_hours_ago } = req.query;
+
+  try {
+    console.log(`[INFO] Fetching all subscriptions with status: ${status || 'all'}, limit: ${limit}`);
+
+    const params = {
+      limit: Math.min(parseInt(limit), 100), // Cap at 100
+      expand: ['data.items.data.price.product', 'data.customer', 'data.latest_invoice']
+    };
+
+    // Filter by status if provided (active, canceled, incomplete, etc.)
+    if (status) {
+      params.status = status;
+    }
+
+    // Filter by creation time - Unix timestamp
+    if (created_since) {
+      params.created = {
+        gte: parseInt(created_since)
+      };
+      console.log(`[INFO] Filtering subscriptions created since: ${new Date(parseInt(created_since) * 1000).toISOString()}`);
+    }
+    // Helper: filter by hours ago (e.g., created_hours_ago=24 for last 24 hours)
+    else if (created_hours_ago) {
+      const hoursAgo = parseInt(created_hours_ago);
+      const timestamp = Math.floor(Date.now() / 1000) - (hoursAgo * 3600);
+      params.created = {
+        gte: timestamp
+      };
+      console.log(`[INFO] Filtering subscriptions created in last ${hoursAgo} hours (since: ${new Date(timestamp * 1000).toISOString()})`);
+    }
+
+    // Pagination support
+    if (starting_after) {
+      params.starting_after = starting_after;
+    }
+
+    const subscriptions = await stripe.subscriptions.list(params);
+
+    return res.json({
+      success: true,
+      subscriptions: subscriptions.data,
+      count: subscriptions.data.length,
+      has_more: subscriptions.has_more,
+      // Provide next page cursor if there are more results
+      next_cursor: subscriptions.has_more ? subscriptions.data[subscriptions.data.length - 1].id : null
+    });
+
+  } catch (error) {
+    console.error('[ERROR] Failed to fetch subscriptions:', error);
+
+    return res.status(500).json({
+      success: false,
+      error: error.message || 'Failed to fetch subscriptions',
+      status: 'server_error'
+    });
+  }
+});
+
 
 // Sent from the client: timeRange, user, packageData from buy Credits page
 server.post(PROXY + '/api/verify-stripe-subscription', async (req, res) => {
 
-  const { timeRange, user, packageData } = req.body;
+  const { timeRange, user, subscriptionData } = req.body;
+
+  // example
+  // { "timeRange": { "start": null, "end": 1767385448125 }, "subscriptionData": { "amount": 1000, "dollars": 10, "plan": "Premium", "planType": "premium" }, "user": { "id": "LCBGL8EJ7L", "email": "testman@gmail.com", "username": "testman", "phone": "", "name": " ", "ip": "108.214.170.129", "userAgent": "Mozilla/5.0 (X11; Ubuntu; Linux x86_64; rv:146.0) Gecko/20100101 Firefox/146.0" } }
 
   const paymentData = {
     timeRange,
-    package: packageData,
+    package: subscriptionData,
+    // plan: subscriptionData,
     user
   };
 
   try {
-    // post to a local flask server for verification
-    // const flaskResponse = await axios.post('http://0.0.0.0:5005/verify-payment-data', paymentData, async (req, res) => {
-    //   return paymentData;
-    // }, {
-    //   headers: { 'Content-Type': 'application/json' },
-    //   timeout: 30000
-    // });
+
 
     const { package: pkg, timeRange, user } = paymentData;
 
@@ -4816,12 +6081,10 @@ server.post(PROXY + '/api/verify-stripe-subscription', async (req, res) => {
       });
     }
 
-    console.log(`[INFO] Verifying payment data for package: ${JSON.stringify(pkg)}, timeRange: ${JSON.stringify(timeRange)}, user: ${JSON.stringify(user)}`);
+    console.log(`[INFO] Verifying subscription data for package: ${JSON.stringify(pkg)}, timeRange: ${JSON.stringify(timeRange)}, user: ${JSON.stringify(user)}`);
 
     const timeRangeStart = timeRange.start;
     const timeRangeEnd = timeRange.end;
-
-
 
     // Fetch recent payments to search through
     const details = await getRecentPayments(20, true);
@@ -4833,8 +6096,6 @@ server.post(PROXY + '/api/verify-stripe-subscription', async (req, res) => {
       const statusCode = details.status === 'server_error' ? 500 : 404;
       return res.status(statusCode).json(details);
     }
-
-
 
     let possiblePaymentFound = false;
     const possibleMatchingPayments = [];
@@ -4868,6 +6129,7 @@ server.post(PROXY + '/api/verify-stripe-subscription', async (req, res) => {
 
 
     console.log(' Is there a possibleMatchingPayment?: ', possiblePaymentFound);
+
     if (!possiblePaymentFound) {
       console.log('[INFO] No possible matching payments found in the specified time range.');
       return res.status(404).json({
@@ -4910,18 +6172,16 @@ server.post(PROXY + '/api/verify-stripe-subscription', async (req, res) => {
       });
     }
 
-    console.log(`[INFO] Verified PaymentIntent: ${potentialVerifiedPayment.id}`);
+    console.log(`[INFO] Verified PaymentIntent Subscription: ${JSON.stringify(potentialVerifiedPayment)}`);
 
-    // res.json({
-    //     success: true,
-    //     message: 'PaymentIntent verified successfully',
-    //     details: potentialVerifiedPayment
-    // });
+    const PACKAGES = [
+      { credits: 2500, dollars: 2.50, label: "Basic", color: '#4caf50', priceId: 'price_1SR08eEViYxfJNd2ihaRH9Fk' },
+      { credits: 5250, dollars: 5, label: "Standard", color: '#2196f3', priceId: 'price_1SR09uEViYxfJNd2jL3JklFl' },
+      { credits: 11200, dollars: 10, label: "Premium", color: '#9c27b0', priceId: 'price_1SR0A9EViYxfJNd258I14txA' },
 
-    // const verificationResult = flaskResponse.data;
-    // console.log('Payment verification result:', verificationResult.details);
-    // console.log('Payment verification message:', verificationResult.message);
-    // res.json(verificationResult);
+    ];
+
+    const packageData = PACKAGES.find(pkg => pkg.dollars === potentialVerifiedPayment.amount / 100);
 
     if (potentialVerifiedPayment.status == 'succeeded') {
       // Log the purchase in the database
@@ -4932,6 +6192,10 @@ server.post(PROXY + '/api/verify-stripe-subscription', async (req, res) => {
         email: user.email,
         walletAddress: "Stripe",
         transactionId: potentialVerifiedPayment.id,
+        stripe_customer_id: potentialVerifiedPayment.customer,
+        stripe_subscription_id: potentialVerifiedPayment.created, // using created time as a placeholder
+        priceId: packageData.priceId,
+        label: packageData.label,
         blockExplorerLink: 'Stripe Payment',
         currency: 'USD',
         amount: potentialVerifiedPayment.amount,
@@ -4941,11 +6205,14 @@ server.post(PROXY + '/api/verify-stripe-subscription', async (req, res) => {
         orderLoggingEnabled: false,
         userAgent: user.userAgent,
         ip: user.ip,
-        dollars: packageData.dollars
+        dollars: packageData.dollars,
+        credits: packageData.credits,
+        planType: packageData.label.toLowerCase(),
+        plan: packageData.label
 
       }
 
-      await stripeBuycredits(data);
+      await stripeBuySubscription(data);
     }
 
     console.log('Payment verification completed successfully.');
@@ -4969,6 +6236,10 @@ async function stripeBuySubscription(data) {
       email,
       walletAddress,
       transactionId,
+      stripe_subscription_id,
+      stripe_customer_id,
+      priceId,
+      label,
       blockExplorerLink,
       currency,
       amount,
@@ -4978,7 +6249,10 @@ async function stripeBuySubscription(data) {
       orderLoggingEnabled,
       userAgent,
       ip,
-      dollars
+      dollars,
+      planType,
+      plan,
+      credits
     } = data;
 
     console.log('💰 Logging Stripe purchase for user:', username);
@@ -5011,34 +6285,93 @@ async function stripeBuySubscription(data) {
 
       console.log('✅ Logging purchase for user:', username);
 
+      // CREATE TABLE
+      // `subscriptions` (
+      //   `id` bigint NOT NULL AUTO_INCREMENT,
+      //   `user_id` bigint NOT NULL,
+      //   `stripe_subscription_id` varchar(255) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL,
+      //   `stripe_customer_id` varchar(255) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL,
+      //   `plan_id` varchar(50) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL,
+      //   `plan_name` varchar(100) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL,
+      //   `status` varchar(50) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL,
+      //   `current_period_start` timestamp NULL DEFAULT NULL,
+      //   `current_period_end` timestamp NULL DEFAULT NULL,
+      //   `cancel_at_period_end` tinyint(1) DEFAULT '0',
+      //   `canceled_at` timestamp NULL DEFAULT NULL,
+      //   `trial_start` timestamp NULL DEFAULT NULL,
+      //   `trial_end` timestamp NULL DEFAULT NULL,
+      //   `created_at` timestamp NULL DEFAULT CURRENT_TIMESTAMP,
+      //   `updated_at` timestamp NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+      //   PRIMARY KEY (`id`),
+      //   UNIQUE KEY `stripe_subscription_id` (`stripe_subscription_id`),
+      //   UNIQUE KEY `unique_user_subscription` (`user_id`, `status`),
+
+      // Helper function to convert timestamp to MySQL datetime format
+      const toMySQLDateTime = (timestamp) => {
+        return new Date(timestamp).toISOString().slice(0, 19).replace('T', ' ');
+      };
+
+      const currentTime = Date.now();
+      const periodEndTime = currentTime + 30 * 24 * 60 * 60 * 1000;
+
+      const [subscription] = await pool.execute(
+        'INSERT into subscriptions (username, user_id, stripe_subscription_id, stripe_customer_id, plan_id, plan_name, status, current_period_start, current_period_end, cancel_at_period_end, canceled_at, trial_start, trial_end, created_at, updated_at) values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
+        [
+          username,
+          userId,
+          stripe_subscription_id,  // Fixed: was using transactionId
+          stripe_customer_id,
+          priceId,
+          label,
+          'active',
+          toMySQLDateTime(currentTime),
+          toMySQLDateTime(periodEndTime),
+          0,
+          null,
+          null,
+          null,
+          toMySQLDateTime(currentTime),
+          toMySQLDateTime(currentTime)
+        ]
+      );
+
+      function convertUTCtoMySQLDatetime(utcSeconds) {
+        const date = new Date(utcSeconds * 1000);
+        return date.toISOString().slice(0, 19).replace('T', ' ');
+      }
+
+
       const [purchases] = await pool.execute(
-        'INSERT into buyCredits (username, id, name, email, walletAddress, transactionHash, blockExplorerLink, currency, amount, cryptoAmount, rate, date, time, session_id, orderLoggingEnabled, userAgent, ip, credits) values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
+        'INSERT into buyCredits (username, id, name, email, walletAddress, transactionHash, blockExplorerLink, currency, amount, cryptoAmount, rate, date, time, session_id, orderLoggingEnabled, userAgent, ip, credits, created_at, paymentMethod, package) values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
         [
           username,
           Math.random().toString(36).substring(2, 10),
           name,
           email,
-          walletAddress,
+          " Bonus credits", //walletAddress,
           transactionId,
-          "Stripe",
+          "www.stripe.com/subscriptions",
           currency,
-          amount,
-          cryptoAmount,
-          rate,
+          Math.floor(credits) / 2, // log half the amount as credits, the other half will be bonus credits
+          cryptoAmount, // keep the same cryptoAmount for reference
+          rate,  // keep the same rate for reference 1 usd = 1000 credits
           Date.now(),
           new Date().toISOString(),
           session_id,
           orderLoggingEnabled,
           userAgent,
           ip,
-          amount !== undefined && amount !== null ? Math.floor(amount) : 0
+          credits !== undefined && credits !== null ? Math.floor(credits) / 2 : 0,
+          convertUTCtoMySQLDatetime(stripe_subscription_id),
+          "stripe_subscription",
+          dollars + "$ " + planType + '_subscription',
         ]
       );
 
       await CreateNotification(
         'credits_purchased',
         'Credits Purchased',
-        `You have purchased ${amount} credits for $${dollars}.`,
+        `You have purchased a $${plan} plan for $${dollars}, and you also have received ${Math.floor(credits) / 2} bonus credits!!!`,
         'purchase',
         username || 'anonymous'
       );
@@ -5046,27 +6379,19 @@ async function stripeBuySubscription(data) {
       // Insert credits into USERDATA records
 
       // Update user credits
-      if (amount !== undefined && amount !== null && amount > 0) {
+      if (credits !== undefined && credits !== null && credits > 0) {
         await pool.execute(
-          'UPDATE userData SET credits = credits + ? WHERE username = ?',
-          [Math.floor(amount), username]
+          'UPDATE userData SET credits = credits + ?, accountType = ? WHERE username = ?',
+          [Math.floor(credits) / 2, planType, username]
         );
       }
 
-      return ({ success: true, purchases });
-      // } else {
-      //   // invladid transaction
-      //   return res.status(400).json({ error: 'Transaction verification failed: ' + result.error });
-      // }
+      return ({ success: true, purchases, subscription });
+
     } catch (error) {
       console.error('Transaction verification error:', error);
       return ({ error: 'Transaction verification failed: ' + error.message });
     }
-
-    
-
-
-
 
   } catch (error) {
     console.error('Purchases error:', error);

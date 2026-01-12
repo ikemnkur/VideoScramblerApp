@@ -220,8 +220,8 @@ export default function Purchase() {
     // Upload logic (if you want to upload immediately)
     const formData = new FormData();
     formData.append('screenshot', file);
-    formData.append('username', ud.username);
-    formData.append('userId', ud.user_id || ud.id);
+    formData.append('username', userData.username);
+    formData.append('userId', userData.user_id || userData.id);
     formData.append('time', new Date().toISOString().split('T')[1]);
     formData.append('date', new Date().toISOString());
 

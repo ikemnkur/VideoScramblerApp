@@ -4,7 +4,7 @@ import { useLocation, useNavigate } from 'react-router-dom';
 import { Password, PhotoCamera } from '@mui/icons-material';
 import { Container, Stack, Typography, Card, CardContent, Divider, Skeleton } from '@mui/material';
 import api from '../api/client';
-import { uploadTransactionScreenshot } from '../api/api';
+// import { uploadTransactionScreenshot } from '../api/api';
 import { useToast } from '../contexts/ToastContext';
 import axios from 'axios';
 // import dotenv from 'dotenv';
@@ -15,10 +15,30 @@ import axios from 'axios';
 
 
 const BLOCKCHAIR_API_KEY = import.meta.env.VITE_BLOCKCHAIR_API_KEY;
-const API_URL = import.meta.env.VITE_API_SERVER_URL || 'http://localhost:3001';  
+const API_URL = import.meta.env.VITE_API_SERVER_URL || 'http://localhost:3001';
 export default function Purchase() {
 
 
+  const uploadTransactionScreenshot = async (formData, username, transactionHash) => {
+    try {
+      const res = await api.post(`/upload/transaction-screenshot/${username}/${transactionHash}`, formData, {
+        // Let Axios/browser set the multipart boundary automatically:
+        // headers: { 'Content-Type': undefined },  // <- clears any JSON default
+        //  headers: { 'Content-Type': 'multipart/form-data' },
+        headers: { 'Content-Type': 'application/json' },
+        transformRequest: [(data, headers) => {
+          // Remove any JSON defaults your instance might add
+          delete headers.common?.['Content-Type'];
+          delete headers.post?.['Content-Type'];
+          return data; // keep FormData as-is
+        }],
+      });
+      return res.data;
+    } catch (error) {
+      console.error('API - Error uploading transaction screenshot:', error);
+      throw error;
+    }
+  };
 
   const promoPackagesMap = [
     { amount: 2000, price: 2.5, popular: false },
@@ -67,8 +87,8 @@ export default function Purchase() {
   const initialAmount = query.get('amount') || 12500; // Default to most popular
   const [amount, setAmount] = useState(initialAmount);
   const [price, setPrice] = useState(11);
-  const [ud, setUd] = useState(JSON.parse(localStorage.getItem("userdata")));
-  
+  const [userData, setUserData] = useState(JSON.parse(localStorage.getItem("userdata")));
+
   const [orderSubmitted, setOrderSubmitted] = useState(false);
   const [currency, setCurrency] = useState('BTC'); // Default currency
   const [rate, setRate] = useState(0);
@@ -95,8 +115,30 @@ export default function Purchase() {
 
   const load = async () => {
     try {
-      const { data } = await api.post(`/api/wallet/balance/${ud.username}`, {Password: ud.password, email: ud.email});
-      setBalance(data?.balance ?? 0);
+      try {
+        // JWT token in the Authorization header automatically authenticates the user
+        // No need to send password (it's not stored in localStorage anyway)
+        const { data } = await api.post(`/api/wallet/balance/${userData.username}`, {
+          email: userData.email
+        });
+        setBalance(data?.balance ?? 0);
+      } catch (e) {
+        console.error('Failed to load wallet balance:', e);
+
+        // Handle authentication errors
+        if (e.response?.status === 401 || e.response?.status === 403) {
+          error('Session expired. Please log in again.');
+          setTimeout(() => {
+            localStorage.removeItem('token');
+            localStorage.removeItem('userdata');
+            window.location.href = '/login';
+          }, 2000);
+        } else {
+          error('Failed to load balance. Please try again.');
+        }
+        setBalance(0);
+      }
+
     } catch (e) {
       console.error(e);
       setBalance(100); // demo fallback
@@ -259,8 +301,8 @@ export default function Purchase() {
     // // Upload logic (if you want to upload immediately)
     // const formData = new FormData();
     // formData.append('screenshot', file);
-    // formData.append('username', ud.username);
-    // formData.append('userId', ud.user_id || ud.id);
+    // formData.append('username', userData.username);
+    // formData.append('userId', userData.user_id || userData.id);
     // formData.append('time', new Date().toISOString().split('T')[1]);
     // formData.append('date', new Date().toISOString());
 
@@ -287,8 +329,8 @@ export default function Purchase() {
     // Upload logic (if you want to upload immediately)
     const formData = new FormData();
     formData.append('screenshot', file);
-    formData.append('username', ud.username);
-    formData.append('userId', ud.user_id || ud.id);
+    formData.append('username', userData.username);
+    formData.append('userId', userData.user_id || userData.id);
     formData.append('time', new Date().toISOString().split('T')[1]);
     formData.append('date', new Date().toISOString());
 
@@ -420,7 +462,7 @@ export default function Purchase() {
   async function lookupTransactionOnServer(sendAddress, blockchain, transactionHash) {
     try {
       console.log('Verifying transaction on server:', { sendAddress, blockchain, transactionHash });
-      const response = await  api.post(`api/lookup-transaction`, {
+      const response = await api.post(`api/lookup-transaction`, {
         sendAddress,
         blockchain,
         transactionHash
@@ -719,7 +761,7 @@ export default function Purchase() {
       // console.log(`Expected amount: ${expectedAmount} ${curr}\n`);
 
 
-     
+
 
       let transactionLookup;
 

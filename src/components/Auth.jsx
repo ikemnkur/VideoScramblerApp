@@ -50,40 +50,6 @@ const Auth = ({ isLogin, onLoginSuccess }) => {
 
   const navigate = useNavigate();
   const API_URL = import.meta.env.VITE_API_SERVER_URL || 'http://localhost:3001';
-  const [userData, setUserData] = useState({
-    "id": 1,
-    "loginStatus": true,
-    "lastLogin": "2025-09-28T10:30:00.000Z",
-    "accountType": "buyer",
-    "username": "user_123",
-    "email": "john.buyer@example.com",
-    "firstName": "John",
-    "lastName": "Smith",
-    "phoneNumber": "+1-555-0123",
-    "birthDate": "1990-05-15",
-    "encryptionKey": "enc_key_abc123",
-    "credits": 750,
-    "reportCount": 1,
-    "isBanned": false,
-    "banReason": "",
-    "banDate": null,
-    "banDuration": null,
-    "createdAt": 1693497600000,
-    "updatedAt": 1727517000000,
-    "passwordHash": "$2b$10$hashedpassword123",
-    "twoFactorEnabled": false,
-    "twoFactorSecret": "",
-    "recoveryCodes": [],
-    "profilePicture": "https://i.pravatar.cc/150?img=1",
-    "bio": "Gaming enthusiast and software collector",
-    "socialLinks": {
-      "facebook": "",
-      "twitter": "@johnsmith",
-      "instagram": "",
-      "linkedin": "",
-      "website": ""
-    }
-  });
 
   // Load user profile from server
   // const loadUserProfile = async () => {
@@ -175,20 +141,14 @@ const Auth = ({ isLogin, onLoginSuccess }) => {
 
     if (token && userdata) {
       try {
-        // Simple token validation - check if it's a demo token
-        if (token.startsWith('demo_token_')) {
-          const userData = JSON.parse(userdata);
-          console.log('Valid token found for user:', userData.username);
-          // Token is valid, redirect to main page
-          navigate('/');
-        } else {
-          // Invalid token format, remove it
-          localStorage.removeItem('token');
-          localStorage.removeItem('userdata');
-          localStorage.removeItem('accountType');
-        }
+        const userData = JSON.parse(userdata);
+        console.log('Valid token found for user:', userData.username);
+        // Token exists, redirect to main page
+        // Note: Token validation happens on the server via the authenticateToken middleware
+        navigate('/');
       } catch (error) {
         // Error parsing user data, remove invalid data
+        console.error('Error parsing stored user data:', error);
         localStorage.removeItem('token');
         localStorage.removeItem('userdata');
         localStorage.removeItem('accountType');
@@ -235,7 +195,7 @@ const Auth = ({ isLogin, onLoginSuccess }) => {
         const loginData = await loginResponse.json();
         console.log('✅ Login response from server:', loginData);
 
-        if (!loginData.success) {
+        if (!loginData.user) {
           throw new Error(loginData.message || 'Login failed');
         }
 
@@ -342,7 +302,7 @@ const Auth = ({ isLogin, onLoginSuccess }) => {
       }, 500);
 
     } catch (error) {
-      console.error('Auth error:', error.message || 'An error occurred');
+      console.error('Auth error:', error || 'An error occurred');
       alert(error.message || 'An error occurred during authentication.');
       // Reset CAPTCHA state to allow the user to try again
       setCaptchaPassed(false);

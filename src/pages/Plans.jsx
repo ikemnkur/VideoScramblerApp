@@ -117,6 +117,7 @@ export default function Wallet() {
       const freshUserData = await fetchUserData();
       if (freshUserData) {
         setUserData(freshUserData);
+        console.log("Fetched user data on mount:", freshUserData);
         setTimeout(() => {
           load();
         }, 1000);

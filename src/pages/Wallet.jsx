@@ -22,29 +22,66 @@ import {
   AttachMoney
 } from '@mui/icons-material';
 // import Button from '../components/Button';
+
+import axios from 'axios';
+
 import api from '../api/client';
+// import api from '../api/api';
+import { useAuth } from '../contexts/AuthContext';
+// import { useToast } from '../contexts/ToastContext';
+import { useNavigate } from 'react-router-dom';
 import { useToast } from '../contexts/ToastContext';
 
-
-import { useNavigate } from 'react-router-dom';
 
 
 export default function Wallet() {
   const [balance, setBalance] = useState(null);
   const { success, error } = useToast();
 
-  const [ud, setUd] = useState(JSON.parse(localStorage.getItem("userdata")));
+  const [userData, setUserData] = useState(JSON.parse(localStorage.getItem("userdata")));
 
   const navigate = useNavigate();
 
 
   const load = async () => {
     try {
-      const { data } = await api.post(`/api/wallet/balance/${ud.username}`, { Password: ud.password, email: ud.email });
+      // Check if token exists
+      const token = localStorage.getItem('token');
+      console.log('🔑 Token exists:', !!token);
+      console.log('👤 User data:', userData);
+      
+      if (!token) {
+        error('Please log in to view your wallet.');
+        setTimeout(() => {
+          window.location.href = '/login';
+        }, 1500);
+        return;
+      }
+
+      // JWT token in the Authorization header automatically authenticates the user
+      // No need to send password (it's not stored in localStorage anyway)
+      const { data } = await api.post(`/api/wallet/balance/${userData.username}`, { 
+        email: userData.email 
+      });
+
+      console.log('💰 Wallet balance response:', data);
+
       setBalance(data?.balance ?? 0);
     } catch (e) {
-      console.error(e);
-      setBalance(100); // demo fallback
+      console.error('Failed to load wallet balance:', e);
+      
+      // Handle authentication errors
+      if (e.response?.status === 401 || e.response?.status === 403) {
+        error('Session expired. Please log in again.');
+        setTimeout(() => {
+          localStorage.removeItem('token');
+          localStorage.removeItem('userdata');
+          window.location.href = '/login';
+        }, 2000);
+      } else {
+        error('Failed to load balance. Please try again.');
+      }
+      setBalance(0);
     }
   };
 

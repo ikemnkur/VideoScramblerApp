@@ -317,12 +317,12 @@ server.post('/api/check-photo-leak', async (req, res) => {
       const [rows] = await pool.query(
         \`SELECT 
           wc.*,
-          ud.username,
-          ud.email,
+          userData.username,
+          userData.email,
           p.id as purchase_id,
           p.createdAt as purchase_date
         FROM watermark_codes wc
-        LEFT JOIN userData ud ON wc.user_id = ud.id
+        LEFT JOIN userData ud ON wc.user_id = userData.id
         LEFT JOIN purchases p ON wc.purchase_id = p.id
         WHERE wc.code = ?\`,
         [extracted_code]
@@ -456,12 +456,12 @@ server.post('/api/check-video-leak', async (req, res) => {
       const [rows] = await pool.query(
         \`SELECT 
           wc.*,
-          ud.username,
-          ud.email,
+          userData.username,
+          userData.email,
           p.id as purchase_id,
           p.createdAt as purchase_date
         FROM watermark_codes wc
-        LEFT JOIN userData ud ON wc.user_id = ud.id
+        LEFT JOIN userData ud ON wc.user_id = userData.id
         LEFT JOIN purchases p ON wc.purchase_id = p.id
         WHERE wc.code = ?\`,
         [extracted_code]

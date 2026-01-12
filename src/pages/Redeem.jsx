@@ -73,8 +73,32 @@ export default function Redeem() {
 
   const load = async () => {
     try {
-      const { data } = await api.post(`/api/wallet/balance/${ud.username}`);
-      setBalance(data?.balance ?? 0);
+      // const { data } = await api.post(`/api/wallet/balance/${userData.username}`);
+      // setBalance(data?.balance ?? 0);
+      try {
+        // JWT token in the Authorization header automatically authenticates the user
+        // No need to send password (it's not stored in localStorage anyway)
+        const { data } = await api.post(`/api/wallet/balance/${userData.username}`, {
+          email: userData.email
+        });
+        setBalance(data?.balance ?? 0);
+      } catch (e) {
+        console.error('Failed to load wallet balance:', e);
+
+        // Handle authentication errors
+        if (e.response?.status === 401 || e.response?.status === 403) {
+          error('Session expired. Please log in again.');
+          setTimeout(() => {
+            localStorage.removeItem('token');
+            localStorage.removeItem('userdata');
+            window.location.href = '/login';
+          }, 2000);
+        } else {
+          error('Failed to load balance. Please try again.');
+        }
+        setBalance(0);
+      }
+
     } catch (e) {
       console.error(e);
       setBalance(100); // demo fallback
@@ -225,8 +249,8 @@ export default function Redeem() {
   //   // Upload logic (if you want to upload immediately)
   //   const formData = new FormData();
   //   formData.append('screenshot', file);
-  //   formData.append('username', ud.username);
-  //   formData.append('userId', ud.user_id || ud.id);
+  //   formData.append('username', userData.username);
+  //   formData.append('userId', userData.user_id || userData.id);
   //   formData.append('time', new Date().toISOString().split('T')[1]);
   //   formData.append('date', new Date().toISOString());
 

@@ -8,7 +8,7 @@ import { useToast } from '../contexts/ToastContext';
 export default function PaymentButton({ amountUSD = 5, children, onError }) {
     const [loading, setLoading] = useState(false);
     const { info, error } = useToast();
-    const [ud, setUd] = useState(() => {
+    const [userData, setUserData] = useState(() => {
         const stored = localStorage.getItem('userdata');
         return stored ? JSON.parse(stored) : {};
       });
@@ -22,9 +22,9 @@ export default function PaymentButton({ amountUSD = 5, children, onError }) {
 
             // open link in new tab: https://buy.stripe.com/test_7sYcN58SH61v7JG9LK5AQ00
 
-            const stripeCheckoutUrl_Basic = `https://buy.stripe.com/test_bJedR9fh54Xrd40f645AQ02?client_reference_id=${ud.id}`; //`https://buy.stripe.com/test_14k14g6SH4bA7JG9AA`;
-            const stripeCheckoutUrl_Standard = `https://buy.stripe.com/test_6oU7sLfh53Tn1li0ba5AQ01?client_reference_id=${ud.id}`;
-            const stripeCheckoutUrl_Premium = `https://buy.stripe.com/test_7sYcN58SH61v7JG9LK5AQ00?client_reference_id=${ud.id}`;
+            const stripeCheckoutUrl_Basic = `https://buy.stripe.com/test_bJedR9fh54Xrd40f645AQ02?client_reference_id=${userData.id}`; //`https://buy.stripe.com/test_14k14g6SH4bA7JG9AA`;
+            const stripeCheckoutUrl_Standard = `https://buy.stripe.com/test_6oU7sLfh53Tn1li0ba5AQ01?client_reference_id=${userData.id}`;
+            const stripeCheckoutUrl_Premium = `https://buy.stripe.com/test_7sYcN58SH61v7JG9LK5AQ00?client_reference_id=${userData.id}`;
             
             
             if (!amountUSD || amountUSD == 10) {

@@ -30,11 +30,11 @@ import {
 import { useToast } from '../contexts/ToastContext';
 import CreditConfirmationModal from '../components/CreditConfirmationModal';
 import api from '../api/client';
-import { 
-  generateWatermark, 
-  loadAudioFromUrl, 
+import {
+  generateWatermark,
+  loadAudioFromUrl,
   prependWatermark,
-  checkTTSServerHealth 
+  checkTTSServerHealth
 } from '../utils/ttsWatermarkService';
 
 export default function AudioScrambler() {
@@ -108,18 +108,29 @@ export default function AudioScrambler() {
       if (!userData?.username) return;
 
       try {
-        const response = await api.post(`api/wallet/balance/${userData.username}`, {
-          username: userData.username,
-          email: userData.email,
-          password: localStorage.getItem('passwordtxt')
+        // JWT token in the Authorization header automatically authenticates the user
+        // No need to send password (it's not stored in localStorage anyway)
+        const { data } = await api.post(`/api/wallet/balance/${userData.username}`, {
+          email: userData.email
         });
 
-        if (response.status === 200 && response.data) {
-          setUserCredits(response.data.credits);
+      } catch (e) {
+        console.error('Failed to load wallet balance:', e);
+
+        // Handle authentication errors
+        if (e.response?.status === 401 || e.response?.status === 403) {
+          error('Session expired. Please log in again.');
+          setTimeout(() => {
+            localStorage.removeItem('token');
+            localStorage.removeItem('userdata');
+            window.location.href = '/login';
+          }, 2000);
+        } else {
+          error('Failed to load balance. Please try again.');
         }
-      } catch (err) {
-        console.error('Error fetching credits:', err);
+        setBalance(0);
       }
+
     };
 
     fetchCredits();
@@ -481,7 +492,7 @@ export default function AudioScrambler() {
     // Check if it's an audio file by MIME type or extension
     const isAudioByMime = file.type.startsWith('audio/');
     const isAudioByExtension = /\.(mp3|wav|ogg|oga|opus|m4a|aac|flac|webm)$/i.test(file.name);
-    
+
     if (!isAudioByMime && !isAudioByExtension) {
       error("Please select a valid audio file (mp3, wav, ogg, m4a, etc.)");
       return;
@@ -508,7 +519,7 @@ export default function AudioScrambler() {
       success(`Audio loaded: ${buffer.duration.toFixed(2)}s`);
     } catch (err) {
       console.error("Error processing audio file:", err);
-      
+
       if (err.name === 'EncodingError' || err.message.includes('Unable to decode')) {
         error('Unable to decode audio file. This format may not be supported by your browser. Try converting to WAV or MP3.');
       } else {

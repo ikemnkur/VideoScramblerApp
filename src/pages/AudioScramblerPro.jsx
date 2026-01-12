@@ -29,6 +29,7 @@ import {
 } from '@mui/icons-material';
 import { useToast } from '../contexts/ToastContext';
 import CreditConfirmationModal from '../components/CreditConfirmationModal';
+import ProcessingModal from '../components/ProcessingModal';
 import api from '../api/client';
 
 export default function AudioScrambler() {
@@ -71,7 +72,7 @@ export default function AudioScrambler() {
   const [filename, setFilename] = useState('');
   const [selectedFile, setSelectedFile] = useState(null);
   const [audioDuration, setAudioDuration] = useState(0);
-  const [sampleRate, setSampleRate] = useState(48000);
+  const [sampleRate, setSampleRate] = useState(44000);
   const [numberOfChannels, setNumberOfChannels] = useState(2);
 
   const [isProcessing, setIsProcessing] = useState(false);
@@ -79,8 +80,9 @@ export default function AudioScrambler() {
   const [userCredits, setUserCredits] = useState(0);
   const [actionCost, setActionCost] = useState(3);
   const [scrambleLevel, setScrambleLevel] = useState(1);
+  const [userData, setUserData] = useState(JSON.parse(localStorage.getItem("userdata")));
 
-  const [userData] = useState(JSON.parse(localStorage.getItem("userdata")));
+  // const [userData] = useState(JSON.parse(localStorage.getItem("userdata")));
 
   // =============================
   // FETCH USER CREDITS
@@ -89,19 +91,31 @@ export default function AudioScrambler() {
     const fetchCredits = async () => {
       if (!userData?.username) return;
 
-      try {
-        const response = await api.post(`api/wallet/balance/${userData.username}`, {
-          username: userData.username,
-          email: userData.email,
-          password: localStorage.getItem('passwordtxt')
-        });
 
-        if (response.status === 200 && response.data) {
-          setUserCredits(response.data.credits);
+      try {
+        // JWT token in the Authorization header automatically authenticates the user
+        // No need to send password (it's not stored in localStorage anyway)
+        const { data } = await api.post(`/api/wallet/balance/${userData.username}`, {
+          email: userData.email
+        });
+        setUserCredits(data?.balance ?? 0);
+      } catch (e) {
+        console.error('Failed to load wallet balance:', e);
+
+        // Handle authentication errors
+        if (e.response?.status === 401 || e.response?.status === 403) {
+          error('Session expired. Please log in again.');
+          setTimeout(() => {
+            localStorage.removeItem('token');
+            localStorage.removeItem('userdata');
+            window.location.href = '/login';
+          }, 2000);
+        } else {
+          error('Failed to load balance. Please try again.');
         }
-      } catch (err) {
-        console.error('Error fetching credits:', err);
+        setBalance(0);
       }
+
     };
 
     fetchCredits();
@@ -471,11 +485,17 @@ export default function AudioScrambler() {
       const arrayBuffer = await file.arrayBuffer();
       const buffer = await audioContext.decodeAudioData(arrayBuffer);
 
+      console.log('Decoded audio buffer:', {
+        duration: buffer.duration,
+        sampleRate: buffer.sampleRate,
+        numberOfChannels: buffer.numberOfChannels,
+        length: buffer.length
+      });
+
       setAudioBuffer(buffer);
       setAudioDuration(buffer.duration);
       setSampleRate(buffer.sampleRate);
       setNumberOfChannels(buffer.numberOfChannels);
-
       setSelectedFile(file);
 
       const objectUrl = URL.createObjectURL(file);
@@ -483,7 +503,7 @@ export default function AudioScrambler() {
         audioPlayerRef.current.src = objectUrl;
       }
 
-      success(`Audio loaded: ${buffer.duration.toFixed(2)}s`);
+      success(`Audio loaded: ${buffer.duration.toFixed(2)}s, ${buffer.sampleRate}Hz, ${buffer.numberOfChannels}ch`);
     } catch (err) {
       console.error("Error processing audio file:", err);
       error('Error loading audio file');
@@ -860,20 +880,40 @@ export default function AudioScrambler() {
             id="audio-upload"
             ref={audioFileInput}
           />
-          <label htmlFor="audio-upload">
-            <Button
-              variant="contained"
-              component="span"
-              startIcon={<AudioFile />}
-              sx={{ backgroundColor: '#2196f3', color: 'white', mb: 2 }}
-            >
-              Choose Audio File
-            </Button>
-          </label>
+          <Box sx={{ display: 'flex', gap: 2, flexWrap: 'wrap', mb: 2 }}>
+            <label htmlFor="audio-upload">
+              <Button
+                variant="contained"
+                component="span"
+                startIcon={<AudioFile />}
+                sx={{ backgroundColor: '#2196f3', color: 'white' }}
+              >
+                Choose Audio File
+              </Button>
+            </label>
+
+            {audioBuffer && (
+              <Button
+                variant="outlined"
+                onClick={() => {
+                  const url = bufferToWavUrl(audioBuffer, audioBuffer.numberOfChannels, audioBuffer.sampleRate);
+                  const a = document.createElement('a');
+                  a.href = url;
+                  a.download = `${filename ? filename.replace(/\.[^/.]+$/, '') : 'audio'}-decoded-${audioBuffer.sampleRate}Hz.wav`;
+                  a.click();
+                  success(`Downloaded decoded audio at ${audioBuffer.sampleRate}Hz`);
+                }}
+                startIcon={<Download />}
+                sx={{ borderColor: '#4caf50', color: '#4caf50' }}
+              >
+                Download Decoded ({audioBuffer.sampleRate}Hz)
+              </Button>
+            )}
+          </Box>
 
           {filename && (
             <Typography variant="body2" sx={{ color: '#4caf50', mb: 2 }}>
-              Selected: {filename}
+              Selected: {filename} | Duration: {audioDuration.toFixed(2)}s | Sample Rate: {audioBuffer?.sampleRate || sampleRate}Hz | Channels: {audioBuffer?.numberOfChannels || numberOfChannels}
             </Typography>
           )}
 
@@ -1059,32 +1099,34 @@ export default function AudioScrambler() {
       <ProcessingModal open={isProcessing} mediaType="audio" />
 
       {/* Credit Confirmation Modal */}
-      <CreditConfirmationModal
-        open={showCreditModal}
+      {showCreditModal && (
+        <CreditConfirmationModal
+          open={showCreditModal}
 
-        onClose={() => setShowCreditModal(false)}
-        onConfirm={handleCreditConfirm}
-        mediaType="audio"
-        description="scramble audio"
-        isProcessing={isProcessing}
-        scrambleLevel={scrambleLevel}
-        currentCredits={userCredits}
+          onClose={() => setShowCreditModal(false)}
+          onConfirm={handleCreditConfirm}
+          mediaType="audio"
+          description="scramble audio"
+          isProcessing={isProcessing}
+          scrambleLevel={scrambleLevel}
+          currentCredits={userCredits}
 
-        fileName={filename}
-        file={audioBuffer}
-        fileDetails={{
-          type: 'audio',
-          size: selectedFile?.size || 0,
-          name: filename || '',
-          duration: Math.ceil(audioPlayerRef.current?.duration) || 0,
-          sampleRate: sampleRate,
-          numberOfChannels: numberOfChannels,
-        }}
+          fileName={filename}
+          file={audioBuffer}
+          fileDetails={{
+            type: 'audio',
+            size: selectedFile?.size || 0,
+            name: filename || '',
+            duration: audioDuration,
+            sampleRate: audioBuffer?.sampleRate || sampleRate,
+            numberOfChannels: audioBuffer?.numberOfChannels || numberOfChannels,
+          }}
 
-        user={userData}
-        actionType="scramble-audio"
-        actionDescription="Scrambling audio"
-      />
+          user={userData}
+          actionType="scramble-audio"
+          actionDescription="Scrambling audio"
+        />
+      )}
     </Container>
   );
 }

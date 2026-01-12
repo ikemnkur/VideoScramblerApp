@@ -29,7 +29,7 @@ import {
   Report,
 } from "@mui/icons-material";
 import { useNavigate } from "react-router-dom";
-
+import axios from "axios";
 
 
 // Helper component for the modal with Video Scrambler specific styling
@@ -262,30 +262,35 @@ const BuyerTransactions = () => {
   useEffect(() => {
     const loadTransactions = async () => {
       try {
-       
-        // Real API call
         // Get current user from localStorage
         const userData = JSON.parse(
           localStorage.getItem("userdata")  
         );
         const username = userData.username || "seller_123";
+        const token = localStorage.getItem('token');
 
-        // Fetch data from JSON server
-        // Get actions and credit purchases for the buyer
-        // const actionsResponse = await fetch(`${API_URL}/api/actions`);
-        const actionsResponse = await fetch(`${API_URL}/api/actions/${username}`);
-        const creditsResponse = await fetch(`${API_URL}/api/buyCredits/${username}`);
-
-        if (!actionsResponse.ok) {
-          throw new Error(`HTTP error! status: ${actionsResponse.status}`);
-        }
-        if (!creditsResponse.ok) {
-          throw new Error(`HTTP error! status: ${creditsResponse.status}`);
+        // Check if token exists
+        if (!token) {
+          throw new Error('No authentication token found. Please login again.');
         }
 
-        // Get all data and filter for current user
-        const allActions = await actionsResponse.json();
-        const allCreditPurchases = await creditsResponse.json();
+        // Fetch data with JWT authentication
+        // Axios automatically includes the Authorization header via interceptor in api/client.js
+        // But we can also pass it explicitly for clarity
+        const actionsResponse = await axios.get(
+          `${API_URL}/api/actions/${username}`,
+          { headers: { Authorization: `Bearer ${token}` } }
+        );
+
+        const creditsResponse = await axios.get(
+          `${API_URL}/api/buyCredits/${username}`,
+          { headers: { Authorization: `Bearer ${token}` } }
+        );
+
+        // Axios wraps the response in a data property
+        // Axios also automatically throws errors for bad status codes
+        const allActions = actionsResponse.data;
+        const allCreditPurchases = creditsResponse.data;
 
         // Filter for current user's transactions
         const userActions = allActions.filter(
@@ -352,7 +357,21 @@ const BuyerTransactions = () => {
         setLoading(false);
       } catch (err) {
         console.error("Failed to fetch transaction history:", err);
-        setError("Failed to load transaction history. Please try again later.");
+        
+        // Handle authentication errors specifically
+        if (err.response?.status === 401 || err.response?.status === 403) {
+          setError(
+            "Your session has expired. Please log out and log back in to continue."
+          );
+          // Optionally, auto-redirect to login after a delay
+          setTimeout(() => {
+            localStorage.removeItem('token');
+            localStorage.removeItem('userdata');
+            window.location.href = '/login';
+          }, 3000);
+        } else {
+          setError("Failed to load transaction history. Please try again later.");
+        }
         setLoading(false);
       }
     };

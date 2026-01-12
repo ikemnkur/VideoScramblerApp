@@ -97,10 +97,10 @@ export const Return = () => {
     const [TRXdata, setTRXdata] = useState(null);
     const [customerEmail, setCustomerEmail] = useState('');
     const [done, setDone] = useState(false);
-    const [userdata, setUserData] = useState([]);
+    // const [userdata, setUserData] = useState([]);
     const navigate = useNavigate();
     const [amnt, setAmnt] = useState(0);
-    const [ud, setUD] = useState(() => {
+    const [userData, setUserData] = useState(() => {
         const storedData = localStorage.getItem("userdata");
         return storedData ? JSON.parse(storedData) : {};
     });

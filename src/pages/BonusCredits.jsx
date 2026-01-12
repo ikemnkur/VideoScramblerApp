@@ -49,14 +49,14 @@ export default function Wallet() {
     return () => clearInterval(timer);
   }, [timeLeft]);
 
-  const [ud, setUd] = useState(JSON.parse(localStorage.getItem("userdata")));
+  const [userData, setUserData] = useState(JSON.parse(localStorage.getItem("userdata")));
 
   const navigate = useNavigate();
 
 
   const load = async () => {
     try {
-      const { data } = await api.post(`/api/wallet/balance/${ud.username}`, { Password: ud.password, email: ud.email });
+      const { data } = await api.post(`/api/wallet/balance/${userData.username}`, { Password: userData.password, email: userData.email });
       setBalance(data?.balance ?? 0);
     } catch (e) {
       console.error(e);
@@ -251,7 +251,7 @@ export default function Wallet() {
                         try {
                           // Placeholder API call - will be connected to backend later
                           await api.post('/api/bonus-credits/award', {
-                            username: ud.username,
+                            username: userData.username,
                             amount: 200,
                             reason: 'Bonus credits for correct quiz answer',
                             adId: 'sample-ad-001',

@@ -39,6 +39,7 @@ const AccountPage = () => {
 
   const navigate = useNavigate();
   const API_URL = import.meta.env.VITE_API_SERVER_URL || 'http://localhost:3001';  
+  
   useEffect(() => {
     const loadUserProfile = async () => {
       try {

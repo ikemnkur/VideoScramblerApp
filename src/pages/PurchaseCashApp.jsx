@@ -17,7 +17,7 @@ import axios from 'axios';
 
 
 const BLOCKCHAIR_API_KEY = import.meta.env.VITE_BLOCKCHAIR_API_KEY;
-const API_URL = import.meta.env.VITE_API_SERVER_URL || 'http://localhost:3001';  
+const API_URL = import.meta.env.VITE_API_SERVER_URL || 'http://localhost:3001';
 export default function Purchase() {
 
 
@@ -40,7 +40,7 @@ export default function Purchase() {
   const initialAmount = query.get('amount') || 12500; // Default to most popular
   const [amount, setAmount] = useState(initialAmount);
   const [price, setPrice] = useState(11);
-  const [ud, setUd] = useState(JSON.parse(localStorage.getItem("userdata")));
+  const [userData, setUserData] = useState(JSON.parse(localStorage.getItem("userdata")));
 
   const [orderSubmitted, setOrderSubmitted] = useState(false);
   const [currency, setCurrency] = useState('BTC'); // Default currency
@@ -67,11 +67,36 @@ export default function Purchase() {
   const dollarValueOfCoins = price; // Assuming 1000 coins = $1
   const cryptoAmount = rate ? (dollarValueOfCoins / rate).toFixed(8) : '0.00000000'; // Amount of crypto to send
 
- 
+
   const load = async () => {
     try {
-      const { data } = await api.post(`/api/wallet/balance/${ud.username}`, {Password: ud.password, email: ud.email});
-      setBalance(data?.balance ?? 0);
+      // const { data } = await api.post(`/api/wallet/balance/${userData.username}`, {Password: userData.password, email: userData.email});
+      // setBalance(data?.balance ?? 0);
+       try {
+        // JWT token in the Authorization header automatically authenticates the user
+        // No need to send password (it's not stored in localStorage anyway)
+        const { data } = await api.post(`/api/wallet/balance/${userData.username}`, {
+          email: userData.email
+        });
+        setBalance(data?.balance ?? 0);
+      } catch (e) {
+        console.error('Failed to load wallet balance:', e);
+
+        // Handle authentication errors
+        if (e.response?.status === 401 || e.response?.status === 403) {
+          error('Session expired. Please log in again.');
+          setTimeout(() => {
+            localStorage.removeItem('token');
+            localStorage.removeItem('userdata');
+            window.location.href = '/login';
+          }, 2000);
+        } else {
+          error('Failed to load balance. Please try again.');
+        }
+        setBalance(0);
+      }
+
+
     } catch (e) {
       console.error(e);
       setBalance(100); // demo fallback
@@ -234,8 +259,8 @@ export default function Purchase() {
     // // Upload logic (if you want to upload immediately)
     // const formData = new FormData();
     // formData.append('screenshot', file);
-    // formData.append('username', ud.username);
-    // formData.append('userId', ud.user_id || ud.id);
+    // formData.append('username', userData.username);
+    // formData.append('userId', userData.user_id || userData.id);
     // formData.append('time', new Date().toISOString().split('T')[1]);
     // formData.append('date', new Date().toISOString());
 
@@ -262,8 +287,8 @@ export default function Purchase() {
     // Upload logic (if you want to upload immediately)
     const formData = new FormData();
     formData.append('screenshot', file);
-    formData.append('username', ud.username);
-    formData.append('userId', ud.user_id || ud.id);
+    formData.append('username', userData.username);
+    formData.append('userId', userData.user_id || userData.id);
     formData.append('time', new Date().toISOString().split('T')[1]);
     formData.append('date', new Date().toISOString());
 
@@ -395,7 +420,7 @@ export default function Purchase() {
   async function lookupTransactionOnServer(sendAddress, blockchain, transactionHash) {
     try {
       console.log('Verifying transaction on server:', { sendAddress, blockchain, transactionHash });
-      const response = await  api.post(`api/lookup-transaction`, {
+      const response = await api.post(`api/lookup-transaction`, {
         sendAddress,
         blockchain,
         transactionHash
@@ -864,7 +889,7 @@ export default function Purchase() {
                   }}>
                     ${package_.price} USD
                   </div>
-                 
+
                   <button style={{
                     width: '100%',
                     padding: '12px',
@@ -914,10 +939,10 @@ export default function Purchase() {
                 display: 'flex',
                 alignItems: 'center'
               }}>
-              {/* Display cashapp tag qr code */}
+                {/* Display cashapp tag qr code */}
                 <h4 style={{ marginBottom: '5px' }}>CashApp Tag QR Code</h4>
                 <QrCode style={{ fontSize: 32, margin: 5 }} />
-                <img src="./public/CashappQR.jpg" alt="" style={{width: "90%", margin: "0px 10px"}}/>
+                <img src="./public/CashappQR.jpg" alt="" style={{ width: "90%", margin: "0px 10px" }} />
               </div>
 
               <div style={{
@@ -933,7 +958,7 @@ export default function Purchase() {
                 <p style={{ marginBottom: '15px', textAlign: 'center' }}>
                   Please send <strong style={{ color: '#ffd700' }}>{price} USD</strong> to the following CashApp Tag:
                 </p>
-                
+
 
                 <div style={styles.walletAddressContainer}>
                   <p style={{ ...styles.walletAddress, fontSize: '18px', fontWeight: 'bold' }}>
@@ -951,7 +976,7 @@ export default function Purchase() {
                   </button>
                 </div>
 
-               
+
               </div>
             </div>
 

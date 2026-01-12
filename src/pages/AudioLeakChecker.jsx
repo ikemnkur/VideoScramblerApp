@@ -6,25 +6,23 @@ import { useToast } from '../contexts/ToastContext';
 import CreditConfirmationModal from '../components/CreditConfirmationModal';
 import api from '../api/client';
 
-const API_URL = import.meta.env.VITE_API_SERVER_URL || 'http://localhost:3001'; // = import.meta.env.VITE_API_URL || 'http://localhost:3001';
+const API_URL = import.meta.env.VITE_API_SERVER_URL || 'http://localhost:3001';
 
 export default function AudioLeakChecker() {
 
-  const API_URL = import.meta.env.VITE_API_SERVER_URL || 'http://localhost:3001'; // = 'http://localhost:3001/api';
-
   const { success, error: showError, info } = useToast();
-  
+
   // Original and leaked audio files
   const [originalAudioFile, setOriginalAudioFile] = useState(null);
   const [leakedAudioFile, setLeakedAudioFile] = useState(null);
   const [originalPreviewUrl, setOriginalPreviewUrl] = useState(null);
   const [leakedPreviewUrl, setLeakedPreviewUrl] = useState(null);
-  
+
   const [isChecking, setIsChecking] = useState(false);
   const [checkStatus, setCheckStatus] = useState('idle');
   const [leakData, setLeakData] = useState(null);
   const [extractedCode, setExtractedCode] = useState('');
-  
+
   const originalAudioFileInputRef = useRef(null);
   const leakedAudioFileInputRef = useRef(null);
   const keyFileInputRef = useRef(null);
@@ -72,18 +70,24 @@ export default function AudioLeakChecker() {
       success('🔑 Key loaded!');
     } catch (err) {
       console.error("Error loading key:", err);
-      showError('Invalid or corrupted key file');
+      const errorMsg = 'Invalid or corrupted key file';
+      console.error(errorMsg);
+      showError(errorMsg);
     }
   };
 
   const handleOriginalFileSelect = async (event) => {
     const file = event.target.files?.[0];
     if (!file || !file.type.startsWith('audio/')) {
-      showError("Please select a valid audio file");
+      const errorMsg = "Please select a valid audio file";
+      console.error(errorMsg);
+      showError(errorMsg);
       return;
     }
     if (file.size > 50 * 1024 * 1024) {
-      showError("File size must be less than 50MB");
+      const errorMsg = "File size must be less than 50MB";
+      console.error(errorMsg);
+      showError(errorMsg);
       return;
     }
 
@@ -96,11 +100,15 @@ export default function AudioLeakChecker() {
   const handleLeakedFileSelect = async (event) => {
     const file = event.target.files?.[0];
     if (!file || !file.type.startsWith('audio/')) {
-      showError("Please select a valid audio file");
+      const errorMsg = "Please select a valid audio file";
+      console.error(errorMsg);
+      showError(errorMsg);
       return;
     }
     if (file.size > 50 * 1024 * 1024) {
-      showError("File size must be less than 50MB");
+      const errorMsg = "File size must be less than 50MB";
+      console.error(errorMsg);
+      showError(errorMsg);
       return;
     }
 
@@ -112,14 +120,83 @@ export default function AudioLeakChecker() {
     success(`Leaked audio selected: ${file.name}`);
   };
 
+  const handleCheckForLeak = useCallback(async () => {
+    console.log('handleCheckForLeak called with:', { originalAudioFile, leakedAudioFile, allowLeakChecking });
+
+    if (!originalAudioFile || !leakedAudioFile) {
+      const errorMsg = "Please select both original and leaked audio files";
+      console.error(errorMsg, { originalAudioFile, leakedAudioFile });
+      showError(errorMsg);
+      return;
+    }
+
+    // if (!allowLeakChecking) {
+    //   const errorMsg = 'You need to confirm credit usage before checking for leaks.';
+    //   console.error(errorMsg);
+    //   showError(errorMsg);
+    //   return;
+    // }
+
+    setIsChecking(true);
+    setCheckStatus('checking');
+
+    try {
+      const formData = new FormData();
+      formData.append('originalAudio', originalAudioFile);
+      formData.append('leakedAudio', leakedAudioFile);
+
+      // Add key data if available
+      if (loadedKeyData) {
+        formData.append('keyData', JSON.stringify(loadedKeyData));
+      } else if (keyCode) {
+        formData.append('keyCode', keyCode);
+      }
+
+      const response = await fetch(`${API_URL}/api/check-audio-leak`, {
+        method: 'POST',
+        body: formData,
+      });
+      const data = await response.json();
+
+
+      // if (!response.ok) throw new Error(data.error || 'Leak check failed');
+
+      if (data.leakDetected) {
+        setCheckStatus('found');
+        setLeakData(data.leakData);
+        setExtractedCode(data.extractedCode);
+        const errorMsg = `🚨 LEAK DETECTED! Code: ${data.extractedCode}`;
+        console.error(errorMsg);
+        showError(errorMsg);
+      } else {
+        setCheckStatus('not-found');
+        setExtractedCode(data.extractedCode || 'No code found');
+        success('✅ No leak detected. This audio is clean.');
+      }
+
+      // Show credit spent message
+      setTimeout(() => {
+        info(`Audio checked successfully. ${data.creditsUsed || actionCost} credits spent.`);
+      }, 2000);
+
+    } catch (err) {
+      setCheckStatus('error');
+      const errorMsg = `Failed to check audio: ${err.message}`;
+      console.error(errorMsg, err);
+      showError(errorMsg);
+    } finally {
+      setIsChecking(false);
+    }
+  }, [originalAudioFile, leakedAudioFile, allowLeakChecking, loadedKeyData, keyCode, actionCost, showError, success, info]);
+
   const handleCreditConfirm = useCallback(() => {
     setShowCreditModal(false);
-
     setAllowLeakChecking(true);
-
-    handleCheckForLeak();
-
-  }, []);
+    // Call handleCheckForLeak on next tick to ensure state is updated
+    setTimeout(() => {
+      handleCheckForLeak();
+    }, 0);
+  }, [handleCheckForLeak]);
 
   useEffect(() => {
     const fetchUserCredits = async () => {
@@ -142,64 +219,6 @@ export default function AudioLeakChecker() {
       fetchUserCredits();
     }
   }, []);
-
-  const handleCheckForLeak = async () => {
-    if (!originalAudioFile || !leakedAudioFile) {
-      showError("Please select both original and leaked audio files");
-      return;
-    }
-
-    if (!allowLeakChecking) {
-      showError('You need to confirm credit usage before checking for leaks.');
-      return;
-    }
-
-    setIsChecking(true);
-    setCheckStatus('checking');
-
-    try {
-      const formData = new FormData();
-      formData.append('originalAudio', originalAudioFile);
-      formData.append('leakedAudio', leakedAudioFile);
-      
-      // Add key data if available
-      if (loadedKeyData) {
-        formData.append('keyData', JSON.stringify(loadedKeyData));
-      } else if (keyCode) {
-        formData.append('keyCode', keyCode);
-      }
-
-      const response = await fetch(`${API_URL}/api/check-audio-leak`, {
-        method: 'POST',
-        body: formData,
-      });
-      const data = await response.json();
-
-      if (!response.ok) throw new Error(data.error || 'Leak check failed');
-
-      if (data.leakDetected) {
-        setCheckStatus('found');
-        setLeakData(data.leakData);
-        setExtractedCode(data.extractedCode);
-        showError(`🚨 LEAK DETECTED! Code: ${data.extractedCode}`);
-      } else {
-        setCheckStatus('not-found');
-        setExtractedCode(data.extractedCode || 'No code found');
-        success('✅ No leak detected. This audio is clean.');
-      }
-
-      // Show credit spent message
-      setTimeout(() => {
-        info(`Audio checked successfully. ${data.creditsUsed || actionCost} credits spent.`);
-      }, 1500);
-
-    } catch (err) {
-      setCheckStatus('error');
-      showError(`Failed to check audio: ${err.message}`);
-    } finally {
-      setIsChecking(false);
-    }
-  };
 
   const handleReset = () => {
     setOriginalAudioFile(null);
@@ -256,19 +275,19 @@ export default function AudioLeakChecker() {
                   Upload the original unscrambled audio file
                 </Typography>
 
-                <input 
-                  type="file" 
-                  accept="audio/*" 
-                  onChange={handleOriginalFileSelect} 
-                  style={{ display: 'none' }} 
-                  id="original-audio-upload" 
-                  ref={originalAudioFileInputRef} 
+                <input
+                  type="file"
+                  accept="audio/*"
+                  onChange={handleOriginalFileSelect}
+                  style={{ display: 'none' }}
+                  id="original-audio-upload"
+                  ref={originalAudioFileInputRef}
                 />
                 <label htmlFor="original-audio-upload">
-                  <Button 
-                    variant="contained" 
-                    component="span" 
-                    startIcon={<Upload />} 
+                  <Button
+                    variant="contained"
+                    component="span"
+                    startIcon={<Upload />}
                     sx={{ backgroundColor: '#4caf50', color: 'white', mb: 2 }}
                   >
                     Choose Original Audio
@@ -298,19 +317,19 @@ export default function AudioLeakChecker() {
                   Upload the audio file you want to check for leaks
                 </Typography>
 
-                <input 
-                  type="file" 
-                  accept="audio/*" 
-                  onChange={handleLeakedFileSelect} 
-                  style={{ display: 'none' }} 
-                  id="leaked-audio-upload" 
-                  ref={leakedAudioFileInputRef} 
+                <input
+                  type="file"
+                  accept="audio/*"
+                  onChange={handleLeakedFileSelect}
+                  style={{ display: 'none' }}
+                  id="leaked-audio-upload"
+                  ref={leakedAudioFileInputRef}
                 />
                 <label htmlFor="leaked-audio-upload">
-                  <Button 
-                    variant="contained" 
-                    component="span" 
-                    startIcon={<Upload />} 
+                  <Button
+                    variant="contained"
+                    component="span"
+                    startIcon={<Upload />}
                     sx={{ backgroundColor: '#ff9800', color: 'white', mb: 2 }}
                   >
                     Choose Leaked Audio
@@ -336,7 +355,7 @@ export default function AudioLeakChecker() {
             <Typography variant="h6" sx={{ color: '#e0e0e0', mb: 2 }}>
               Optional: Scramble Key (for enhanced detection)
             </Typography>
-            
+
             <Grid container spacing={2} alignItems="center">
               <Grid item xs={12} md={5}>
                 <Typography variant="body2" sx={{ color: '#bdbdbd', mb: 1 }}>
@@ -351,10 +370,10 @@ export default function AudioLeakChecker() {
                   ref={keyFileInputRef}
                 />
                 <label htmlFor="key-file-upload">
-                  <Button 
-                    variant="outlined" 
-                    component="span" 
-                    startIcon={<Upload />} 
+                  <Button
+                    variant="outlined"
+                    component="span"
+                    startIcon={<Upload />}
                     sx={{ borderColor: '#2196f3', color: '#2196f3' }}
                   >
                     Choose Key File
@@ -397,24 +416,24 @@ export default function AudioLeakChecker() {
 
           {/* Action Buttons */}
           <Box sx={{ display: 'flex', gap: 2, flexWrap: 'wrap', mb: 3 }}>
-            <Button 
-              variant="contained" 
-              onClick={() => setShowCreditModal(true)} 
-              startIcon={isChecking ? <CircularProgress size={20} color="inherit" /> : <Search />} 
+            <Button
+              variant="contained"
+              onClick={() => setShowCreditModal(true)}
+              startIcon={isChecking ? <CircularProgress size={20} color="inherit" /> : <Search />}
               disabled={!originalAudioFile || !leakedAudioFile || isChecking}
-              sx={{ 
-                backgroundColor: (!originalAudioFile || !leakedAudioFile || isChecking) ? '#666' : '#22d3ee', 
-                color: (!originalAudioFile || !leakedAudioFile || isChecking) ? '#999' : '#001018', 
-                fontWeight: 'bold', 
-                minWidth: 200 
+              sx={{
+                backgroundColor: (!originalAudioFile || !leakedAudioFile || isChecking) ? '#666' : '#22d3ee',
+                color: (!originalAudioFile || !leakedAudioFile || isChecking) ? '#999' : '#001018',
+                fontWeight: 'bold',
+                minWidth: 200
               }}
             >
               {isChecking ? 'Checking for Leaks...' : 'Check for Leak'}
             </Button>
-            <Button 
-              variant="outlined" 
-              onClick={handleReset} 
-              disabled={isChecking} 
+            <Button
+              variant="outlined"
+              onClick={handleReset}
+              disabled={isChecking}
               sx={{ borderColor: '#666', color: '#e0e0e0' }}
             >
               Reset
@@ -425,7 +444,7 @@ export default function AudioLeakChecker() {
           {(originalPreviewUrl || leakedPreviewUrl) && (
             <Box sx={{ borderTop: '1px solid #666', pt: 3 }}>
               <Typography variant="h6" sx={{ mb: 2, color: '#e0e0e0' }}>Audio Previews</Typography>
-              
+
               <Grid container spacing={3}>
                 {/* Original Audio Preview */}
                 {originalPreviewUrl && (
@@ -434,8 +453,8 @@ export default function AudioLeakChecker() {
                       <Typography variant="subtitle1" sx={{ color: '#4caf50', mb: 1 }}>
                         Original Audio
                       </Typography>
-                      <audio 
-                        controls 
+                      <audio
+                        controls
                         style={{ width: '100%', borderRadius: '8px' }}
                         src={originalPreviewUrl}
                       >
@@ -452,8 +471,8 @@ export default function AudioLeakChecker() {
                       <Typography variant="subtitle1" sx={{ color: '#ff9800', mb: 1 }}>
                         Leaked/Suspected Audio
                       </Typography>
-                      <audio 
-                        controls 
+                      <audio
+                        controls
                         style={{ width: '100%', borderRadius: '8px' }}
                         src={leakedPreviewUrl}
                       >
@@ -521,8 +540,34 @@ export default function AudioLeakChecker() {
         </Typography>
       </Paper>
 
-      {/* Credit Confirmation Modal */}
       <CreditConfirmationModal
+        open={showCreditModal}
+        onClose={() => setShowCreditModal(false)}
+        onConfirm={handleCreditConfirm}
+        mediaType="audio"
+        description="check out audio"      
+        
+        // isProcessing={isProcessing}
+
+        currentCredits={userCredits}
+        fileName={`${originalAudioFile?.name || ''} vs ${leakedAudioFile?.name || ''}`}
+        file={leakedAudioFile}
+        
+        isProcessing={false}
+        fileDetails={{
+          type: 'audio-leak-check',
+          size: (originalAudioFile?.size || 0) + (leakedAudioFile?.size || 0),
+          name: 'Audio Leak Detection',
+          originalFile: originalAudioFile?.name || '',
+          leakedFile: leakedAudioFile?.name || ''
+        }}
+        user={userData}
+        actionType="audio-leak-check"
+        actionDescription="audio leak detection"
+      />
+
+      {/* Credit Confirmation Modal */}
+      {/* <CreditConfirmationModal
         open={showCreditModal}
         onClose={() => setShowCreditModal(false)}
         onConfirm={handleCreditConfirm}
@@ -541,7 +586,7 @@ export default function AudioLeakChecker() {
         }}
         actionType="audio-leak-check"
         actionDescription="audio leak detection"
-      />
+      /> */}
     </Container>
   );
 }

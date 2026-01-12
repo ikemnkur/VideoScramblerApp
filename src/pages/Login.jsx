@@ -7,18 +7,32 @@ import SimpleDotCaptcha from '../components/SimpleDotCaptcha';
 
 
 export default function Login() {
-    const [email, setEmail] = useState('test@example.com');
-    const [password, setPassword] = useState('password');
+    const [email, setEmail] = useState('');
+    const [password, setPassword] = useState('');
     const [captchaOK, setCaptchaOK] = useState(false);
+    const [loading, setLoading] = useState(false);
     const { login } = useAuth();
     const { error, success } = useToast();
     const nav = useNavigate();
 
-
     const submit = async () => {
         if (!captchaOK) return error('Please complete CAPTCHA');
-        const ok = await login(email, password);
-        if (ok) { success('Welcome back!'); nav('/'); } else { error('Invalid credentials'); }
+        if (!email || !password) return error('Please enter email and password');
+        
+        setLoading(true);
+        try {
+            const ok = await login(email, password);
+            if (ok) { 
+                success('Welcome back!'); 
+                nav('/'); 
+            } else { 
+                error('Invalid credentials'); 
+            }
+        } catch (err) {
+            error('Login failed. Please try again.');
+        } finally {
+            setLoading(false);
+        }
     };
 
 
@@ -58,7 +72,9 @@ export default function Login() {
                             <SimpleDotCaptcha maxDots={10} onPass={() => setCaptchaOK(true)} onFail={() => setCaptchaOK(false)} />
                         )}
                         
-                        <Button variant="contained" color="secondary" onClick={submit}>Login</Button>
+                        <Button variant="contained" color="secondary" onClick={submit} disabled={loading || !captchaOK}>
+                            {loading ? 'Logging in...' : 'Login'}
+                        </Button>
                         <Typography variant="body2">No account? <Button component={RouterLink} to="/register" size="small">Register</Button></Typography>
                     </Stack>
                 </CardContent>
