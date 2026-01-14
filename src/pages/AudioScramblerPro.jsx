@@ -16,7 +16,8 @@ import {
   Paper,
   Chip,
   Alert,
-  Divider
+  Divider,
+  duration
 } from '@mui/material';
 import {
   AudioFile,
@@ -573,10 +574,18 @@ export default function AudioScrambler() {
           level: noiseLevel_,
           multiFrequency: true
         },
-        user: {
+        creator: {
           username: userData.username || 'Anonymous',
           userId: userData.userId || 'Unknown',
           timestamp: new Date().toISOString()
+        },
+        metadata: {
+          filename: selectedFile.name,
+          size: selectedFile.size,
+          fileType: selectedFile.type,
+          duration: audioBuffer.duration,
+          sampleRate: audioBuffer.sampleRate,
+          channels: audioBuffer.numberOfChannels
         },
         type: "audio",
         version: "basic"

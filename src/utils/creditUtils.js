@@ -1,5 +1,7 @@
 // creditUtils.js - Shared credit-related utility functions
 
+import api from "../api/client";
+
 const API_URL = import.meta.env.VITE_API_SERVER_URL || 'http://localhost:3001';
 
 /**
@@ -24,25 +26,19 @@ export async function refundCredits({
   params = null
 }) {
   try {
-    const response = await fetch(`${API_URL}/api/refund-credits`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json'
-      },
-      body: JSON.stringify({
-        userId,
-        username,
-        email,
-        password: password || localStorage.getItem('passwordtxt'),
-        credits,
-        currentCredits,
-        params
-      })
+    const response = await api.post(`${API_URL}/api/refund-credits`, {
+      userId,
+      username,
+      email,
+      password: password || localStorage.getItem('passwordtxt'),
+      credits,
+      currentCredits,
+      params
     });
 
-    const data = await response.json();
+    const data = response.data;
 
-    if (response.ok && data.success) {
+    if (data.success) {
       console.log(`Refund of ${credits} successful:`, data);
       return {
         success: true,
@@ -83,7 +79,7 @@ export async function spendCredits({
   action
 }) {
   try {
-    const response = await fetch(`${API_URL}/api/spend-credits/${username}`, {
+    const response = await api.post(`${API_URL}/api/spend-credits/${username}`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json'

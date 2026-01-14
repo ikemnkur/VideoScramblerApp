@@ -142,7 +142,7 @@ export default function PhotoScramblerPro() {
                 const { data } = await api.post(`/api/wallet/balance/${userData.username}`, {
                     email: userData.email
                 });
-                
+
             } catch (e) {
                 console.error('Failed to load wallet balance:', e);
 
@@ -320,7 +320,22 @@ export default function PhotoScramblerPro() {
                 noise_intensity: Math.round(noiseIntensity),
                 noise_tile_size: noiseTileSize,
                 noise_mode: "add_mod256_tile",
-                prng: "mulberry32"
+                prng: "mulberry32",
+                creator: {
+                    username: userData?.username || 'Anonymous',
+                    user_id: userData?.id || 'Unknown',
+                    timestamp: new Date().toISOString()
+                    // time: new Date(Date.now() - 7*Math.random()*24*1000*3600).toISOString() // 7day - 24 hours ago, for testing
+                },
+                metadata: {
+                    filename: selectedFile.name,
+                    size: selectedFile.size,
+                    fileType: selectedFile.type,
+                    dimensions: {
+                        width: imageRef.current?.naturalWidth || 0,
+                        height: imageRef.current?.naturalHeight || 0
+                    },
+                },
 
             };
             // Add algorithm-specific parameters
@@ -363,17 +378,15 @@ export default function PhotoScramblerPro() {
 
             try {
                 // Call scramble endpoint
-                const response = await fetch(`${API_URL}/api/scramble-photo`, {
-                    method: 'POST',
-                    body: formData
-                    // Don't set Content-Type header - browser will set it automatically with boundary
-                });
+                // Don't set Content-Type header for FormData - browser sets it automatically with boundary
+                // api.post will automatically include JWT token in Authorization header
+                const response = await api.post(`${API_URL}/api/scramble-photo`, formData);
 
-                const data = await response.json();
+                const data = response.data;
 
                 console.log("Scramble response:", response);
 
-                if (!response.ok || !data.success) {
+                if (!response.data.success) {
                     error("Scrambling failed: " + (data.message || "Unknown error"));
                     setIsProcessing(false);
                     console.log("Scrambling failed, refunding credits: ", actionCost);
@@ -413,6 +426,20 @@ export default function PhotoScramblerPro() {
                         mode: "add_mod256_tile",
                         prng: "mulberry32"
                     },
+                    metadata: {
+                        photoName: selectedFile.name,
+                        size: selectedFile.size,
+                        fileType: selectedFile.type,
+                        dimensions: {
+                            width: displayPhotoRef.current?.width || 0,
+                            height: displayPhotoRef.current?.height || 0
+                        },
+                    },
+                    creator: {
+                        username: userData.username || 'Anonymous',
+                        userId: userData.userId || 'Unknown',
+                        timestamp: new Date().toISOString()
+                    }
                 };
 
                 const encodedKey = btoa(JSON.stringify(key));

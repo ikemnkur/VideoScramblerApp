@@ -94,6 +94,22 @@ export default function AudioUnscrambler() {
 
   const [userData] = useState(JSON.parse(localStorage.getItem("userdata")));
 
+  const [creatorInfo, setCreatorInfo] = useState({
+    username: 'Anonymous',
+    userId: 'Unknown',
+    time: new Date(Date.now() - 7 * Math.random() * 24 * 1000 * 3600).toISOString() // 7day - 24 hours ago, for testing
+  });
+
+  const [metadata, setMetadata] = useState({
+    filename: "untitled.wav",
+    size: 2048000,
+    fileType: ".wav",
+    duration: 60,
+    sampleRate: 48000,
+    channels: 2
+  });
+
+
   // const API_URL = import.meta.env.VITE_API_SERVER_URL || 'http://localhost:3001';
 
   // =============================
@@ -205,6 +221,7 @@ export default function AudioUnscrambler() {
       const encryptionKey = "AudioProtectionKey2025";
       const jsonStr = xorEncrypt(encrypted, encryptionKey);
       console.log("Decrypted key data:", jsonStr);
+
       return JSON.parse(jsonStr);
     } catch (err) {
       console.error('Decryption error:', err);
@@ -591,6 +608,19 @@ export default function AudioUnscrambler() {
     setNoiseLevel(keyData.noise?.level)
     setShuffleSeed(keyData.shuffle?.seed)
     setNoiseSeed(keyData.noise?.seed)
+    setCreatorInfo({
+      username: keyData.user?.username || 'Unknown',
+      userId: keyData.user?.userId || 'Unknown',
+      time: keyData.user?.timestamp || new Date().toISOString()
+    });
+    setMetadata({
+      filename: keyData.audio?.filename || 'untitled.wav',
+      size: keyData.audio?.size || 0,
+      fileType: keyData.audio?.fileType || '.wav',
+      duration: keyData.audio?.duration || 0,
+      sampleRate: keyData.audio?.sampleRate || 48000,
+      channels: keyData.audio?.channels || 2
+    });
 
   };
 

@@ -7,7 +7,9 @@ export default function NavBar() {
   const navigate = useNavigate();
 
   const accountType = localStorage.getItem('userdata') ? JSON.parse(localStorage.getItem('userdata')).accountType : null; // 'buyer', 'seller', or null
-  const loggedIn = !!accountType;
+  const userData = localStorage.getItem('userdata') ? JSON.parse(localStorage.getItem('userdata')) : null;
+const token = localStorage.getItem('token');
+  const loggedIn = !!accountType || !!userData || !!token; // User is logged in if accountType or token exists
 
   function handleLogout() {
     localStorage.removeItem('token');

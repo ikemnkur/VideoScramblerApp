@@ -71,6 +71,23 @@ export default function PhotoUnscramblerPro() {
     const [actionCost, setActionCost] = useState(15); // Cost to unscramble a photo (pro version)
     const [scrambleLevel, setScrambleLevel] = useState(1); // Level of scrambling (for credit calculation)
 
+    const [creatorInfo, setCreatorInfo] = useState({
+        username: 'Anonymous',
+        userId: 'Unknown',
+        time: new Date(Date.now() - 7 * Math.random() * 24 * 1000 * 3600).toISOString() // 7day - 24 hours ago, for testing
+    });
+
+    const [metadata, setMetadata] = useState({
+        filename: "untitled.jpg",
+        size: 2048000,
+        fileType: ".mp4",
+        dimensions: {
+            width: 1920,
+            height: 1080
+        },
+    });
+
+
 
     // ========== UTILITY FUNCTIONS ==========
 
@@ -110,7 +127,7 @@ export default function PhotoUnscramblerPro() {
                 const { data } = await api.post(`/api/wallet/balance/${userData.username}`, {
                     email: userData.email
                 });
-                
+
             } catch (e) {
                 console.error('Failed to load wallet balance:', e);
 
@@ -306,6 +323,21 @@ export default function PhotoUnscramblerPro() {
                 throw new Error("Invalid key format");
             }
 
+            setCreatorInfo({
+                username: keyData.creator?.username || 'Anonymous',
+                userId: keyData.creator?.userId || 'Unknown',
+                time: keyData.creator?.timestamp || new Date().toISOString()
+            });
+
+            setMetadata({
+                filename: keyData.metadata?.filename || 'untitled.mp4',
+                size: keyData.metadata?.size || 0,
+                fileType: keyData.metadata?.fileType || '',
+                dimensions: keyData.metadata?.dimensions || { width: 0, height: 0 },
+                duration: keyData.metadata?.duration || 0,
+                fps: keyData.metadata?.fps || 0
+            });
+
             setDecodedKey(keyData);
             setKeyValid(true);
             success("Key decoded successfully!");
@@ -361,13 +393,14 @@ export default function PhotoUnscramblerPro() {
                 noise_intensity: decodedKey.noise.noise_intensity,
                 noise_mode: decodedKey.noise.noise_mode,
                 noise_tile_size: decodedKey.noise.noise_tile_size,
-
-
-                metadata: {
-                    username: userData.username || 'Anonymous',
-                    userId: userData.id || 'Unknown',
-                    timestamp: new Date().toISOString()
+                creator: {
+                    username: decodedKey.creator.username || 'Anonymous',
+                    userId: decodedKey.creator.userId || 'Unknown',
+                    timestamp: decodedKey.creator.timestamp || new Date().toISOString()
                 },
+                metadata: decodedKey.metadata || {},
+                user_id: userData.id,
+                username: userData.username,
                 type: "photo",
                 version: "premium"
 
@@ -384,10 +417,17 @@ export default function PhotoUnscramblerPro() {
 
             try {
                 // Call unscramble endpoint
-                const response = await fetch(`${API_URL}/api/unscramble-photo`, {
-                    method: 'POST',
-                    body: formData
+                // const response = await fetch(`${API_URL}/api/unscramble-photo`, {
+                //     method: 'POST',
+                //     body: formData
+                // });
+
+                const response = await api.post(`${API_URL}/api/unscramble-photo`, formData, {
+                    headers: {
+                        'Content-Type': 'multipart/form-data'
+                    }
                 });
+
                 const data = await response.json();
 
                 console.log("Unscramble response:", response);

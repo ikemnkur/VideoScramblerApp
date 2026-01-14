@@ -1,5 +1,5 @@
 // VideoUnscramblerPro.jsx — Video Unscrambler React Component (Pro Version)
-// Unscrambles videos that were scrambled with the video scrambler pro
+// Unscrambles videos that were scrambled with the video scramble Standard
 // Uses server-side processing for advanced unscrambling algorithms
 
 import React, { useState, useRef, useEffect, useCallback } from 'react';
@@ -88,7 +88,7 @@ export default function VideoUnscramblerPro() {
       height: 1080
     },
     duration: 120,
-   
+
   });
 
 
@@ -124,6 +124,23 @@ export default function VideoUnscramblerPro() {
       }
 
       setDecodedKey(keyData);
+
+
+      // setCreatorInfo({
+      //   username: keyData.creator?.username || 'Anonymous',
+      //   userId: keyData.creator?.userId || 'Unknown',
+      //   time: keyData.creator?.timestamp || new Date().toISOString()
+      // });
+
+      // setMetadata({
+      //   filename: keyData.metadata?.filename || 'untitled.mp4',
+      //   size: keyData.metadata?.size || 0,
+      //   fileType: keyData.metadata?.fileType || '',
+      //   dimensions: keyData.metadata?.dimensions || { width: 0, height: 0 },
+      //   duration: keyData.metadata?.duration || 0,
+      //   fps: keyData.metadata?.fps || 0
+      // });
+
       setKeyValid(true);
       success("Key decoded successfully!");
 
@@ -148,7 +165,7 @@ export default function VideoUnscramblerPro() {
       try {
         const keyData = decryptKeyData(text);
         // Set the decoded parameters directly
-        setDecodedParams(keyData);
+
 
         setCreatorInfo({
           username: keyData.creator?.username || 'Anonymous',
@@ -165,6 +182,7 @@ export default function VideoUnscramblerPro() {
           fps: keyData.metadata?.fps || 0 
         });
 
+        setDecodedParams(keyData);
         setKeyCode(text); // Store the encrypted key in the text box
         success('🔑 Key file loaded and decoded successfully!');
       } catch (decryptErr) {
@@ -239,27 +257,7 @@ export default function VideoUnscramblerPro() {
 
     // const video = scrambledVideoRef.current;
 
-    // if (video) {
-    //   video.onloadedmetadata = () => {
-    //     console.log("Video loaded successfully");
-    //     console.log("Video dimensions:", video.videoWidth, "x", video.videoHeight);
-    //     console.log("Video duration:", video.duration);
-    //     setVideoLoaded(true);
-    //     // Don't revoke URL here - the video element still needs it
-    //   };
 
-    //   video.onerror = (e) => {
-    //     console.error("Video load error:", e);
-    //     error("Failed to load the selected video");
-    //     setVideoLoaded(false);
-    //     // Clean up on error
-    //     if (videoUrlRef.current) {
-    //       URL.revokeObjectURL(videoUrlRef.current);
-    //       videoUrlRef.current = null;
-    //     }
-    //   };
-
-    //   video.src = url;
 
     console.log("Video source set to selected file");
     console.log("Video Source URL:", url);
@@ -305,7 +303,9 @@ export default function VideoUnscramblerPro() {
         output: `unscrambled_${selectedFile.name}`
       }));
 
-        const params = {
+
+
+      const params = {
         // ...decodedParams,
         input: selectedFile.name,
         output: `unscrambled_${selectedFile.name}`,
@@ -318,22 +318,21 @@ export default function VideoUnscramblerPro() {
         max_hue_shift: decodedParams.maxHueShift,
         max_intensity_shift: decodedParams.maxIntensityShift,
 
-    
+
         creator: {
           username: decodedParams.creator.username || 'Anonymous',
           userId: decodedParams.creator.userId || 'Unknown',
           timestamp: decodedParams.creator.timestamp || new Date().toISOString()
         },
-        
+
         metadata: decodedParams.metadata || {},
 
         user_id: userData.id,
         username: userData.username,
         type: "video",
-        version: "premium",
-       
-      };
+        version: "standard",
 
+      };
 
       console.log("Unscramble parameters:", params);
 
@@ -353,11 +352,13 @@ export default function VideoUnscramblerPro() {
           }
         });
 
-        const data = await response.json();
+        const data1 = await response.json();
+        console.log("Unscramble response:", data1);
+        const data = response.data;
 
         console.log("Video Unscramble response:", response);
 
-        if (!response.ok || !data.success) {
+        if (!response.ok || !response.success) {
           error("Scrambling failed: " + (data.message || "Unknown error"));
           setIsProcessing(false);
           handleRefundCredits();
@@ -413,19 +414,6 @@ export default function VideoUnscramblerPro() {
         setVideoUrl(url);
       }
 
-      // let url = `${Flask_API_URL}/download/${unscrambledFilename}`;
-      // if (url.includes("mp4")) {
-      //   // if  "mp4" is the extenstion in the URL, change it to webm
-      //   if (url.endsWith("mp4")) {
-      //     url = url.replace("mp4", "webm");
-      //   }
-      // }
-      // unscrambledVideoRef.current.src = url;
-      // console.log("UNSCRAMBLED VIDEO URL SET: " + url)
-
-      // if (scrambledDisplayRef.current) {
-      //   scrambledDisplayRef.current.src = url;
-      // }
     } catch (err) {
       error("Failed to load unscrambled video: " + err.message);
     }
@@ -438,7 +426,7 @@ export default function VideoUnscramblerPro() {
     }
 
     try {
-      const response = await api.get(`${Flask_API_URL}/download/${unscrambledFilename}`);
+      const response = await fetch(`${Flask_API_URL}/download/${unscrambledFilename}`);
       if (!response.ok) throw new Error('Download failed');
 
       const blob = await response.blob();
@@ -547,8 +535,8 @@ export default function VideoUnscramblerPro() {
       {/* Header */}
       <Box sx={{ mb: 4, textAlign: 'center' }}>
         <Typography variant="h3" color="primary.main" sx={{ mb: 2, fontWeight: 'bold', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 1 }}>
-          <Movie />
-          🎬 Video Unscrambler Pro
+          {/* <Movie /> */}
+          🎬 Video Unscramble Standard
         </Typography>
         <Typography variant="h6" color="text.secondary" sx={{ mb: 2 }}>
           Upload a scrambled video, enter the key code, and restore the original using server-side processing.
@@ -557,7 +545,7 @@ export default function VideoUnscramblerPro() {
         {/* Status indicators */}
         <Box sx={{ display: 'flex', gap: 1, justifyContent: 'center', flexWrap: 'wrap' }}>
           <Chip label="Format: MP4, AVI, MOV" size="small" />
-          <Chip label="Server Processing" size="small" />
+          <Chip label="Serve Standardcessing" size="small" />
           <Chip label="Advanced Algorithms" size="small" />
           <Chip icon={<AutoAwesome />} label="Pro Version" color="secondary" size="small" />
         </Box>
@@ -816,7 +804,7 @@ export default function VideoUnscramblerPro() {
       {/* Info section */}
       <Paper elevation={1} sx={{ p: 2, backgroundColor: '#f5f5f5', mb: 4 }}>
         <Typography variant="body2" color="black">
-          💡 <strong>Pro Version:</strong> Upload a scrambled video and your key code. The server processes your video using
+          💡 <strong>Standard Version:</strong> Upload a scrambled video and your key code. The server processes your video using
           advanced algorithms (position, color, rotation, mirror, intensity) to restore the original content.
           This requires {actionCost} credits per video.
         </Typography>

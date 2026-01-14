@@ -540,6 +540,7 @@ export default function AudioLeakChecker() {
         </Typography>
       </Paper>
 
+      {/* Credit Confirmation Modal */}
       <CreditConfirmationModal
         open={showCreditModal}
         onClose={() => setShowCreditModal(false)}
@@ -566,27 +567,8 @@ export default function AudioLeakChecker() {
         actionDescription="audio leak detection"
       />
 
-      {/* Credit Confirmation Modal */}
-      {/* <CreditConfirmationModal
-        open={showCreditModal}
-        onClose={() => setShowCreditModal(false)}
-        onConfirm={handleCreditConfirm}
-        mediaType="audio"
-        currentCredits={userCredits}
-        fileName={`${originalAudioFile?.name || ''} vs ${leakedAudioFile?.name || ''}`}
-        file={leakedAudioFile}
-        user={userData}
-        isProcessing={false}
-        fileDetails={{
-          type: 'audio-leak-check',
-          size: (originalAudioFile?.size || 0) + (leakedAudioFile?.size || 0),
-          name: 'Audio Leak Detection',
-          originalFile: originalAudioFile?.name || '',
-          leakedFile: leakedAudioFile?.name || ''
-        }}
-        actionType="audio-leak-check"
-        actionDescription="audio leak detection"
-      /> */}
+      
+     
     </Container>
   );
 }

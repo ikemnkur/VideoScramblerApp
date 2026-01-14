@@ -50,6 +50,9 @@ import AudioTagging from './pages/AudioTagging';
 import PhotoScramblerPro from './pages/PhotoScramblerPro';
 import PhotoUnscramblerPro from './pages/PhotoUnscramblerPro';
 
+import VideoScramblerStandard from './pages/VideoScramblerStandard';
+import VideoUnscramblerStandard from './pages/VideoUnscramblerStandard';
+
 import VideoScramblerPro from './pages/VideoScramblerPro';
 import VideoUnscramblerPro from './pages/VideoUnscramblerPro';
 
@@ -259,11 +262,13 @@ export default function App() {
 
                     <Route path="/photo-unscrambler-pro" element={<PhotoUnscramblerPro />} />
 
+                      <Route path="/video-scrambler-standard" element={<VideoScramblerStandard />} />
 
-                    <Route path="/video-scrambler-pro" element={<VideoScramblerPro />} />
+                    <Route path="/video-unscrambler-standard" element={<VideoUnscramblerStandard />} />
 
-                    <Route path="/video-unscrambler-pro" element={<VideoUnscramblerPro />} />
 
+
+                  
                     {/* Audio Editor Routes (in future) */}
 
                     <Route path="/audio-scrambler-pro" element={<AudioScramblerPro />} />
@@ -278,6 +283,11 @@ export default function App() {
                 {/* Premium Services */}
                 {accountType === 'premium' || (dayPassMode === 'premium' && new Date(dayPassExpiry) > new Date()) ? (
                   <>
+
+                    <Route path="/video-scrambler-pro" element={<VideoScramblerPro />} />
+
+                    <Route path="/video-unscrambler-pro" element={<VideoUnscramblerPro />} />
+
 
                     {/* Leak Checkers - premium feature */}
                     <Route path="/photo-leak-checker" element={<PhotoLeakChecker />} />

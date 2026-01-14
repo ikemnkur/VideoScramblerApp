@@ -22,7 +22,8 @@ import {
   Slider,
   CircularProgress,
   Tabs,
-  Tab
+  Tab,
+  duration
 } from '@mui/material';
 import {
   PhotoCamera,
@@ -39,6 +40,7 @@ import ProcessingModal from '../components/ProcessingModal';
 import { refundCredits } from '../utils/creditUtils';
 import api from '../api/client';
 import { replace } from 'react-router-dom';
+import { meta } from '@eslint/js';
 
 const API_URL = import.meta.env.VITE_API_SERVER_URL || 'http://localhost:3001'; // = 'http://localhost:5000';
 const Flask_API_URL = import.meta.env.VITE_API_PY_SERVER_URL || 'http://localhost:5000';
@@ -242,23 +244,6 @@ export default function ScramblerVideosPro() {
           params.max_hue_shift = maxHueShift;
           params.percentage = scramblingPercentage;
           break;
-        case 'rotation':
-          params.algorithm = 'rotation';
-          params.rows = rows;
-          params.cols = cols;
-          params.percentage = scramblingPercentage;
-          break;
-        case 'mirror':
-          params.algorithm = 'mirror';
-          params.rows = rows;
-          params.cols = cols;
-          params.percentage = scramblingPercentage;
-          break;
-        case 'intensity':
-          params.algorithm = 'intensity';
-          params.max_intensity_shift = maxIntensityShift;
-          params.percentage = scramblingPercentage;
-          break;
       }
 
       console.log("Scrambling with params:", params);
@@ -284,7 +269,9 @@ export default function ScramblerVideosPro() {
           }
         });
 
-        const data = await response.json();
+        const data1 = await response.json();
+        console.log("Scramble response:", data1);
+        const data = response.data;
         console.log("Scramble response data:", data);
 
         if (!response.ok || !data.success) {
@@ -310,7 +297,6 @@ export default function ScramblerVideosPro() {
 
 
         // Generate and display key
-        // Generate and display key
         const key = {
           algorithm,
           seed,
@@ -328,8 +314,10 @@ export default function ScramblerVideosPro() {
             userId: userData.userId || 'Unknown',
             timestamp: new Date().toISOString()
           },
+          version: "standard",
+
           metadata: {
-            videoName: selectedFile.name,
+            filename: selectedFile.name,
             size: selectedFile.size,
             fileType: selectedFile.type,
             dimensions: {
@@ -472,7 +460,7 @@ export default function ScramblerVideosPro() {
       <Box sx={{ mb: 4, textAlign: 'center' }}>
         <Typography variant="h3" color="primary.main" sx={{ mb: 2, fontWeight: 'bold', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 1 }}>
           <AutoAwesome />
-          🚀 Pro Video Scrambler
+          🎬 Standard Video Scrambler
         </Typography>
         <Typography variant="h6" color="text.secondary" sx={{ mb: 2 }}>
           Advanced server-side scrambling with multiple algorithms
@@ -537,9 +525,6 @@ export default function ScramblerVideosPro() {
             >
               <Tab label="Position" onClick={() => setAlgorithm('position')} />
               <Tab label="Color" onClick={() => setAlgorithm('color')} />
-              <Tab label="Rotation" onClick={() => setAlgorithm('rotation')} />
-              <Tab label="Mirror" onClick={() => setAlgorithm('mirror')} />
-              <Tab label="Intensity" onClick={() => setAlgorithm('intensity')} />
             </Tabs>
 
             {/* Algorithm Parameters */}
@@ -565,8 +550,8 @@ export default function ScramblerVideosPro() {
               </Grid>
 
 
-              {/* Position, Rotation, Mirror - need rows/cols */}
-              {(algorithm === 'position' || algorithm === 'rotation' || algorithm === 'mirror') && (
+              {/* Position - needs rows/cols */}
+              {algorithm === 'position' && (
                 <>
                   <Grid item xs={6} md={3}>
                     <TextField
@@ -652,10 +637,7 @@ export default function ScramblerVideosPro() {
             <Alert severity="info" sx={{ mt: 2, backgroundColor: '#1976d2', color: 'white' }}>
               <strong>{algorithm.toUpperCase()}</strong>: {
                 algorithm === 'position' ? 'Scrambles by shuffling tile positions in a grid' :
-                  algorithm === 'color' ? 'Scrambles by shifting hue values in HSV color space' :
-                    algorithm === 'rotation' ? 'Scrambles by randomly rotating tiles (90°, 180°, 270°)' :
-                      algorithm === 'mirror' ? 'Scrambles by randomly flipping tiles horizontally/vertically' :
-                        'Scrambles by shifting pixel intensity values'
+                  'Scrambles by shifting hue values in HSV color space'
               }
             </Alert>
 
@@ -888,14 +870,14 @@ export default function ScramblerVideosPro() {
         }}
         user={userData}
         isProcessing={false}
-        actionType="scramble-video-pro"
-        actionDescription="pro level video scrambling"
+        actionType="scramble-video-standard"
+        actionDescription="standard level video scrambling"
       />}
 
       {/* Info Section */}
       <Paper elevation={1} sx={{ p: 2, backgroundColor: '#f5f5f5' }}>
         <Typography variant="body2" color="black">
-          💡 <strong>Pro Version:</strong> This scrambler uses server-side Python processing for advanced algorithms
+          💡 <strong>Standard Version:</strong> This scrambler uses server-side Python processing for advanced algorithms
           including position shuffling, color scrambling, rotation, mirroring, and intensity shifting.
           Configure tile sizes, scrambling percentage, and algorithm-specific parameters for optimal results.
         </Typography>

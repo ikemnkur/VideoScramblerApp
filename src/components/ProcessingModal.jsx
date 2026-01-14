@@ -16,12 +16,8 @@ export default function ProcessingModal({ open, mediaType = 'media' }) {
       maxWidth="sm"
       fullWidth
       disableEscapeKeyDown
-      onClose={(event, reason) => {
-        // Prevent closing on backdrop click or escape key
-        if (reason === 'backdropClick' || reason === 'escapeKeyDown') {
-          return;
-        }
-      }}
+      // Only prevent manual closing, but don't block the event
+      // The open prop controls visibility
     >
       <DialogContent sx={{ backgroundColor: '#424242', color: 'white', py: 4, textAlign: 'center' }}>
         <Box sx={{ display: 'flex', justifyContent: 'center', mb: 3 }}>

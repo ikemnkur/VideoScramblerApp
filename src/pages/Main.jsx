@@ -716,7 +716,7 @@ export default function MainPage() {
                                         boxShadow: '0 4px 12px rgba(46, 125, 50, 0.3)'
                                     }
                                 }}
-                                    onClick={() => navigate("/video-scrambler-pro")}>
+                                    onClick={() => navigate("/video-scrambler-standard")}>
                                     <CardContent sx={{ p: 2 }}>
                                         <Typography variant="h6" sx={{ color: '#2e7d32', mb: 1, fontWeight: 'bold' }}>
                                             🔐🎬 Scramble Video {serviceMode === 'premium' ? '(FHD)' : '(HD)'}
@@ -743,7 +743,7 @@ export default function MainPage() {
                                         boxShadow: '0 4px 12px rgba(255, 152, 0, 0.3)'
                                     }
                                 }}
-                                    onClick={() => navigate("/video-unscrambler-pro")}>
+                                    onClick={() => navigate("/video-unscrambler-standard")}>
                                     <CardContent sx={{ p: 2 }}>
                                         <Typography variant="h6" sx={{ color: '#ff9800', mb: 1, fontWeight: 'bold' }}>
                                             🎬 Unscramble Video {serviceMode === 'premium' ? '(FHD)' : '(HD)'}
