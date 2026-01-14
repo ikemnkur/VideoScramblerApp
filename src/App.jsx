@@ -206,8 +206,12 @@ export default function App() {
 
                 <Route path="/subscribe-confirmation" element={<SubscribeConfirmation />} />
 
+                <Route path="/stripe/success" element={ 
+                  <ProtectedRoute> <StripeCheckoutForm /> </ProtectedRoute>} />
+
                 <Route path="/stripe-checkout" element={
                   <ProtectedRoute> <StripeCheckoutForm /> </ProtectedRoute>} />
+
                 {/* <Route path="/stripe-checkout" element={
               <ProtectedRoute> <StripeCheckoutForm credits={5000} amount={5000} currency="usd" description="Purchase of 5000 credits" metadata={{}} priceId="price_1J2Yw2L2g2g2g2" /> </ProtectedRoute>} /> */}
                 <Route path="/return" element={
@@ -307,7 +311,7 @@ export default function App() {
 
                 <Route path="/bonus-credits" element={<BonusCredits />} />
 
-                <Route path="/stripe/success/*" element={<PurchaseStripeSuccessful />} />
+                <Route path="/stripe/success" element={<PurchaseStripeSuccessful />} />
 
                 {/* need a redirect or fallback route if not logged in and the user tries to visit a protected route */}
                 <Route path="*" element={<LoadingPage />} />
