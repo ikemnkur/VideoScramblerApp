@@ -390,7 +390,6 @@ export default function PhotoUnscrambler() {
       error('Invalid key code: ' + e.message);
     }
 
-    setShowCreditModal(true);
   };
 
   const handleKeyFileSelect = async (event) => {
@@ -426,12 +425,15 @@ export default function PhotoUnscrambler() {
         }
       }
 
-      if (decodedParams.type == "photo") {
-        error('The loaded key file is not a valid video scramble key.');
-      } else if (decodedParams.version !== "basic") {
-        error('Use the ' + decodedParams.version + ' ' + decodedParams.type + ' scrambler to unscramble this file.');
-        alert('The loaded key file will not work with this scrambler version, you must use the ' + decodedParams.version + ' ' + decodedParams.type + ' scrambler to unscramble this file.');
-      }
+      setTimeout(() => {
+
+        if (decodedParams.type !== "photo") {
+          error('The loaded key file is not a valid video scramble key.');
+        } else if (decodedParams.version !== "basic") {
+          error('Use the ' + decodedParams.version + ' ' + decodedParams.type + ' scrambler to unscramble this file.');
+          alert('The loaded key file will not work with this scrambler version, you must use the ' + decodedParams.version + ' ' + decodedParams.type + ' scrambler to unscramble this file.');
+        }
+      }, 200);
     } catch (err) {
       console.error("Error loading key:", err);
       error('Invalid or corrupted key file. Please check the file format.');
@@ -442,7 +444,7 @@ export default function PhotoUnscrambler() {
 
   useEffect(() => {
     const fetchUserCredits = async () => {
-       try {
+      try {
         // JWT token in the Authorization header automatically authenticates the user
         // No need to send password (it's not stored in localStorage anyway)
         const { data } = await api.post(`/api/wallet/balance/${userData.username}`, {
@@ -480,8 +482,13 @@ export default function PhotoUnscrambler() {
     // Now you have access to the actual cost that was calculated and spent
     console.log('Credits spent:', actualCostSpent);
 
-    setActionCost(actualCostSpent);
+    // setActionCost(actualCostSpent);
     // alert("Applying Decoded Params:", decodedParams)
+
+    setTimeout(() => {
+      // Additional logic after confirming credits
+      applyParameters();
+    }, 1000);
 
   }, []);
 
@@ -506,28 +513,65 @@ export default function PhotoUnscrambler() {
 
 
   const confirmSpendingCredits = () => {
-    setShowCreditModal(false);
-    setAllowScrambling(true);
-    setTimeout(() => {
-      // Additional logic after confirming credits
-      applyParameters();
-    }, 1000);
+    // setShowCreditModal(false);
+    // setAllowScrambling(true);
+
+    setShowCreditModal(true);
+
+    const LQ = 2;
+    const SDcharge = 3;
+    const HDcharge = 5;
+    const FHDCharge = 10;
+
+    let fileDetails = {
+      type: 'image',
+      size: selectedFile?.size || 0,
+      name: selectedFile?.name || '',
+      horizontal: scrambledImageRef.current?.naturalWidth || 0,
+      vertical: scrambledImageRef.current?.naturalHeight || 0
+    };
+
+    // Calculate cost based on photo resolution from fileDetails
+    const width = fileDetails.horizontal;
+    const height = fileDetails.vertical;
+
+    console.log('Photo Dimensions:', width, 'x', height);
+    console.log('Photo Size:', fileDetails.size, 'bytes');
+
+    let resolutionCost = LQ;
+    if (width >= 1920 && height >= 1080) {
+      resolutionCost = FHDCharge;
+    } else if (width >= 1280 && height >= 720) {
+      resolutionCost = HDcharge;
+    } else if (width >= 854 && height >= 480) {
+      resolutionCost = SDcharge;
+    } else {
+      resolutionCost = LQ;
+    }
+
+    let calculatedCost = Math.ceil(Math.sqrt(resolutionCost + 1) * (1 + fileDetails.size / (1000 * 1000 * 0.5))); // scale by size in MB over 0.5MB
+
+    setActionCost(calculatedCost);
   };
 
   const applyParameters = () => {
 
-    if (!allowScrambling) {
-      error('You need to confirm credit usage before applying parameters.');
-      return;
-    }
+    // if (!allowScrambling) {
+    //   error('You need to confirm credit usage before applying parameters.');
+    //   return;
+    // }
 
 
     try {
-      const obj = JSON.parse(decodedParams);
-      const params = jsonToParams(obj);
-      const { n, m, permDestToSrc0, noise, metadata } = params;
+      // const obj = JSON.parse(decodedParams);
+      // const params = jsonToParams(obj);
+      // const { n, m, permDestToSrc0, noise, metadata } = params;
+
+      const n = decodedParams.scramble.n, m = decodedParams.scramble.m, permDestToSrc0 = decodedParams.scramble.perm1based, noise = decodedParams.noise;
 
       setActionCost(n * m >= 100 ? 15 : n * m >= 64 ? 10 : 5); // Adjust cost based on grid size
+
+      const params = { n: n, m: m, permDestToSrc0: permDestToSrc0, noise: noise, metadata: decodedParams.metadata };
 
       // Store complete params including noise data
       setUnscrambleParams(params);
@@ -541,6 +585,7 @@ export default function PhotoUnscrambler() {
       }
     } catch (e) {
       handleRefundCredits();
+      console.error('Error applying parameters:', e);
       error('Invalid parameters: ' + e.message);
     }
   };

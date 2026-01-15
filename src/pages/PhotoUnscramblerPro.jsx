@@ -307,14 +307,14 @@ export default function PhotoUnscramblerPro() {
             console.log("Decoded key data:", keyData);
 
 
-            if (keyData.type == "photo") {
-                error('The loaded key file is not a valid video scramble key.');
-                console.error('The loaded key file is not a valid video scramble key.');
+            if (keyData.type !== "photo") {
+                error('The loaded key file is not a valid photo scramble key.');
+                console.error('The loaded key file is not a valid photo scramble key.');
                 throw new Error("Invalid key format");
-            } else if (keyData.version !== "premium" || keyData.version !== "standard") {
-                error('Use the ' + keyData.version + ' ' + keyData.type + ' scrambler to unscramble this file.');
-                alert('The loaded key file will not work with this scrambler version, you must use the ' + keyData.version + ' ' + keyData.type + ' scrambler to unscramble this file.');
-                console.error('The loaded key file is not compatible with this scrambler version.');
+            } else if (keyData.version !== "premium" && keyData.version !== "standard") {
+                error('Use the ' + keyData.version + ' ' + keyData.type + ' unscrambler to unscramble this file.');
+                alert('The loaded key file will not work with this unscrambler version, you must use the ' + keyData.version + ' ' + keyData.type + ' unscrambler to unscramble this file.');
+                console.error('The loaded key file is not compatible with this unscrambler version.');
                 throw new Error("Invalid key format");
             }
 
@@ -357,7 +357,7 @@ export default function PhotoUnscramblerPro() {
     const unscrambleImage = async () => {
         if (!selectedFile) {
             error("Please select a scrambled image first");
-            handleRefundCredits();
+            handleRefundCredits(actionCost);
             return;
         }
 
@@ -417,22 +417,18 @@ export default function PhotoUnscramblerPro() {
 
             try {
                 // Call unscramble endpoint
-                // const response = await fetch(`${API_URL}/api/unscramble-photo`, {
-                //     method: 'POST',
-                //     body: formData
-                // });
-
                 const response = await api.post(`${API_URL}/api/unscramble-photo`, formData, {
                     headers: {
                         'Content-Type': 'multipart/form-data'
                     }
                 });
 
-                const data = await response.json();
+                // const data = await response.json();
+                let data = response.data;
 
                 console.log("Unscramble response:", response);
 
-                if (!response.ok || !data.success) {
+                if (!data.success) {
                     error("Scrambling failed: " + (data.message || "Unknown error"));
                     setIsProcessing(false);
                     handleRefundCredits(actionCost);
@@ -456,24 +452,13 @@ export default function PhotoUnscramblerPro() {
                 success("Image unscrambled successfully!");
 
                 // SHOW MESSAGE DIALOG SAYTHING THAT THE USER HAS SPENT CREDITS TO CHECK THE IMAGE
-                // try {
-                //     setTimeout(() => {
-                //         info(`Image checked successfully. ${data.creditsUsed} credits spent.`);
-                //     }, timeout);
-                // } catch (error) {
-                //     console.error('Error showing credit spent info:', error);
-                // }
-
+               
 
             } catch (error) {
-                // const errorData = await response.json().catch(() => ({}));
+                console.error("Error during unscrambling:", error);
                 // TODO: Refund credits if applicable
                 const response = await fetch(`${API_URL}/api/refund-credits`, {
                     method: 'POST',
-                    // headers: {
-                    //   'Content-Type': 'application/json'
-                    // },
-
                     body: {
                         userId: userData.id,
                         username: userData.username,
@@ -486,8 +471,7 @@ export default function PhotoUnscramblerPro() {
                 });
 
                 console.log("Refund response:", response);
-                throw new Error(errorData.error || 'Unscrambling failed');
-                // throw new Error(data.error || data.message || 'Scrambling failed');
+                throw new Error(error.message || 'Unscrambling failed');
             }
 
         } catch (err) {
@@ -560,13 +544,13 @@ export default function PhotoUnscramblerPro() {
 
                 scrambleLevel: scrambleLevel,
                 // grid: { rows, cols },
-                row: decodedKey.rows,
-                col: decodedKey.cols,
-                seed: decodedKey.seed,
-                algorithm: decodedKey.scramble.algorithm,
-                percentage: decodedKey.scramble.percentage,
-                scramble: decodedKey.scramble,
-                noise: decodedKey.noise,
+                row: decodedKey?.rows || null,
+                col: decodedKey?.cols || null,
+                seed: decodedKey?.seed || null,
+                algorithm: decodedKey?.scramble?.algorithm || null,
+                percentage: decodedKey?.scramble?.percentage || null,
+                scramble: decodedKey?.scramble || null,
+                noise: decodedKey?.noise || null,
 
                 metadata: {
                     username: userData.username || 'Anonymous',

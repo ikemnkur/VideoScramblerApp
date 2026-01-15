@@ -22,7 +22,6 @@ import {
 } from '@mui/material';
 import {
   PhotoCamera,
-  LockOpen,
   Shuffle,
   Download,
   ContentCopy,
@@ -93,7 +92,6 @@ export default function PhotoScrambler() {
 
   // Processing state
   const [isProcessing, setIsProcessing] = useState(false);
-  const [step2, setStep2] = useState(false);
 
   // Ad modal state
   const [modalShown, setModalShown] = useState(false);
@@ -534,15 +532,55 @@ export default function PhotoScrambler() {
   // =============================
 
 
-  const onGenerate = useCallback((actualCostSpent) => {
-    // if (!imageFile) {
-    //   error("Please select an image file first");
-    //   return;
-    // }
-    // if (!imageLoaded) {
-    //   error("Please wait for the image to load");
-    //   return;
-    // }
+  const onGenerate = useCallback(() => {
+    if (!imageFile) {
+      error("Please select an image file first");
+      return;
+    }
+    if (!imageLoaded) {
+      error("Please wait for the image to load");
+      return;
+    }
+
+    // Show credit confirmation modal before scrambling
+    setShowCreditModal(true);
+  }, [imageFile, imageLoaded, error]);
+
+  useEffect(() => {
+    const fetchUserCredits = async () => {
+       try {
+        // JWT token in the Authorization header automatically authenticates the user
+        // No need to send password (it's not stored in localStorage anyway)
+        const { data } = await api.post(`/api/wallet/balance/${userData.username}`, {
+          email: userData.email
+        });
+
+      } catch (e) {
+        console.error('Failed to load wallet balance:', e);
+
+        // Handle authentication errors
+        if (e.response?.status === 401 || e.response?.status === 403) {
+          error('Session expired. Please log in again.');
+          setTimeout(() => {
+            localStorage.removeItem('token');
+            localStorage.removeItem('userdata');
+            window.location.href = '/login';
+          }, 2000);
+        } else {
+          error('Failed to load balance. Please try again.');
+        }
+        setBalance(0);
+      }
+
+    };
+
+    if (userData?.username) {
+      fetchUserCredits();
+    }
+  }, [userData]);
+
+  const handleCreditConfirm = useCallback((actualCostSpent) => {
+    setShowCreditModal(false);
     setIsProcessing(true);
 
     console.log('Credits spent:', actualCostSpent);
@@ -601,7 +639,6 @@ export default function PhotoScrambler() {
           setBase64Key(toBase64(pretty));
 
           setIsProcessing(false);
-          setStep2(false)
 
           // Deduct credits
           setUserCredits(prev => prev - actualCostSpent);
@@ -616,90 +653,6 @@ export default function PhotoScrambler() {
         setIsProcessing(false);
       }
     }, 500);
-
-  }, [grid, drawScrambledImage, addNoiseToImage, noiseIntensity, userData, success, error]);
-  // }, [imageFile, imageLoaded, error]);
-
-  useEffect(() => {
-    const fetchUserCredits = async () => {
-      try {
-        // JWT token in the Authorization header automatically authenticates the user
-        // No need to send password (it's not stored in localStorage anyway)
-        const { data } = await api.post(`/api/wallet/balance/${userData.username}`, {
-          email: userData.email
-        });
-
-      } catch (e) {
-        console.error('Failed to load wallet balance:', e);
-
-        // Handle authentication errors
-        if (e.response?.status === 401 || e.response?.status === 403) {
-          error('Session expired. Please log in again.');
-          setTimeout(() => {
-            localStorage.removeItem('token');
-            localStorage.removeItem('userdata');
-            window.location.href = '/login';
-          }, 2000);
-        } else {
-          error('Failed to load balance. Please try again.');
-        }
-        setBalance(0);
-      }
-
-    };
-
-    if (userData?.username) {
-      fetchUserCredits();
-    }
-  }, [userData]);
-
-
-
-  const confirmSpendingCredits = () => {
-    // Show credit confirmation modal before scrambling
-    setShowCreditModal(true);
-
-    const LQ = 2;
-    const SDcharge = 3;
-    const HDcharge = 5;
-    const FHDCharge = 10;
-
-    let fileDetails = {
-      type: 'image',
-      size: selectedFile?.size || 0,
-      name: selectedFile?.name || '',
-      horizontal: imageRef.current?.naturalWidth || 0,
-      vertical: imageRef.current?.naturalHeight || 0
-    };
-
-    // Calculate cost based on photo resolution from fileDetails
-    const width = fileDetails.horizontal;
-    const height = fileDetails.vertical;
-
-    console.log('Photo Dimensions:', width, 'x', height);
-    console.log('Photo Size:', fileDetails.size, 'bytes');
-
-    let resolutionCost = LQ;
-    if (width >= 1920 && height >= 1080) {
-      resolutionCost = FHDCharge;
-    } else if (width >= 1280 && height >= 720) {
-      resolutionCost = HDcharge;
-    } else if (width >= 854 && height >= 480) {
-      resolutionCost = SDcharge;
-    } else {
-      resolutionCost = LQ;
-    }
-
-    let calculatedCost = Math.ceil(Math.sqrt(resolutionCost + 1) * (1 + fileDetails.size / (1000 * 1000 * 0.5))); // scale by size in MB over 0.5MB
-
-    setActionCost(calculatedCost);
-  };
-
-  const handleCreditConfirm = useCallback((actualCostSpent) => {
-    setShowCreditModal(false);
-    // setIsProcessing(true);
-    setStep2(true);
-
   }, [grid, drawScrambledImage, addNoiseToImage, noiseIntensity, userData, success, error]);
 
   // Redraw when image loads or parameters change (without noise for preview)
@@ -952,10 +905,10 @@ export default function PhotoScrambler() {
                     variant="outlined"
                     onClick={() => setNoiseIntensity(Math.max(0, noiseIntensity - 1))}
                     disabled={permDestToSrc0.length > 0}
-                    sx={{
-                      minWidth: '40px',
-                      borderColor: permDestToSrc0.length > 0 ? '#444' : '#666',
-                      color: permDestToSrc0.length > 0 ? '#666' : '#e0e0e0'
+                    sx={{ 
+                      minWidth: '40px', 
+                      borderColor: permDestToSrc0.length > 0 ? '#444' : '#666', 
+                      color: permDestToSrc0.length > 0 ? '#666' : '#e0e0e0' 
                     }}
                   >
                     −
@@ -967,7 +920,7 @@ export default function PhotoScrambler() {
                     value={noiseIntensity}
                     onChange={(e) => setNoiseIntensity(Number(e.target.value))}
                     disabled={permDestToSrc0.length > 0}
-                    style={{
+                    style={{ 
                       flex: 1,
                       opacity: permDestToSrc0.length > 0 ? 0.5 : 1,
                       cursor: permDestToSrc0.length > 0 ? 'not-allowed' : 'pointer'
@@ -977,10 +930,10 @@ export default function PhotoScrambler() {
                     variant="outlined"
                     onClick={() => setNoiseIntensity(Math.min(127, noiseIntensity + 1))}
                     disabled={permDestToSrc0.length > 0}
-                    sx={{
-                      minWidth: '40px',
-                      borderColor: permDestToSrc0.length > 0 ? '#444' : '#666',
-                      color: permDestToSrc0.length > 0 ? '#666' : '#e0e0e0'
+                    sx={{ 
+                      minWidth: '40px', 
+                      borderColor: permDestToSrc0.length > 0 ? '#444' : '#666', 
+                      color: permDestToSrc0.length > 0 ? '#666' : '#e0e0e0' 
                     }}
                   >
                     +
@@ -993,9 +946,9 @@ export default function PhotoScrambler() {
                     inputProps={{ min: 0, max: 127 }}
                     sx={{
                       width: '80px',
-                      '& .MuiInputBase-root': {
-                        backgroundColor: permDestToSrc0.length > 0 ? '#252525' : '#353535',
-                        color: permDestToSrc0.length > 0 ? '#666' : 'white'
+                      '& .MuiInputBase-root': { 
+                        backgroundColor: permDestToSrc0.length > 0 ? '#252525' : '#353535', 
+                        color: permDestToSrc0.length > 0 ? '#666' : 'white' 
                       }
                     }}
                   />
@@ -1020,33 +973,21 @@ export default function PhotoScrambler() {
             <Button
               variant="contained"
               // onClick={onGenerate}
-              onClick={confirmSpendingCredits}
-              // onClick={() => {
-              //   setShowCreditModal(true);
+              onClick={() => {
+                setShowCreditModal(true);
 
-              //   // setScrambleLevel(cols >= rows ? cols : rows);
-
-              // }}
+                // setScrambleLevel(cols >= rows ? cols : rows);
+                onGenerate();
+              }}
               startIcon={<Shuffle />}
-              disabled={!imageLoaded}
+              disabled={!imageLoaded || isProcessing}
               sx={{
                 backgroundColor: (!imageLoaded || isProcessing) ? '#666' : '#22d3ee',
                 color: (!imageLoaded || isProcessing) ? '#999' : '#001018',
                 fontWeight: 'bold'
               }}
             >
-              Step 1: Confirm Config.
-            </Button>
-
-            <Button
-              variant="contained"
-              // onClick={confirmSpendingCredits}
-              onClick={onGenerate}
-              startIcon={<LockOpen />}
-              sx={{ backgroundColor: '#4caf50', color: 'white' }}
-              disabled={!step2 || !imageLoaded}
-            >
-              Step 2: {isProcessing ? 'Scrambling...' : 'Scramble Image'}
+              Step 1: {isProcessing ? 'Scrambling...' : 'Scramble Image'}
             </Button>
 
             <Button
@@ -1056,7 +997,7 @@ export default function PhotoScrambler() {
               disabled={!permDestToSrc0.length}
               sx={{ backgroundColor: '#9c27b0', color: 'white' }}
             >
-              Step 3:  Download
+              Step 2: 🖼️ Download Scrambled Image
             </Button>
 
             {/* <Button

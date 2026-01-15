@@ -646,7 +646,7 @@ export default function MainPage() {
                             {/*------------------------- standard Services-------------------------- */}
 
                             {/*  Scramble Photo Service */}
-                            {hasAccessToTier('standard') && serviceMode === 'standard' && (
+                            {/* {hasAccessToTier('standard') && serviceMode === 'standard' && (
                                 <Card sx={{
                                     backgroundColor: '#2a2a2a',
                                     border: '1px solid #2e7d32',
@@ -669,11 +669,11 @@ export default function MainPage() {
                                         </Typography>
                                     </CardContent>
                                 </Card>
-                            )}
+                            )} */}
 
 
                             {/* Pro Unscramble Photo Service */}
-                            {hasAccessToTier('standard') && serviceMode === 'standard' && (
+                            {/* {hasAccessToTier('standard') && serviceMode === 'standard' && (
 
                                 <Card sx={{
                                     backgroundColor: '#2a2a2a',
@@ -697,7 +697,7 @@ export default function MainPage() {
                                         </Typography>
                                     </CardContent>
                                 </Card>
-                            )}
+                            )} */}
 
                             {(hasAccessToTier('standard') && serviceMode === 'standard') && (
                                 <Divider sx={{ my: 0, borderColor: '#444', gridColumn: '1 / -1' }} />
@@ -818,7 +818,7 @@ export default function MainPage() {
 
 
                             {/*  Scramble Photo Service */}
-                            {hasAccessToTier('premium') && serviceMode === 'premium' && (
+                            {/* {hasAccessToTier('premium') && serviceMode === 'premium' && (
                                 <Card sx={{
                                     backgroundColor: '#2a2a2a',
                                     border: '1px solid #2e7d32',
@@ -841,10 +841,10 @@ export default function MainPage() {
                                         </Typography>
                                     </CardContent>
                                 </Card>
-                            )}
+                            )} */}
 
                             {/*  Scramble Photo Service */}
-                            {hasAccessToTier('premium') && serviceMode === 'premium' && (
+                            {/* {hasAccessToTier('premium') && serviceMode === 'premium' && (
                                 <Card sx={{
                                     backgroundColor: '#2a2a2a',
                                     border: '1px solid #2e7d32',
@@ -867,7 +867,7 @@ export default function MainPage() {
                                         </Typography>
                                     </CardContent>
                                 </Card>
-                            )}
+                            )} */}
 
                             {/* {hasAccessToTier('premium') && serviceMode === 'premium' && <Divider sx={{ my: 0, borderColor: '#444', gridColumn: '1 / -1' }} />} */}
 

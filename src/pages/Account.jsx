@@ -14,7 +14,7 @@ import {
 import { Save as SaveIcon } from '@mui/icons-material';
 import { useNavigate } from 'react-router-dom';
 import api from '../api/client';
-import FingerprintDisplay from '../components/FingerprintDisplay';
+// import FingerprintDisplay from '../components/FingerprintDisplay';
 
 
 const AccountPage = () => {
@@ -496,7 +496,7 @@ const AccountPage = () => {
 
       {/* Device Fingerprint Section */}
       <Box sx={{ mt: 3 }}>
-        <FingerprintDisplay showDetails={true} compact={false} />
+        {/* <FingerprintDisplay showDetails={true} compact={false} /> */}
       </Box>
 
       <Snackbar 

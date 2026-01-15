@@ -134,6 +134,8 @@ export default function PhotoScramblerPro() {
         return a;
     }
 
+    //  CREDIT MANAGEMENT
+
     useEffect(() => {
         const fetchUserCredits = async () => {
             try {
@@ -338,6 +340,7 @@ export default function PhotoScramblerPro() {
                 },
 
             };
+
             // Add algorithm-specific parameters
             switch (algorithm) {
                 case 'position':
@@ -431,8 +434,8 @@ export default function PhotoScramblerPro() {
                         size: selectedFile.size,
                         fileType: selectedFile.type,
                         dimensions: {
-                            width: displayPhotoRef.current?.width || 0,
-                            height: displayPhotoRef.current?.height || 0
+                            width: imageRef.current?.width || 0,
+                            height: imageRef.current?.height || 0
                         },
                     },
                     creator: {
@@ -458,20 +461,20 @@ export default function PhotoScramblerPro() {
                 success("Image scrambled successfully!");
 
                 // SHOW MESSAGE DIALOG SAYTHING THAT THE USER HAS SPENT CREDITS TO CHECK THE IMAGE
-                try {
-                    setTimeout(() => {
-                        info(`Image checked successfully. ${data.creditsUsed} credits spent.`);
-                    }, timeout);
-                } catch (error) {
-                    console.error('Error showing credit spent info:', error);
-                }
+
+                setTimeout(() => {
+                    info(`Image scrambled successfully. ${data.creditsUsed} credits spent.`);
+                }, timeout);
+
 
             } catch (error) {
                 // TODO: Refund credits if applicable
 
-                handleRefundCredits();
+                console.error("Scrambling request error:", error);
 
-                throw new Error(data.error || data.message || 'Scrambling failed');
+                handleRefundCredits(actionCost);
+
+                // throw new Error(data.error || data.message || 'Scrambling failed');
             }
 
         } catch (err) {
@@ -486,7 +489,7 @@ export default function PhotoScramblerPro() {
     const loadScrambledImage = async (filename) => {
         try {
             const response = await fetch(`${Flask_API_URL}/download/${filename}`);
-            if (!response.ok) throw new Error('Failed to load scrambled image');
+            // if (!response.ok) throw new Error('Failed to load scrambled image');
 
             const blob = await response.blob();
             const url = URL.createObjectURL(blob);
