@@ -423,32 +423,7 @@ export default function MainPage() {
                                 <Divider sx={{ my: 0, borderColor: '#444', gridColumn: '1 / -1' }} />
                             )}
 
-                            {/* Free Unscramble Video Service */}
-                            {(hasAccessToTier('free') && serviceMode === 'free') && (
-                                <Card sx={{
-                                    backgroundColor: '#2a2a2a',
-                                    border: '1px solid #ff9800',
-                                    borderRadius: 2,
-                                    cursor: 'pointer',
-                                    transition: 'all 0.3s ease',
-                                    '&:hover': {
-                                        backgroundColor: '#ff990057',
-                                        transform: 'translateY(-2px)',
-                                        boxShadow: '0 4px 12px rgba(255, 152, 0, 0.3)'
-                                    }
-                                }}
-                                    onClick={() => navigate("/video-unscrambler")}>
-                                    <CardContent sx={{ p: 2 }}>
-                                        <Typography variant="h6" sx={{ color: '#ff9900ff', mb: 1, fontWeight: 'bold' }}>
-                                            🎬 Unscramble Video
-                                        </Typography>
-                                        <Typography variant="body2" sx={{ color: '#ccc', lineHeight: 1.4 }}>
-                                            Use your keys to unscramble videos back to their original form. Restore scrambled content.
-                                        </Typography>
-                                    </CardContent>
-                                </Card>
-                            )}
-
+                          
                             {/* Free Unscramble Photo Service */}
                             {(hasAccessToTier('free') && serviceMode === 'free') && (
                                 <Card sx={{
@@ -474,6 +449,33 @@ export default function MainPage() {
                                     </CardContent>
                                 </Card>
                             )}
+
+                              {/* Free Unscramble Video Service */}
+                            {(hasAccessToTier('free') && serviceMode === 'free') && (
+                                <Card sx={{
+                                    backgroundColor: '#2a2a2a',
+                                    border: '1px solid #ff9800',
+                                    borderRadius: 2,
+                                    cursor: 'pointer',
+                                    transition: 'all 0.3s ease',
+                                    '&:hover': {
+                                        backgroundColor: '#ff990057',
+                                        transform: 'translateY(-2px)',
+                                        boxShadow: '0 4px 12px rgba(255, 152, 0, 0.3)'
+                                    }
+                                }}
+                                    onClick={() => navigate("/video-unscrambler")}>
+                                    <CardContent sx={{ p: 2 }}>
+                                        <Typography variant="h6" sx={{ color: '#ff9900ff', mb: 1, fontWeight: 'bold' }}>
+                                            🎬 Unscramble Video
+                                        </Typography>
+                                        <Typography variant="body2" sx={{ color: '#ccc', lineHeight: 1.4 }}>
+                                            Use your keys to unscramble videos back to their original form. Restore scrambled content.
+                                        </Typography>
+                                    </CardContent>
+                                </Card>
+                            )}
+
 
                             {/*------------------------- Basic Services-------------------------- */}
 
