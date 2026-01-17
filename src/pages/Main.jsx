@@ -393,38 +393,7 @@ export default function MainPage() {
                                 </Card>
                             )}
 
-                            {/* Free Scramble Video Service */}
-                            {(hasAccessToTier('free') && serviceMode === 'free') && (
-                                <Card sx={{
-                                    backgroundColor: '#2a2a2a',
-                                    border: '1px solid #2e7d32',
-                                    borderRadius: 2,
-                                    cursor: 'pointer',
-                                    transition: 'all 0.3s ease',
-                                    '&:hover': {
-                                        backgroundColor: '#2e7d3263',
-                                        transform: 'translateY(-2px)',
-                                        boxShadow: '0 4px 12px rgba(46, 125, 50, 0.3)'
-                                    }
-                                }}
-                                    onClick={() => navigate("/video-scrambler")}>
-                                    <CardContent sx={{ p: 2 }}>
-                                        <Typography variant="h6" sx={{ color: '#2e7d32', mb: 1, fontWeight: 'bold' }}>
-                                            🔐🎬 Scramble Video
-                                        </Typography>
-                                        <Typography variant="body2" sx={{ color: '#ccc', lineHeight: 1.4 }}>
-                                            Upload and scramble videos into unrecognizable tiles. Generate keys to monetize access to your content.
-                                        </Typography>
-                                    </CardContent>
-                                </Card>
-                            )}
-
-                            {(hasAccessToTier('free') && serviceMode === 'free') && (
-                                <Divider sx={{ my: 0, borderColor: '#444', gridColumn: '1 / -1' }} />
-                            )}
-
-                          
-                            {/* Free Unscramble Photo Service */}
+                             {/* Free Unscramble Photo Service */}
                             {(hasAccessToTier('free') && serviceMode === 'free') && (
                                 <Card sx={{
                                     backgroundColor: '#2a2a2a',
@@ -445,6 +414,41 @@ export default function MainPage() {
                                         </Typography>
                                         <Typography variant="body2" sx={{ color: '#ccc', lineHeight: 1.4 }}>
                                             Restore scrambled images using unscramble keys. View protected photos in their original form.
+                                        </Typography>
+                                    </CardContent>
+                                </Card>
+                            )}
+
+                          
+
+                            {(hasAccessToTier('free') && serviceMode === 'free') && (
+                                <Divider sx={{ my: 0, borderColor: '#444', gridColumn: '1 / -1' }} />
+                            )}
+
+                          
+                           
+
+                              {/* Free Scramble Video Service */}
+                            {(hasAccessToTier('free') && serviceMode === 'free') && (
+                                <Card sx={{
+                                    backgroundColor: '#2a2a2a',
+                                    border: '1px solid #2e7d32',
+                                    borderRadius: 2,
+                                    cursor: 'pointer',
+                                    transition: 'all 0.3s ease',
+                                    '&:hover': {
+                                        backgroundColor: '#2e7d3263',
+                                        transform: 'translateY(-2px)',
+                                        boxShadow: '0 4px 12px rgba(46, 125, 50, 0.3)'
+                                    }
+                                }}
+                                    onClick={() => navigate("/video-scrambler")}>
+                                    <CardContent sx={{ p: 2 }}>
+                                        <Typography variant="h6" sx={{ color: '#2e7d32', mb: 1, fontWeight: 'bold' }}>
+                                            🔐🎬 Scramble Video
+                                        </Typography>
+                                        <Typography variant="body2" sx={{ color: '#ccc', lineHeight: 1.4 }}>
+                                            Upload and scramble videos into unrecognizable tiles. Generate keys to monetize access to your content.
                                         </Typography>
                                     </CardContent>
                                 </Card>
@@ -699,9 +703,9 @@ export default function MainPage() {
                                 </Card>
                             )} */}
 
-                            {(hasAccessToTier('standard') && serviceMode === 'standard') && (
+                            {/* {(hasAccessToTier('standard') && serviceMode === 'standard') && (
                                 <Divider sx={{ my: 0, borderColor: '#444', gridColumn: '1 / -1' }} />
-                            )}
+                            )} */}
 
 
                             {/* Pro Scramble Video Service */}

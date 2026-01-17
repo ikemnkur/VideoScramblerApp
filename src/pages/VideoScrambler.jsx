@@ -1,4 +1,4 @@
-// Scrambler.jsx — Video Scrambler React Component with Material-UI
+// Scrambler.jsx — Scramblurr React Component with Material-UI
 // Matches ScramblerPhotosPro.jsx styling for consistent design
 // Maintains all original scrambling functionality
 
@@ -689,7 +689,7 @@ export default function VideoScrambler() {
       <Box sx={{ mb: 4, textAlign: 'center' }}>
         <Typography variant="h3" color="primary.main" sx={{ mb: 2, fontWeight: 'bold', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 1 }}>
           <AutoAwesome />
-          🎞️ Video Scrambler
+          🎞️ Scramblurr
         </Typography>
         <Typography variant="h6" color="text.secondary" sx={{ mb: 2 }}>
           Scramble your videos with tile-based encryption

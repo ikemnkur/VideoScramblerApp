@@ -624,17 +624,58 @@ export default function AudioUnscrambler() {
 
   };
 
+  const confirmSpendingCredits = () => {
+
+    //     const LQ = 2;
+    //     const SDcharge = 3;
+    //     const HDcharge = 5;
+    //     const FHDCharge = 10;
+
+    //     let fileDetails = {
+    //       type: 'audio',
+    //       size: selectedFile?.size || 0,
+    //       name: filename || '',
+    //       duration: Math.ceil(audioPlayerRef.current?.duration) || 0,
+    //       sampleRate: sampleRate,
+    //       numberOfChannels: numberOfChannels,
+    //     }
+
+    //     const duration2 = Math.ceil((fileDetails.duration || 0) / 60); // duration in minutes
+    //     const sampleRate2 = fileDetails.sampleRate || 44100;
+    //     const numberOfChannels2 = fileDetails.numberOfChannels || 2;
+
+    //     console.log('Audio Duration:', fileDetails.duration, 'seconds (', duration2, 'minutes)');
+    //     console.log('Audio Size:', fileDetails.size, 'bytes');
+    //     console.log("cost due to size: ", (1 + fileDetails.size / (1000 * 1000 * 1)))
+
+
+    // let calculatedCost = Math.ceil((sampleRate2 / 24000) * duration2 + (numberOfChannels2 * fileDetails.size / (1000 * 1000 * 1))); // scale by size in MB over 1MB
+
+    //     console.log('Calculated Audio Cost:', calculatedCost);
+
+
+    //     const finalCost = Math.ceil(calculatedCost * Math.sqrt(scrambleLevel));
+    //     console.log('Total Cost after scramble level adjustment:', finalCost);
+    //     setActionCost(finalCost);
+
+    //     // Show credit confirmation modal before scrambling
+    //     if (!audioBuffer) {
+    //       error("Please load an audio file first!");
+    //       return;
+    //     }
+
+    //     setScrambleLevel(2 + audioDuration / segmentSize);
+    setShowCreditModal(true);
+
+    // onGenerate();
+  };
+
   const handleCreditConfirm = useCallback(async (actualCostSpent) => {
     setShowCreditModal(false);
     setIsProcessing(true);
 
 
-    // Now you have access to the actual cost that was calculated and spent
-    console.log('Credits spent:', actualCostSpent);
-
-    // You can use this value for logging, analytics, or displaying to user
-    // For example, update a state variable:
-    setActionCost(actualCostSpent);
+    setActionCost(localStorage.getItem('lastActionCost') || 0);
 
     try {
       // Apply segment shuffling
@@ -1169,11 +1210,8 @@ export default function AudioUnscrambler() {
 
           <Button
             variant="contained"
-            onClick={() => {
-              setScrambleLevel(2 + audioDuration / segmentSize);
-              setShowCreditModal(true);
+            onClick={confirmSpendingCredits}
 
-            }}
             startIcon={<LockOpen />}
             disabled={!scrambledAudioBuffer || !loadedKeyData || isProcessing}
             sx={{

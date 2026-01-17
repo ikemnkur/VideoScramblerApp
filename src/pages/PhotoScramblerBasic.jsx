@@ -241,6 +241,68 @@ export default function PhotoScrambler() {
     return ((n % m) + m) % m;
   }
 
+  // Calculate optimal grid size for square-ish tiles
+  const calculateAutoGridSize = () => {
+    const image = imageRef.current;
+    if (!image || !imageLoaded) {
+      error('Please load an image first');
+      return null;
+    }
+
+    const width = image.naturalWidth;
+    const height = image.naturalHeight;
+    const aspectRatio = width / height;
+
+    // Find optimal grid size that creates square tiles
+    // For square tiles: tileHeight ≈ tileWidth
+    // height/rows ≈ width/cols
+    // Therefore: cols/rows ≈ width/height (aspectRatio)
+
+    let bestRows = 8;
+    let bestCols = 8;
+    let bestDiff = Infinity;
+
+    // Try different grid sizes (prefer powers of 2 and common factors)
+    const candidateSizes = [4, 6, 8, 10, 12, 16, 20];
+    
+    for (const rows of candidateSizes) {
+      for (const cols of candidateSizes) {
+        const tileHeight = height / rows;
+        const tileWidth = width / cols;
+        const tileRatio = tileWidth / tileHeight;
+        
+        // How close is the tile ratio to 1:1 (square)?
+        const diff = Math.abs(tileRatio - 1);
+        
+        // Also prefer larger tiles (fewer, bigger tiles)
+        const avgTileSize = (tileWidth + tileHeight) / 2;
+        const penalty = avgTileSize < 20 ? 0.5 : 0; // Penalize tiny tiles
+        
+        if (diff + penalty < bestDiff) {
+          bestDiff = diff + penalty;
+          bestRows = rows;
+          bestCols = cols;
+        }
+      }
+    }
+
+    return { rows: bestRows, cols: bestCols };
+  };
+
+  const handleAutoGridSize = () => {
+    const result = calculateAutoGridSize();
+    if (result) {
+      setGrid({ n: result.rows, m: result.cols });
+      setScrambleLevel(Math.max(result.rows, result.cols));
+      setSelectedLevel('custom');
+      
+      const image = imageRef.current;
+      const tileW = Math.floor(image.naturalWidth / result.cols);
+      const tileH = Math.floor(image.naturalHeight / result.rows);
+      success(`Auto grid: ${result.rows}×${result.cols} (tiles: ${tileW}×${tileH}px)`);
+    }
+  };
+
   // Mulberry32 PRNG (seeded, fast, deterministic)
   function mulberry32(seed) {
     let t = seed >>> 0;
@@ -659,40 +721,40 @@ export default function PhotoScrambler() {
     // Show credit confirmation modal before scrambling
     setShowCreditModal(true);
 
-    const LQ = 2;
-    const SDcharge = 3;
-    const HDcharge = 5;
-    const FHDCharge = 10;
+    // const LQ = 2;
+    // const SDcharge = 3;
+    // const HDcharge = 5;
+    // const FHDCharge = 10;
 
-    let fileDetails = {
-      type: 'image',
-      size: selectedFile?.size || 0,
-      name: selectedFile?.name || '',
-      horizontal: imageRef.current?.naturalWidth || 0,
-      vertical: imageRef.current?.naturalHeight || 0
-    };
+    // let fileDetails = {
+    //   type: 'image',
+    //   size: selectedFile?.size || 0,
+    //   name: selectedFile?.name || '',
+    //   horizontal: imageRef.current?.naturalWidth || 0,
+    //   vertical: imageRef.current?.naturalHeight || 0
+    // };
 
-    // Calculate cost based on photo resolution from fileDetails
-    const width = fileDetails.horizontal;
-    const height = fileDetails.vertical;
+    // // Calculate cost based on photo resolution from fileDetails
+    // const width = fileDetails.horizontal;
+    // const height = fileDetails.vertical;
 
-    console.log('Photo Dimensions:', width, 'x', height);
-    console.log('Photo Size:', fileDetails.size, 'bytes');
+    // console.log('Photo Dimensions:', width, 'x', height);
+    // console.log('Photo Size:', fileDetails.size, 'bytes');
 
-    let resolutionCost = LQ;
-    if (width >= 1920 && height >= 1080) {
-      resolutionCost = FHDCharge;
-    } else if (width >= 1280 && height >= 720) {
-      resolutionCost = HDcharge;
-    } else if (width >= 854 && height >= 480) {
-      resolutionCost = SDcharge;
-    } else {
-      resolutionCost = LQ;
-    }
+    // let resolutionCost = LQ;
+    // if (width >= 1920 && height >= 1080) {
+    //   resolutionCost = FHDCharge;
+    // } else if (width >= 1280 && height >= 720) {
+    //   resolutionCost = HDcharge;
+    // } else if (width >= 854 && height >= 480) {
+    //   resolutionCost = SDcharge;
+    // } else {
+    //   resolutionCost = LQ;
+    // }
 
-    let calculatedCost = Math.ceil(Math.sqrt(resolutionCost + 1) * (1 + fileDetails.size / (1000 * 1000 * 0.5))); // scale by size in MB over 0.5MB
+    // let calculatedCost = Math.ceil(Math.sqrt(resolutionCost + 1) * (1 + fileDetails.size / (1000 * 1000 * 0.5))); // scale by size in MB over 0.5MB
 
-    setActionCost(calculatedCost);
+    setActionCost(localStorage.getItem('lastActionCost') || 5); // Default to 5 credits if not set
   };
 
   const handleCreditConfirm = useCallback((actualCostSpent) => {
@@ -930,9 +992,25 @@ export default function PhotoScrambler() {
                 >
                   High (10×10)
                 </Button>
+                <Button
+                  variant={selectedLevel === "custom" ? "contained" : "outlined"}
+                  onClick={handleAutoGridSize}
+                  disabled={!imageLoaded}
+                  sx={{
+                    backgroundColor: selectedLevel === "custom" ? '#ff9800' : 'transparent',
+                    borderColor: '#ff9800',
+                    color: 'white',
+                    '&:disabled': {
+                      borderColor: '#666',
+                      color: '#666'
+                    }
+                  }}
+                >
+                  🎯 Auto (1:1 tiles)
+                </Button>
               </Box>
               <Typography variant="caption" sx={{ color: '#bdbdbd' }}>
-                Choose how many pieces to split and shuffle your image into
+                Choose how many pieces to split and shuffle your image into. Auto calculates optimal grid for square tiles.
               </Typography>
             </Grid>
 
@@ -1021,12 +1099,7 @@ export default function PhotoScrambler() {
               variant="contained"
               // onClick={onGenerate}
               onClick={confirmSpendingCredits}
-              // onClick={() => {
-              //   setShowCreditModal(true);
-
-              //   // setScrambleLevel(cols >= rows ? cols : rows);
-
-              // }}
+            
               startIcon={<Shuffle />}
               disabled={!imageLoaded}
               sx={{

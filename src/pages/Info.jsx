@@ -204,7 +204,7 @@ const Info = () => {
           mb: 4,
         }}
       >
-        Welcome to Video Scrambler!
+        Welcome to Scramblurr!
       </Typography>
 
       {/* Main Sections */}
@@ -235,7 +235,7 @@ const Info = () => {
               mb: 3,
             }}
           >
-            What is Video Scrambler
+            What is Scramblurr
           </Typography>
           <Typography
             variant="body1"
@@ -245,7 +245,7 @@ const Info = () => {
               lineHeight: 1.6,
             }}
           >
-            Video Scrambler is a platform that allows content creators to upload
+            Scramblurr is a platform that allows content creators to upload
             videos or images and scramble them up to hide/obscure exclusive
             content solely for their subscribers or followers. Stop, no more
             worrying about leaks, scrambling algoritms have you covered.
@@ -298,7 +298,7 @@ const Info = () => {
                 },
               }}
             >
-              Log In to Video Scrambler
+              Log In to Scramblurr
             </Button>
             <Button
               variant="outlined"
@@ -348,18 +348,22 @@ const Info = () => {
               lineHeight: 1.6,
             }}
           >
-            <strong> Welcome to our News & Info page!</strong>
+            {/* <strong> Welcome to our News & Info page! </strong> */}
             We just launched, enjoy the service, new features are coming soon
-            (need scrambling filters and algorithms)!!! Be sure to leave you
+            (new scrambling filters and algorithms)!!! Be sure to leave you
             opinion coming soon.
-            <strong>• Next steps: </strong>
+            {/* <strong>• Next steps: </strong> */}
             <p>
               {" "}
-              <strong>• Next steps: </strong>
-              We plan to release a webapp version that you can download to your
+              <strong>Next steps: </strong>
+              We plan to release a web-app version that you can download on your
               phone.
             </p>
-            Audio Scrambler mode coming soon (for Basic Plan members and higher)
+            <p>
+            Audio Scrambler mode coming soon (for Basic Plan members and higher) 
+            </p>
+
+            Better Leak Detector modes coming soon (for Premium Plan members)
           </Typography>
           <Box
             sx={{
@@ -417,7 +421,7 @@ const Info = () => {
                 lineHeight: 1.6,
               }}
             >
-              Below is a quick tutorial video on how to use Video Scrambler. You
+              Below is a quick tutorial video on how to use Scramblurr. You
               can click "Go" next to each section to jump to that part of the
               video.
             </Typography>

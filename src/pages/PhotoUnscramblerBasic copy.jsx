@@ -81,7 +81,7 @@ export default function PhotoUnscrambler() {
   // const [allowLeakChecking, setAllowLeakChecking] = useState(false);
   const [allowScrambling, setAllowScrambling] = useState(false);
   const [userCredits, setUserCredits] = useState(0); // Mock credits, replace with actual user data
-  const [actionCost, setActionCost] = useState(5); // Cost per unscramble action
+  const [actionCost, setActionCost] = useState(null); // Cost per unscramble action
   const [scrambleLevel, setScrambleLevel] = useState(6); // Grid size for credit calculation
 
 
@@ -147,13 +147,13 @@ export default function PhotoUnscrambler() {
 
 
   /* =========================
-   Noise generation (tileable)
+   Noise generation (per-pixel, non-tiled)
    - offsets are integers in [-intensity, +intensity]
-   - tile is square: tile x tile
+   - generates unique noise for each pixel
   ========================= */
-  function generateNoiseTileOffsets(tileSize, seed, intensity) {
+  function generateNoiseOffsets(width, height, seed, intensity) {
     const rand = mulberry32(seed >>> 0);
-    const pxCount = tileSize * tileSize;
+    const pxCount = width * height;
 
     // store offsets per pixel per channel (RGB), Int16 is plenty
     const offsets = new Int16Array(pxCount * 3);
@@ -183,6 +183,26 @@ export default function PhotoUnscrambler() {
         out[i + 0] = mod(src[i + 0] - tileOffsets[tileIndex + 0], 256);
         out[i + 1] = mod(src[i + 1] - tileOffsets[tileIndex + 1], 256);
         out[i + 2] = mod(src[i + 2] - tileOffsets[tileIndex + 2], 256);
+      }
+    }
+    return new ImageData(out, w, h);
+  }
+
+  // Per-pixel noise removal (V2)
+  function applyNoiseSubMod256PerPixel(imageData, noiseOffsets) {
+    const w = imageData.width, h = imageData.height;
+    const src = imageData.data;
+    const out = new Uint8ClampedArray(src);
+
+    for (let y = 0; y < h; y++) {
+      for (let x = 0; x < w; x++) {
+        const p = y * w + x;
+        const noiseIndex = p * 3;
+        const i = p * 4;
+
+        out[i + 0] = mod(src[i + 0] - noiseOffsets[noiseIndex + 0], 256);
+        out[i + 1] = mod(src[i + 1] - noiseOffsets[noiseIndex + 1], 256);
+        out[i + 2] = mod(src[i + 2] - noiseOffsets[noiseIndex + 2], 256);
       }
     }
     return new ImageData(out, w, h);
@@ -385,7 +405,7 @@ export default function PhotoUnscrambler() {
     try {
       const json = fromBase64(keyCode);
       setDecodedParams(json);
-      localStorage.setItem("keyData", keyData)
+      localStorage.setItem('lastDecodedKey', json);
       success('Key code decoded successfully!');
     } catch (e) {
       error('Invalid key code: ' + e.message);
@@ -405,6 +425,7 @@ export default function PhotoUnscrambler() {
         const keyData = decryptKeyData(text);
         // Set the decoded parameters directly
         setDecodedParams(keyData);
+        localStorage.setItem('lastDecodedKey', keyData);
         setKeyCode(text); // Store the encrypted key in the text box
         success('🔑 Key file loaded and decoded successfully!');
       } catch (decryptErr) {
@@ -415,24 +436,23 @@ export default function PhotoUnscrambler() {
           const keyData = JSON.parse(decoded);
           setDecodedParams(keyData);
           setKeyCode(text.trim());
-          console.log("Decoded key data from base64:", keyData);
-          localStorage.setItem("keyData", keyData)
+          localStorage.setItem('lastDecodedKey', keyData);
           success('🔑 Key file loaded and decoded successfully!');
         } catch (base64Err) {
           // Try direct JSON parse
           const keyData = JSON.parse(text);
           setDecodedParams(keyData);
-          localStorage.setItem("keyData", keyData)
+          localStorage.setItem('lastDecodedKey', keyData);
           setKeyCode(btoa(text)); // Convert to base64 for consistency
           success('🔑 Key file loaded and decoded successfully!');
         }
       }
 
       setTimeout(() => {
-          const decoded = fromBase64(text.trim());
-          const keyData = JSON.parse(decoded);
+        const decoded = fromBase64(text.trim());
+        const keyData = JSON.parse(decoded);
         if (keyData.type !== "photo") {
-          error('The loaded key file is not a valid photo scramble key.');
+          error('The loaded key file is not a valid video scramble key.');
         } else if (keyData.version !== "basic") {
           error('Use the ' + keyData.version + ' ' + keyData.type + ' scrambler to unscramble this file.');
           alert('The loaded key file will not work with this scrambler version, you must use the ' + keyData.version + ' ' + keyData.type + ' scrambler to unscramble this file.');
@@ -484,10 +504,9 @@ export default function PhotoUnscrambler() {
     setAllowScrambling(true);
 
     // Now you have access to the actual cost that was calculated and spent
-    console.log('Credits spent:', actualCostSpent);
+    // console.log('Credits spent:', actualCostSpent);
 
-    // setActionCost(actualCostSpent);
-    // alert("Applying Decoded Params:", decodedParams)
+    setActionCost(localStorage.getItem('lastActionCost') || 0);
 
     setTimeout(() => {
       // Additional logic after confirming credits
@@ -502,7 +521,7 @@ export default function PhotoUnscrambler() {
       userId: userData.id,
       username: userData.username,
       email: userData.email,
-      credits: actionCost,
+      credits: localStorage.getItem('lastActionCost') || actionCost,
       currentCredits: userCredits,
       password: localStorage.getItem('passwordtxt'),
       params: decodedParams
@@ -555,7 +574,9 @@ export default function PhotoUnscrambler() {
 
     // let calculatedCost = Math.ceil(Math.sqrt(resolutionCost + 1) * (1 + fileDetails.size / (1000 * 1000 * 0.5))); // scale by size in MB over 0.5MB
 
-    setActionCost(localStorage.getItem('lastActionCost') || 5); // Default to 5 credits if not set
+    // setActionCost(calculatedCost);
+
+    // localStorage.setItem('lastActionCost', calculatedCost)
   };
 
   const applyParameters = () => {
@@ -565,23 +586,25 @@ export default function PhotoUnscrambler() {
     //   return;
     // }
 
+    // console.log(decodedParams);
+    let parameters = JSON.parse(decodedParams)//JSON.parse(JSON.stringify(decodedParams)); // Deep copy to avoid mutation
+    // console.log(parameters);
+    // try {
+    //   console.log(parameters);
+    // } catch (e) {
+    if (!parameters || !parameters.scramble || !parameters.scramble.n || !parameters.scramble.m || !parameters.scramble.perm1based) {
+      parameters = jsonToParams(localStorage.getItem('lastDecodedKey') || JSON.stringify(exampleParams));
+    }
+    // }
 
     try {
-      if (!decodedParams) {
-        throw new Error('No decoded parameters available');
-      }
+      const n = parameters.scramble.n, m = parameters.scramble.m, permDestToSrc0 = parameters.scramble.perm1based, noise = parameters.noise;
+      // setActionCost(n * m >= 100 ? 15 : n * m >= 64 ? 10 : 5); // Adjust cost based on grid size
 
-      // Parse the JSON string if decodedParams is a string
-      const parsedParams = typeof decodedParams === 'string' ? JSON.parse(decodedParams) : decodedParams;
-      
-      // Use jsonToParams to properly extract and validate parameters
-      const params = jsonToParams(parsedParams);
-      const { n, m, permDestToSrc0, noise, metadata } = params;
-
-      setActionCost(n * m >= 100 ? 15 : n * m >= 64 ? 10 : 5); // Adjust cost based on grid size
+      const params = { n: n, m: m, permDestToSrc0: permDestToSrc0, noise: noise, metadata: decodedParams.metadata };
 
       // Store complete params including noise data
-      setUnscrambleParams({ n, m, permDestToSrc0, noise, metadata });
+      setUnscrambleParams(params);
 
       const noiseInfo = noise ? `, noise intensity: ${noise.intensity}` : '';
       success(`Parameters applied: ${n}×${m} grid${noiseInfo}`);
@@ -590,10 +613,12 @@ export default function PhotoUnscrambler() {
       if (imageLoaded) {
         buildUnscrambleRects(n, m, permDestToSrc0);
       }
+
     } catch (e) {
-      handleRefundCredits();
+
       console.error('Error applying parameters:', e);
       error('Invalid parameters: ' + e.message);
+      handleRefundCredits();
     }
   };
 
@@ -616,7 +641,62 @@ export default function PhotoUnscrambler() {
     setUnscrambledReady(true);
   };
 
-  const drawUnscrambledImage = useCallback((
+  // const drawUnscrambledImage = useCallback((
+  //   img = scrambledImageRef.current,
+  //   targetCanvas = unscrambleCanvasRef.current,
+  //   destRects = rectsDest,
+  //   srcRects = rectsSrcFromShuffled,
+  //   inversePerm = srcToDest,
+  //   n = unscrambleParams.n,
+  //   m = unscrambleParams.m
+  // ) => {
+  //   if (!img || !targetCanvas || !img.naturalWidth || !inversePerm.length) return;
+
+  //   const ctx = targetCanvas.getContext('2d');
+
+  //   // Set canvas to match scrambled image size
+  //   targetCanvas.width = img.naturalWidth;
+  //   targetCanvas.height = img.naturalHeight;
+
+  //   // First, draw the entire scrambled image as-is (this includes borders and watermarks)
+  //   ctx.drawImage(img, 0, 0);
+
+  //   const N = n * m;
+
+  //   // Calculate the center area to unscramble (excluding 64px border on all sides)
+  //   const border = 64;
+  //   const centerWidth = img.naturalWidth - (border * 2);
+  //   const centerHeight = img.naturalHeight - (border * 2);
+
+  //   // Recalculate rectangles for the center area only
+  //   const centerSrcRects = cellRects(centerWidth, centerHeight, n, m);
+  //   const centerDestRects = cellRects(centerWidth, centerHeight, n, m);
+
+  //   // Unscramble only the center area
+  //   for (let origIdx = 0; origIdx < N; origIdx++) {
+  //     const shuffledDestIdx = inversePerm[origIdx];
+  //     const sR = centerSrcRects[shuffledDestIdx];
+  //     const dR = centerDestRects[origIdx];
+  //     if (!sR || !dR) continue;
+
+  //     // Draw unscrambled pieces in the center area (offset by border)
+  //     ctx.drawImage(
+  //       img,
+  //       sR.x + border, sR.y + border, sR.w, sR.h,  // Source: from center area of scrambled image
+  //       dR.x + border, dR.y + border, dR.w, dR.h   // Destination: to center area, preserving borders
+  //     );
+  //   }
+
+  //   // Add transparent watermark overlay to indicate unscrambled
+  //   ctx.fillStyle = 'rgba(255, 255, 255, 0.25)';
+  //   ctx.font = '20px Arial';
+  //   // ctx.fillText('🔓 Unscrambled Video ', 10, canvas.height - 40);
+  //   ctx.fillText(`Unscrambled by: ${userData.username}`, 64, targetCanvas.height / 2 + 15);
+
+
+  // }, [srcToDest, rectsSrcFromShuffled, rectsDest, unscrambleParams]);
+
+    const drawUnscrambledImage = useCallback((
     img = scrambledImageRef.current,
     targetCanvas = unscrambleCanvasRef.current,
     destRects = rectsDest,
@@ -711,19 +791,29 @@ export default function PhotoUnscrambler() {
       // Get image data from center area only
       const centerImageData = ctx.getImageData(border, border, centerWidth, centerHeight);
 
-      // Calculate tile size based on center dimensions
-      const tile = gcd(centerWidth, centerHeight);
-      if (tile <= 0) {
-        throw new Error("Invalid tile size computed");
+      // Check noise version/mode
+      const noiseVersion = noiseData.v || 1;
+      const noiseMode = noiseData.mode || 'add_mod256_tile';
+
+      let restoredImageData;
+
+      if (noiseVersion === 2 || noiseMode === 'add_mod256_perpixel') {
+        // V2: Per-pixel noise (non-tiled)
+        console.log("Using per-pixel noise removal (v2)");
+        const noiseOffsets = generateNoiseOffsets(centerWidth, centerHeight, noiseSeed, intensity);
+        restoredImageData = applyNoiseSubMod256PerPixel(centerImageData, noiseOffsets);
+      } else {
+        // V1: Tiled noise (backward compatibility)
+        const tile = noiseData.tile || gcd(centerWidth, centerHeight);
+        console.log("Using tiled noise removal (v1) with tile size:", tile);
+
+        if (tile <= 0) {
+          throw new Error("Invalid tile size computed");
+        }
+
+        const tileOffsets = generateNoiseOffsets(tile, noiseSeed, intensity);
+        restoredImageData = applyNoiseSubMod256(centerImageData, tileOffsets, tile);
       }
-
-      console.log("Tile size for noise removal:", tile);
-
-      // Regenerate the same tile offsets used during scrambling
-      const tileOffsets = generateNoiseTileOffsets(tile, noiseSeed, intensity);
-
-      // Apply reverse noise (subtract mod 256)
-      const restoredImageData = applyNoiseSubMod256(centerImageData, tileOffsets, tile);
 
       // Put the restored (denoise) image data back to center area
       ctx.putImageData(restoredImageData, border, border);
@@ -733,6 +823,7 @@ export default function PhotoUnscrambler() {
     } catch (err) {
       console.error("Error removing noise:", err);
       error("Failed to remove noise: " + err.message);
+      handleRefundCredits();
     }
   }, [unscrambleParams, success, error]);
 

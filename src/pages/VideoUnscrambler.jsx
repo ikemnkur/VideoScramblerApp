@@ -342,8 +342,8 @@ export default function VideoUnscrambler() {
         setTimeout(() => video.pause(), 50);
       }
 
-      canvas.height = video.videoHeight;
-      canvas.width = video.videoWidth;
+      unscrambleCanvasRef.current.height = video.videoHeight;
+      unscrambleCanvasRef.current.width = video.videoWidth;
 
       // if (!permDestToSrc0 || permDestToSrc0.length !== n * m) {
       // fecth from localStorage as fallback
@@ -478,10 +478,7 @@ export default function VideoUnscrambler() {
     setAllowScrambling(true);
 
     // Now you have access to the actual cost that was calculated and spent
-    console.log('Credits spent:', actualCostSpent);
-
-    setActionCost(actualCostSpent);
-    // alert("Applying Decoded Params:", decodedParams);
+    setActionCost(localStorage.getItem('lastActionCost') || 0);
 
 
     let storedParams;

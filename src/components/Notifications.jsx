@@ -39,7 +39,7 @@ const Notifications = () => {
   const itemsPerPage = 5; // Smaller page size for better UX
 
   const API_URL = import.meta.env.VITE_API_SERVER_URL || 'http://localhost:3001';  
-  // Mock notifications data for Video Scrambler app
+  // Mock notifications data for Scramblurr app
   const generateMockNotifications = () => {
     const currentTime = new Date();
     const mockData = [

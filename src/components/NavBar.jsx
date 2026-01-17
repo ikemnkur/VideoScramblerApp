@@ -31,7 +31,7 @@ const token = localStorage.getItem('token');
         title */}
           {/* todo: turn this text into a button/link while Maintaining its current style */}
         <Typography variant="h5" sx={{ flexGrow: 1, fontWeight: 800, color: 'primary.main' }}>
-          <Button component={RouterLink} to="/"  sx={{ fontSize: '20px' }}>  Video Scrambler </Button>
+          <Button component={RouterLink} to="/"  sx={{ fontSize: '20px' }}>  Scramblurr </Button>
         </Typography>
         <Box sx={{ display: 'flex', gap: 1 }}>
 

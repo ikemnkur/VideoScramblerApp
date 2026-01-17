@@ -1,6 +1,6 @@
 # Video Scrambler App JSON Server Database
 
-This is a JSON Server setup for testing and developing the Video Scrambler App. It provides a complete REST API with realistic mock data.
+This is a JSON Server setup for testing and developing the Scramblurr App. It provides a complete REST API with realistic mock data.
 
 ## Setup Instructions
 

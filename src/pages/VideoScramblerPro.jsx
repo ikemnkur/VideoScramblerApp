@@ -226,7 +226,34 @@ export default function ScramblerVideosPro() {
         input: selectedFile.name,
         output: `scrambled_${selectedFile.name}`,
         seed: seed,
-        mode: 'scramble'
+        mode: 'scramble',
+        algorithm,
+        seed,
+        rows,
+        cols,
+        percentage: scramblingPercentage,
+        maxHueShift,
+        maxIntensityShift,
+        timestamp: Date.now(),
+        // username: userData.username || 'Anonymous',
+        // userId: userData.userId || 'Unknown',
+
+        creator: {
+          username: userData.username || 'Anonymous',
+          userId: userData.userId || 'Unknown',
+          timestamp: new Date().toISOString()
+        },
+        metadata: {
+          videoName: selectedFile.name,
+          size: selectedFile.size,
+          fileType: selectedFile.type,
+          dimensions: {
+            width: displayVideoRef.current?.videoWidth || 0,
+            height: displayVideoRef.current?.videoHeight || 0
+          },
+          duration: displayVideoRef.current?.duration || 0,
+          fps: displayVideoRef.current ? 30 : 0
+        }
       };
 
       // Add algorithm-specific parameters
@@ -269,25 +296,17 @@ export default function ScramblerVideosPro() {
       formData.append('params', JSON.stringify(params));
 
       try {
-        // Call scramble endpoint
-        // const response = await fetch(`${API_URL}/api/scramble-video`, {
-        //   method: 'POST',
-        //   // headers: {
-        //   //   'Content-Type': 'application/json'
-        //   // },
-        //   body: formData
-        // });
-
         const response = await api.post(`${API_URL}/api/scramble-video`, formData, {
           headers: {
             'Content-Type': 'multipart/form-data'
           }
         });
 
-        const data = await response.json();
+        console.log("Scramble response:", response);
+        const data = await response.data;
         console.log("Scramble response data:", data);
 
-        if (!response.ok || !data.success) {
+        if (!data.success) {
           error("Scrambling failed: " + (data.message || "Unknown error"));
           setIsProcessing(false);
           handleRefundCredits();
@@ -320,9 +339,6 @@ export default function ScramblerVideosPro() {
           maxHueShift,
           maxIntensityShift,
           timestamp: Date.now(),
-          // username: userData.username || 'Anonymous',
-          // userId: userData.userId || 'Unknown',
-
           creator: {
             username: userData.username || 'Anonymous',
             userId: userData.userId || 'Unknown',
@@ -351,6 +367,7 @@ export default function ScramblerVideosPro() {
 
       } catch (err) {
         error("Scrambling failed: " + err.message);
+        console.error("Scrambling error:", err);
         setIsProcessing(false);
 
         handleRefundCredits();
@@ -359,6 +376,7 @@ export default function ScramblerVideosPro() {
 
     } catch (err) {
       error("Scrambling failed: " + err.message);
+      console.error("Scrambling error:", err);
     } finally {
       setIsProcessing(false);
     }
@@ -424,12 +442,7 @@ export default function ScramblerVideosPro() {
     setAllowScrambling(true);
 
     // Now you have access to the actual cost that was calculated and spent
-    console.log('Credits spent:', actualCostSpent);
-
-    // You can use this value for logging, analytics, or displaying to user
-    // For example, update a state variable:
-    // setLastCreditCost(actualCostSpent);
-    setActionCost(actualCostSpent);
+    setActionCost(localStorage.getItem('lastActionCost') || actionCost);
 
     // Call scrambleVideo directly (it will use current state values)
     scrambleVideo();
@@ -441,7 +454,7 @@ export default function ScramblerVideosPro() {
       userId: userData.id,
       username: userData.username,
       email: userData.email,
-      credits: actionCost,
+      credits: localStorage.getItem('lastActionCost') || actionCost,
       currentCredits: userCredits,
       password: localStorage.getItem('passwordtxt'),
       action: 'scramble_video_pro',
@@ -453,6 +466,7 @@ export default function ScramblerVideosPro() {
         algorithm: algorithm,
         percentage: scramblingPercentage
       }
+
     });
 
     if (result.success) {

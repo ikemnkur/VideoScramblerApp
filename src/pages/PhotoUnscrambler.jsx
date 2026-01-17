@@ -267,17 +267,59 @@ export default function PhotoUnscrambler() {
     }
   }, [userData]);
 
+
+  const confirmSpendingCredits = () => {
+
+
+    const LQ = 2;
+    const SDcharge = 3;
+    const HDcharge = 5;
+    const FHDCharge = 10;
+
+    let fileDetails = {
+      type: 'image',
+      size: selectedFile?.size || 0,
+      name: selectedFile?.name || '',
+      horizontal: imageRef.current?.naturalWidth || 0,
+      vertical: imageRef.current?.naturalHeight || 0
+    };
+
+    // Calculate cost based on photo resolution from fileDetails
+    const width = fileDetails.horizontal;
+    const height = fileDetails.vertical;
+
+    console.log('Photo Dimensions:', width, 'x', height);
+    console.log('Photo Size:', fileDetails.size, 'bytes');
+
+    let resolutionCost = LQ;
+    if (width >= 1920 && height >= 1080) {
+      resolutionCost = FHDCharge;
+    } else if (width >= 1280 && height >= 720) {
+      resolutionCost = HDcharge;
+    } else if (width >= 854 && height >= 480) {
+      resolutionCost = SDcharge;
+    } else {
+      resolutionCost = LQ;
+    }
+
+    let calculatedCost = Math.ceil(Math.sqrt(resolutionCost + 1) * (1 + fileDetails.size / (1000 * 1000 * 0.5))); // scale by size in MB over 0.5MB
+
+    setActionCost(calculatedCost);
+
+    // Show credit confirmation modal before scrambling
+    setShowCreditModal(true);
+
+    // onGenerate();
+  };
+
   const handleCreditConfirm = useCallback((actualCostSpent) => {
     setShowCreditModal(false);
     setAllowScrambling(true);
 
-
-
     // Now you have access to the actual cost that was calculated and spent
-    console.log('Credits spent:', actualCostSpent);
+    // console.log('Credits spent:', actualCostSpent);
 
-    setActionCost(actualCostSpent);
-    // alert("Applying Decoded Params:", decodedParams)
+    setActionCost(localStorage.getItem('lastActionCost') || 0);
 
     setTimeout(() => {
       // Additional logic after confirming credits
@@ -299,11 +341,11 @@ export default function PhotoUnscrambler() {
 
   };
 
-  const confirmSpendingCredits = () => {
-    // setShowCreditModal(false);
-    setShowCreditModal(true);
+  // const confirmSpendingCredits = () => {
+  //   // setShowCreditModal(false);
+  //   setShowCreditModal(true);
 
-  };
+  // };
 
   // Refund credits on error using shared utility
   const handleRefundCredits = async () => {

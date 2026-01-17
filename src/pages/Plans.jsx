@@ -264,6 +264,7 @@ export default function Wallet() {
   //       return null;
   //     });
   // }
+  
 
   async function verifyPayment(startTime, endTime) {
     if (!pendingPlan) return;
@@ -380,15 +381,15 @@ export default function Wallet() {
         <Typography variant="h4" color="secondary.main">Account Membership Overview</Typography>
         <Card variant="outlined">
           <CardContent>
-            <Typography variant="h6">Current Account Tier</Typography>
+            {/* <Typography variant="h6">Current Account Tier</Typography>
 
-            {/* <Skeleton variant="text" width={220} height={54} /> */}
+            {
 
             <Typography variant="h3" sx={{ fontWeight: 800, color: 'primary.main' }}>
-              {String(userdata?.accountType ?? '').toUpperCase()}
+              {String(userdata?.accountType ?? localStorage.getItem("userdata")?.accountType ?? '').toUpperCase()}
             </Typography>
-            {/* )} */}
-            <Divider sx={{ my: 2 }} />
+            
+            <Divider sx={{ my: 2 }} /> */}
 
             {/* Subscription Plans Section */}
             <Box sx={{ mb: 4 }}>

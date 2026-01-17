@@ -20,7 +20,7 @@ import {
 } from '@mui/icons-material';
 import api from '../api/client';
 import { useToast } from '../contexts/ToastContext';
-import { refundCredits } from '../api/credits';
+import { refundCredits } from '../utils/creditUtils';
 
 // {/* Credit Confirmation Modal */ }
 
@@ -93,7 +93,7 @@ export default function CreditConfirmationModal({
       return null;
     }
 
-    alert('Spending ' + totalCost + ' credits to scramble ' + (file?.name || 'untitled'));
+    // alert('Spending ' + totalCost + ' credits to scramble ' + (file?.name || 'untitled'));
 
     try {
 
@@ -245,6 +245,8 @@ export default function CreditConfirmationModal({
 
     const finalCost = Math.ceil(calculatedCost * Math.sqrt(scrambleLevel));
     console.log('Total Cost after scramble level adjustment:', finalCost);
+
+    localStorage.setItem('lastActionCost', finalCost);
     
     setTotalCost(finalCost);
     setHasEnoughCredits(userCredits >= finalCost);

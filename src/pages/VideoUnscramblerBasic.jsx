@@ -432,10 +432,7 @@ export default function VideoUnscramblerBasic() {
     setAllowScrambling(true);
 
     // Now you have access to the actual cost that was calculated and spent
-    console.log('Credits spent:', actualCostSpent);
-
-    setActionCost(actualCostSpent);
-    // alert("Applying Decoded Params:", decodedParams);
+    setActionCost(localStorage.getItem('lastActionCost') || 0);
 
 
     let storedParams;

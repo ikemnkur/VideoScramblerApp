@@ -33,11 +33,11 @@ import { useToast } from '../contexts/ToastContext';
 import CreditConfirmationModal from '../components/CreditConfirmationModal';
 import { refundCredits } from '../utils/creditUtils';
 import api from '../api/client';
-import { 
-  generateWatermark, 
-  loadAudioFromUrl, 
+import {
+  generateWatermark,
+  loadAudioFromUrl,
   overlayWatermarkAtIntervals,
-  checkTTSServerHealth 
+  checkTTSServerHealth
 } from '../utils/ttsWatermarkService';
 
 export default function AudioUnscrambler() {
@@ -114,7 +114,7 @@ export default function AudioUnscrambler() {
     const fetchCredits = async () => {
       if (!userData?.username) return;
 
-       try {
+      try {
         // JWT token in the Authorization header automatically authenticates the user
         // No need to send password (it's not stored in localStorage anyway)
         const { data } = await api.post(`/api/wallet/balance/${userData.username}`, {
@@ -256,7 +256,7 @@ export default function AudioUnscrambler() {
     return buffer;
   };
 
-   // Apply watermark to original audio
+  // Apply watermark to original audio
   const applyWatermark = async () => {
     if (!watermarkBuffer) {
       setError('Please generate a watermark first');
@@ -295,12 +295,12 @@ export default function AudioUnscrambler() {
   };
 
 
-   // Render watermarked audio using OfflineAudioContext
+  // Render watermarked audio using OfflineAudioContext
   const renderWatermarkedAudio = async (originalBuffer, watermarkBuffer, intervalSeconds, fadeDuration, watermarkVolume) => {
     const sampleRate = originalBuffer.sampleRate;
     const numChannels = originalBuffer.numberOfChannels;
     const duration = originalBuffer.duration;
-    
+
     const offlineContext = new OfflineAudioContext(
       numChannels,
       Math.ceil(duration * sampleRate),
@@ -327,7 +327,7 @@ export default function AudioUnscrambler() {
 
       // Set initial volume
       gainNode.gain.setValueAtTime(0, currentTime);
-      
+
       // Fade in
       gainNode.gain.linearRampToValueAtTime(
         watermarkVolume,
@@ -381,7 +381,7 @@ export default function AudioUnscrambler() {
       }
 
       const data = await response.json();
-      
+
       if (!data.success) {
         throw new Error(data.error || 'Failed to generate watermark');
       }
@@ -389,7 +389,7 @@ export default function AudioUnscrambler() {
       // Fetch the audio file from the URL
       const audioUrl = `${TTS_SERVER_URL}${data.url}`;
       const audioResponse = await fetch(audioUrl);
-      
+
       if (!audioResponse.ok) {
         throw new Error('Failed to fetch generated audio file');
       }
@@ -397,7 +397,7 @@ export default function AudioUnscrambler() {
       const arrayBuffer = await audioResponse.arrayBuffer();
       const audioBuffer = await audioContextRef.current.decodeAudioData(arrayBuffer);
       setWatermarkBuffer(audioBuffer);
-      
+
       // Draw waveform
       if (watermarkCanvasRef.current) {
         drawWaveform(audioBuffer, watermarkCanvasRef.current);
@@ -412,7 +412,7 @@ export default function AudioUnscrambler() {
     }
   };
 
-   // Fetch available voices from server
+  // Fetch available voices from server
   const fetchAvailableVoices = async () => {
     // Default voices
     const defaultVoices = [
@@ -780,6 +780,54 @@ export default function AudioUnscrambler() {
 
   };
 
+
+
+  const confirmSpendingCredits = () => {
+
+    const LQ = 2;
+    const SDcharge = 3;
+    const HDcharge = 5;
+    const FHDCharge = 10;
+
+    let fileDetails = {
+      type: 'audio',
+      size: selectedFile?.size || 0,
+      name: filename || '',
+      duration: Math.ceil(audioPlayerRef.current?.duration) || 0,
+      sampleRate: sampleRate,
+      numberOfChannels: numberOfChannels,
+    }
+
+    const duration = Math.ceil((fileDetails.duration || 0) / 60); // duration in minutes
+    const sampleRate = fileDetails.sampleRate || 44100;
+    const numberOfChannels = fileDetails.numberOfChannels || 2;
+
+    console.log('Audio Duration:', fileDetails.duration, 'seconds (', duration, 'minutes)');
+    console.log('Audio Size:', fileDetails.size, 'bytes');
+    console.log("cost due to size: ", (1 + fileDetails.size / (1000 * 1000 * 1)))
+
+    
+let calculatedCost = Math.ceil((sampleRate / 24000) * duration + (numberOfChannels * fileDetails.size / (1000 * 1000 * 1))); // scale by size in MB over 1MB
+
+    console.log('Calculated Audio Cost:', calculatedCost);
+
+
+    const finalCost = Math.ceil(calculatedCost * Math.sqrt(scrambleLevel));
+    console.log('Total Cost after scramble level adjustment:', finalCost);
+    setActionCost(finalCost);
+
+    // Show credit confirmation modal before scrambling
+    if (!audioBuffer) {
+      error("Please load an audio file first!");
+      return;
+    }
+
+    setScrambleLevel(2 + audioDuration / segmentSize);
+    setShowCreditModal(true);
+
+    // onGenerate();
+  };
+
   const handleCreditConfirm = useCallback(async (actualCostSpent) => {
     setShowCreditModal(false);
     setIsProcessing(true);
@@ -887,14 +935,14 @@ export default function AudioUnscrambler() {
             pitch: '+0Hz'
           });
           const watermarkBuffer = await loadAudioFromUrl(watermarkUrl, audioContext);
-          
+
           // Overlay watermark at intervals throughout the audio
           recoveredBuffer = overlayWatermarkAtIntervals(recoveredBuffer, watermarkBuffer, audioContext, {
             intervalSeconds: null, // Auto-calculate based on duration
             volume: 0.5, // 50% volume for watermark
             fadeMs: 250 // 250ms fade in/out
           });
-          
+
           console.log('Watermark overlays applied successfully');
         } catch (err) {
           console.error('Watermark application failed:', err);
@@ -1226,11 +1274,7 @@ export default function AudioUnscrambler() {
 
           <Button
             variant="contained"
-            onClick={() => {
-              setScrambleLevel(2 + audioDuration / segmentSize);
-              setShowCreditModal(true);
-
-            }}
+            onClick={confirmSpendingCredits}
             startIcon={<LockOpen />}
             disabled={!scrambledAudioBuffer || !loadedKeyData || isProcessing}
             sx={{

@@ -412,12 +412,7 @@ export default function ScramblerVideosPro() {
     setAllowScrambling(true);
 
     // Now you have access to the actual cost that was calculated and spent
-    console.log('Credits spent:', actualCostSpent);
-
-    // You can use this value for logging, analytics, or displaying to user
-    // For example, update a state variable:
-    // setLastCreditCost(actualCostSpent);
-    setActionCost(actualCostSpent);
+    setActionCost(localStorage.getItem('lastActionCost') || 0);
 
     // Call scrambleVideo directly (it will use current state values)
     scrambleVideo();

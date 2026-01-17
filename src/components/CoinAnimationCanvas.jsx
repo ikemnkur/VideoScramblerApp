@@ -126,7 +126,7 @@ export default function CoinAnimationCanvas() {
     ctx.fillStyle = 'green';
     ctx.textAlign = 'center';
     ctx.textBaseline = 'top';
-    ctx.fillText('$ Video Scrambler $', width / 2, 10);
+    ctx.fillText('$ Scramblurr $', width / 2, 10);
     ctx.restore();
   }
 

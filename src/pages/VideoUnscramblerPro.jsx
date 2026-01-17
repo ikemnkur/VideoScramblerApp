@@ -402,7 +402,7 @@ export default function VideoUnscramblerPro() {
   const loadUnscrambledVideo = async () => {
     try {
       const response = await fetch(`${Flask_API_URL}/download/${unscrambledFilename}`);
-      if (!response.ok) throw new Error('Failed to load unscrambled video');
+      // if (!response.ok) throw new Error('Failed to load unscrambled video');
 
       const blob = await response.blob();
       const url = URL.createObjectURL(blob);
@@ -439,7 +439,7 @@ export default function VideoUnscramblerPro() {
 
     try {
       const response = await api.get(`${Flask_API_URL}/download/${unscrambledFilename}`);
-      if (!response.ok) throw new Error('Download failed');
+      // if (!response.ok) throw new Error('Download failed');
 
       const blob = await response.blob();
       const url = URL.createObjectURL(blob);
@@ -463,13 +463,8 @@ export default function VideoUnscramblerPro() {
     setAllowUnscrambling(true);
 
     // Now you have access to the actual cost that was calculated and spent
-    console.log('Credits spent:', actualCostSpent);
-
-    // You can use this value for logging, analytics, or displaying to user
-    // For example, update a state variable:
-    // setLastCreditCost(actualCostSpent);
-    setActionCost(actualCostSpent);
-
+    setActionCost(localStorage.getItem('lastActionCost') || actionCost);
+    
     // Use setTimeout to ensure state update completes before scrambling
     setTimeout(() => {
       unscrambleVideo();
@@ -482,7 +477,7 @@ export default function VideoUnscramblerPro() {
       userId: userData.id,
       username: userData.username,
       email: userData.email,
-      credits: actionCost,
+      credits: setActionCost(localStorage.getItem('lastActionCost') || actionCost),
       currentCredits: userCredits,
       password: localStorage.getItem('passwordtxt'),
       params: decodedParams,

@@ -22,6 +22,7 @@ import {
 } from '@mui/material';
 import {
   PhotoCamera,
+  LockOpen,
   Shuffle,
   Download,
   ContentCopy,
@@ -92,6 +93,7 @@ export default function PhotoScrambler() {
 
   // Processing state
   const [isProcessing, setIsProcessing] = useState(false);
+  const [step2, setStep2] = useState(false);
 
   // Ad modal state
   const [modalShown, setModalShown] = useState(false);
@@ -280,13 +282,13 @@ export default function PhotoScrambler() {
   }
 
   /* =========================
-    Noise generation (tileable)
+    Noise generation (per-pixel, non-tiled)
     - offsets are integers in [-intensity, +intensity]
-    - tile is square: tile x tile
+    - generates unique noise for each pixel
     ========================= */
-  function generateNoiseTileOffsets(tileSize, seed, intensity) {
+  function generateNoiseOffsets(width, height, seed, intensity) {
     const rand = mulberry32(seed >>> 0);
-    const pxCount = tileSize * tileSize;
+    const pxCount = width * height;
 
     // store offsets per pixel per channel (RGB), Int16 is plenty
     const offsets = new Int16Array(pxCount * 3);
@@ -301,35 +303,35 @@ export default function PhotoScrambler() {
     return offsets;
   }
 
-  function applyNoiseAddMod256(imageData, tileOffsets, tileSize, intensity) {
+  function applyNoiseAddMod256(imageData, noiseOffsets, intensity) {
     // intensity is not used here directly (offsets already scaled), included for clarity
     const w = imageData.width, h = imageData.height;
     const src = imageData.data;
     const out = new Uint8ClampedArray(src); // copy
 
     for (let y = 0; y < h; y++) {
-      const ty = y % tileSize;
       for (let x = 0; x < w; x++) {
-        const tx = x % tileSize;
-        const tileIndex = (ty * tileSize + tx) * 3;
-        const i = (y * w + x) * 4;
+        const p = y * w + x;
+        const noiseIndex = p * 3;
+        const i = p * 4;
 
-        out[i + 0] = mod(src[i + 0] + tileOffsets[tileIndex + 0], 256);
-        out[i + 1] = mod(src[i + 1] + tileOffsets[tileIndex + 1], 256);
-        out[i + 2] = mod(src[i + 2] + tileOffsets[tileIndex + 2], 256);
+        out[i + 0] = mod(src[i + 0] + noiseOffsets[noiseIndex + 0], 256);
+        out[i + 1] = mod(src[i + 1] + noiseOffsets[noiseIndex + 1], 256);
+        out[i + 2] = mod(src[i + 2] + noiseOffsets[noiseIndex + 2], 256);
         // alpha unchanged
       }
     }
     return new ImageData(out, w, h);
   }
 
-  // Visualize offsets as RGB around 128 (so 0 offset = mid-gray)
-  function renderNoiseTilePreview(tileOffsets, tileSize, cvElement, zoom = 1) {
+  // Visualize noise sample as RGB around 128 (so 0 offset = mid-gray)
+  function renderNoisePreview(noiseOffsets, width, height, cvElement, sampleSize = 128) {
     if (!cvElement) return;
 
-    const w = tileSize, h = tileSize;
-    cvElement.width = w * zoom;
-    cvElement.height = h * zoom;
+    const w = Math.min(sampleSize, width);
+    const h = Math.min(sampleSize, height);
+    cvElement.width = w;
+    cvElement.height = h;
 
     const tmp = document.createElement("canvas");
     tmp.width = w;
@@ -339,13 +341,13 @@ export default function PhotoScrambler() {
 
     for (let y = 0; y < h; y++) {
       for (let x = 0; x < w; x++) {
-        const p = (y * w + x);
+        const p = (y * width + x);
         const base3 = p * 3;
-        const i = p * 4;
+        const i = (y * w + x) * 4;
 
-        const r = 128 + tileOffsets[base3 + 0];
-        const g = 128 + tileOffsets[base3 + 1];
-        const b = 128 + tileOffsets[base3 + 2];
+        const r = 128 + noiseOffsets[base3 + 0];
+        const g = 128 + noiseOffsets[base3 + 1];
+        const b = 128 + noiseOffsets[base3 + 2];
 
         img.data[i + 0] = clamp(r, 0, 255);
         img.data[i + 1] = clamp(g, 0, 255);
@@ -443,36 +445,32 @@ export default function PhotoScrambler() {
     if (applyNoise && noiseIntensity > 0) {
       try {
         const intensity = Math.round(noiseIntensity);
-        const tile = gcd(paddedWidth, paddedHeight);
 
-        if (tile > 0) {
-          const tileOffsets = generateNoiseTileOffsets(tile, noiseSeed, intensity);
-          const originalImageData = tempCtx.getImageData(0, 0, paddedWidth, paddedHeight);
-          const noisyImageData = applyNoiseAddMod256(originalImageData, tileOffsets, tile, intensity);
-          tempCtx.putImageData(noisyImageData, 0, 0);
+        const noiseOffsets = generateNoiseOffsets(paddedWidth, paddedHeight, noiseSeed, intensity);
+        const originalImageData = tempCtx.getImageData(0, 0, paddedWidth, paddedHeight);
+        const noisyImageData = applyNoiseAddMod256(originalImageData, noiseOffsets, intensity);
+        tempCtx.putImageData(noisyImageData, 0, 0);
 
-          console.log("Noise applied to original image before scrambling", { intensity, tile, seed: noiseSeed });
+        console.log("Noise applied to original image before scrambling", { intensity, width: paddedWidth, height: paddedHeight, seed: noiseSeed });
 
-          // Update noise tile preview
-          const cvNoiseTile = document.getElementById("cvNoiseTile2");
-          if (cvNoiseTile) {
-            renderNoiseTilePreview(tileOffsets, tile, cvNoiseTile, 1);
-          }
-
-          // Store noise params
-          const noiseParamsObj = {
-            v: 1,
-            mode: "add_mod256_tile",
-            prng: "mulberry32",
-            w: paddedWidth,
-            h: paddedHeight,
-            tile,
-            seed: noiseSeed,
-            intensity,
-            note: "Reversible noise applied to original image before scrambling"
-          };
-          setNoiseParams(noiseParamsObj);
+        // Update noise preview (show sample)
+        const cvNoiseTile = document.getElementById("cvNoiseTile2");
+        if (cvNoiseTile) {
+          renderNoisePreview(noiseOffsets, paddedWidth, paddedHeight, cvNoiseTile, 128);
         }
+
+        // Store noise params
+        const noiseParamsObj = {
+          v: 2,
+          mode: "add_mod256_perpixel",
+          prng: "mulberry32",
+          w: paddedWidth,
+          h: paddedHeight,
+          seed: noiseSeed,
+          intensity,
+          note: "Reversible per-pixel noise applied to original image before scrambling"
+        };
+        setNoiseParams(noiseParamsObj);
       } catch (err) {
         console.error("Error applying noise:", err);
       }
@@ -532,55 +530,15 @@ export default function PhotoScrambler() {
   // =============================
 
 
-  const onGenerate = useCallback(() => {
-    if (!imageFile) {
-      error("Please select an image file first");
-      return;
-    }
-    if (!imageLoaded) {
-      error("Please wait for the image to load");
-      return;
-    }
-
-    // Show credit confirmation modal before scrambling
-    setShowCreditModal(true);
-  }, [imageFile, imageLoaded, error]);
-
-  useEffect(() => {
-    const fetchUserCredits = async () => {
-       try {
-        // JWT token in the Authorization header automatically authenticates the user
-        // No need to send password (it's not stored in localStorage anyway)
-        const { data } = await api.post(`/api/wallet/balance/${userData.username}`, {
-          email: userData.email
-        });
-
-      } catch (e) {
-        console.error('Failed to load wallet balance:', e);
-
-        // Handle authentication errors
-        if (e.response?.status === 401 || e.response?.status === 403) {
-          error('Session expired. Please log in again.');
-          setTimeout(() => {
-            localStorage.removeItem('token');
-            localStorage.removeItem('userdata');
-            window.location.href = '/login';
-          }, 2000);
-        } else {
-          error('Failed to load balance. Please try again.');
-        }
-        setBalance(0);
-      }
-
-    };
-
-    if (userData?.username) {
-      fetchUserCredits();
-    }
-  }, [userData]);
-
-  const handleCreditConfirm = useCallback((actualCostSpent) => {
-    setShowCreditModal(false);
+  const onGenerate = useCallback((actualCostSpent) => {
+    // if (!imageFile) {
+    //   error("Please select an image file first");
+    //   return;
+    // }
+    // if (!imageLoaded) {
+    //   error("Please wait for the image to load");
+    //   return;
+    // }
     setIsProcessing(true);
 
     console.log('Credits spent:', actualCostSpent);
@@ -639,6 +597,7 @@ export default function PhotoScrambler() {
           setBase64Key(toBase64(pretty));
 
           setIsProcessing(false);
+          setStep2(false)
 
           // Deduct credits
           setUserCredits(prev => prev - actualCostSpent);
@@ -653,6 +612,92 @@ export default function PhotoScrambler() {
         setIsProcessing(false);
       }
     }, 500);
+
+  }, [grid, drawScrambledImage, addNoiseToImage, noiseIntensity, userData, success, error]);
+  // }, [imageFile, imageLoaded, error]);
+
+  useEffect(() => {
+    const fetchUserCredits = async () => {
+      try {
+        // JWT token in the Authorization header automatically authenticates the user
+        // No need to send password (it's not stored in localStorage anyway)
+        const { data } = await api.post(`/api/wallet/balance/${userData.username}`, {
+          email: userData.email
+        });
+
+      } catch (e) {
+        console.error('Failed to load wallet balance:', e);
+
+        // Handle authentication errors
+        if (e.response?.status === 401 || e.response?.status === 403) {
+          error('Session expired. Please log in again.');
+          setTimeout(() => {
+            localStorage.removeItem('token');
+            localStorage.removeItem('userdata');
+            window.location.href = '/login';
+          }, 2000);
+        } else {
+          error('Failed to load balance. Please try again.');
+        }
+        setBalance(0);
+      }
+
+    };
+
+    if (userData?.username) {
+      fetchUserCredits();
+    }
+  }, [userData]);
+
+
+
+  const confirmSpendingCredits = () => {
+    // Show credit confirmation modal before scrambling
+    setShowCreditModal(true);
+
+    // const LQ = 2;
+    // const SDcharge = 3;
+    // const HDcharge = 5;
+    // const FHDCharge = 10;
+
+    // let fileDetails = {
+    //   type: 'image',
+    //   size: selectedFile?.size || 0,
+    //   name: selectedFile?.name || '',
+    //   horizontal: imageRef.current?.naturalWidth || 0,
+    //   vertical: imageRef.current?.naturalHeight || 0
+    // };
+
+    // // Calculate cost based on photo resolution from fileDetails
+    // const width = fileDetails.horizontal;
+    // const height = fileDetails.vertical;
+
+    // console.log('Photo Dimensions:', width, 'x', height);
+    // console.log('Photo Size:', fileDetails.size, 'bytes');
+
+    // let resolutionCost = LQ;
+    // if (width >= 1920 && height >= 1080) {
+    //   resolutionCost = FHDCharge;
+    // } else if (width >= 1280 && height >= 720) {
+    //   resolutionCost = HDcharge;
+    // } else if (width >= 854 && height >= 480) {
+    //   resolutionCost = SDcharge;
+    // } else {
+    //   resolutionCost = LQ;
+    // }
+
+    // let calculatedCost = Math.ceil(Math.sqrt(resolutionCost + 1) * (1 + fileDetails.size / (1000 * 1000 * 0.5))); // scale by size in MB over 0.5MB
+
+    // const finalCost = Math.ceil(calculatedCost * Math.sqrt(scrambleLevel));
+    // console.log('Total Cost after scramble level adjustment:', finalCost);
+    // setActionCost(finalCost);
+  };
+
+  const handleCreditConfirm = useCallback((actualCostSpent) => {
+    setShowCreditModal(false);
+    setActionCost(localStorage.getItem('lastActionCost') || 0);
+    setStep2(true);
+
   }, [grid, drawScrambledImage, addNoiseToImage, noiseIntensity, userData, success, error]);
 
   // Redraw when image loads or parameters change (without noise for preview)
@@ -905,10 +950,10 @@ export default function PhotoScrambler() {
                     variant="outlined"
                     onClick={() => setNoiseIntensity(Math.max(0, noiseIntensity - 1))}
                     disabled={permDestToSrc0.length > 0}
-                    sx={{ 
-                      minWidth: '40px', 
-                      borderColor: permDestToSrc0.length > 0 ? '#444' : '#666', 
-                      color: permDestToSrc0.length > 0 ? '#666' : '#e0e0e0' 
+                    sx={{
+                      minWidth: '40px',
+                      borderColor: permDestToSrc0.length > 0 ? '#444' : '#666',
+                      color: permDestToSrc0.length > 0 ? '#666' : '#e0e0e0'
                     }}
                   >
                     −
@@ -920,7 +965,7 @@ export default function PhotoScrambler() {
                     value={noiseIntensity}
                     onChange={(e) => setNoiseIntensity(Number(e.target.value))}
                     disabled={permDestToSrc0.length > 0}
-                    style={{ 
+                    style={{
                       flex: 1,
                       opacity: permDestToSrc0.length > 0 ? 0.5 : 1,
                       cursor: permDestToSrc0.length > 0 ? 'not-allowed' : 'pointer'
@@ -930,10 +975,10 @@ export default function PhotoScrambler() {
                     variant="outlined"
                     onClick={() => setNoiseIntensity(Math.min(127, noiseIntensity + 1))}
                     disabled={permDestToSrc0.length > 0}
-                    sx={{ 
-                      minWidth: '40px', 
-                      borderColor: permDestToSrc0.length > 0 ? '#444' : '#666', 
-                      color: permDestToSrc0.length > 0 ? '#666' : '#e0e0e0' 
+                    sx={{
+                      minWidth: '40px',
+                      borderColor: permDestToSrc0.length > 0 ? '#444' : '#666',
+                      color: permDestToSrc0.length > 0 ? '#666' : '#e0e0e0'
                     }}
                   >
                     +
@@ -946,9 +991,9 @@ export default function PhotoScrambler() {
                     inputProps={{ min: 0, max: 127 }}
                     sx={{
                       width: '80px',
-                      '& .MuiInputBase-root': { 
-                        backgroundColor: permDestToSrc0.length > 0 ? '#252525' : '#353535', 
-                        color: permDestToSrc0.length > 0 ? '#666' : 'white' 
+                      '& .MuiInputBase-root': {
+                        backgroundColor: permDestToSrc0.length > 0 ? '#252525' : '#353535',
+                        color: permDestToSrc0.length > 0 ? '#666' : 'white'
                       }
                     }}
                   />
@@ -957,7 +1002,7 @@ export default function PhotoScrambler() {
               {/* Todo: fix noise preview */}
               {/* <div class="canvRow">
                 <div>
-                  <label>Regenerated noise tile preview</label>
+                  <label>Noise preview (sample)</label>
                   <canvas id="cvNoiseTile2" style={{height: 128 , width: 128}}></canvas>
                 </div>
               </div> */}
@@ -973,21 +1018,33 @@ export default function PhotoScrambler() {
             <Button
               variant="contained"
               // onClick={onGenerate}
-              onClick={() => {
-                setShowCreditModal(true);
+              onClick={confirmSpendingCredits}
+              // onClick={() => {
+              //   setShowCreditModal(true);
 
-                // setScrambleLevel(cols >= rows ? cols : rows);
-                onGenerate();
-              }}
+              //   // setScrambleLevel(cols >= rows ? cols : rows);
+
+              // }}
               startIcon={<Shuffle />}
-              disabled={!imageLoaded || isProcessing}
+              disabled={!imageLoaded}
               sx={{
                 backgroundColor: (!imageLoaded || isProcessing) ? '#666' : '#22d3ee',
                 color: (!imageLoaded || isProcessing) ? '#999' : '#001018',
                 fontWeight: 'bold'
               }}
             >
-              Step 1: {isProcessing ? 'Scrambling...' : 'Scramble Image'}
+              Step 1: Confirm Config.
+            </Button>
+
+            <Button
+              variant="contained"
+              // onClick={confirmSpendingCredits}
+              onClick={onGenerate}
+              startIcon={<LockOpen />}
+              sx={{ backgroundColor: '#4caf50', color: 'white' }}
+              disabled={!step2 || !imageLoaded}
+            >
+              Step 2: {isProcessing ? 'Scrambling...' : 'Scramble Image'}
             </Button>
 
             <Button
@@ -997,7 +1054,7 @@ export default function PhotoScrambler() {
               disabled={!permDestToSrc0.length}
               sx={{ backgroundColor: '#9c27b0', color: 'white' }}
             >
-              Step 2: 🖼️ Download Scrambled Image
+              Step 3:  Download
             </Button>
 
             {/* <Button

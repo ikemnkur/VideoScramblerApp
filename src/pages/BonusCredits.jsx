@@ -178,7 +178,7 @@ export default function Wallet() {
                           >
                             <label style={{ cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '8px' }}>
                               <input type="radio" name="quiz" value="A" style={{ cursor: 'pointer' }} />
-                              <Typography>A) Video Scrambler App</Typography>
+                              <Typography>A) Scramblurr App</Typography>
                             </label>
                           </Paper>
 

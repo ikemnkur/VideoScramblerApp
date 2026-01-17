@@ -119,7 +119,7 @@ export default function App() {
   const [userData, setUserData] = useState(getInitialUserData());
   const [dayPassExpiry, setDayPassExpiry] = useState("");
   const [dayPassMode, setDayPassMode] = useState("free");
-  const [accountType, setAccountType] = useState("free");
+  const [accountType, setAccountType] = useState(localStorage.getItem('userdata') ? JSON.parse(localStorage.getItem('userdata')).accountType : "free");
   const [subscriptionExpiry, setSubscriptionExpiry] = useState("");
 
   // Helper function to check if user has access to a given tier
@@ -130,6 +130,7 @@ export default function App() {
 
   // Fetch fresh user data on mount
   useEffect(() => {
+    localStorage.setItem('currentModeSelection', "free");
     const loadUserData = async () => {
       const freshUserData = await fetchUserData();
       if (freshUserData) {
@@ -138,15 +139,31 @@ export default function App() {
     };
 
     loadUserData();
+
+    setTimeout(() => {
+      updateUserAccess();
+    }, 1000);
+
+
   }, []);
 
-  // Update derived state when userData changes
-  useEffect(() => {
-    console.log("App.jsx - User Data:", userData);
+  const updateUserAccess = useCallback(() => {
+    console.log("App.jsx - User Access:", userData);
     setDayPassExpiry(userData?.dayPassExpiry || "");
     setDayPassMode(userData?.dayPassMode || "free");
     setAccountType(userData?.accountType || "free");
     setSubscriptionExpiry(userData?.planExpiry || "");
+    setAccountType(userData?.accountType || "free");
+  }, [userData]);
+
+  // Update derived state when userData changes
+  useEffect(() => {
+    // console.log("App.jsx - User Data:", userData);
+    setDayPassExpiry(userData?.dayPassExpiry || "");
+    setDayPassMode(userData?.dayPassMode || "free");
+    setAccountType(userData?.accountType || "free");
+    setSubscriptionExpiry(userData?.planExpiry || "");
+    setAccountType(userData?.accountType || "free");
   }, [userData]);
 
   return (

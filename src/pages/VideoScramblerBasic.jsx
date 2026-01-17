@@ -405,8 +405,8 @@ export default function VideoScramblerBasic() {
       // allowScrambling(true);
 
       // Now you have access to the actual cost that was calculated and spent
-      console.log('Credits spent:', actualCostSpent);
-      setActionCost(actualCostSpent);
+
+      setActionCost(localStorage.getItem('lastActionCost') || 0);
 
       console.log("File selected:", selectedFile);
 

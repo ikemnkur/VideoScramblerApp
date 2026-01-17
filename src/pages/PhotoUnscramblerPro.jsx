@@ -155,14 +155,13 @@ export default function PhotoUnscramblerPro() {
 
     const handleCreditConfirm = useCallback((actualCostSpent) => {
         setShowCreditModal(false);
-
         setAllowScrambling(true);
 
         // Now you have access to the actual cost that was calculated and spent
         console.log('Credits spent:', actualCostSpent);
 
         // You can use this value for logging, analytics, or displaying to user
-        setActionCost(actualCostSpent);
+        setActionCost(localStorage.getItem('lastActionCost') || 0);
 
 
 
@@ -452,26 +451,13 @@ export default function PhotoUnscramblerPro() {
                 success("Image unscrambled successfully!");
 
                 // SHOW MESSAGE DIALOG SAYTHING THAT THE USER HAS SPENT CREDITS TO CHECK THE IMAGE
-               
+
 
             } catch (error) {
                 console.error("Error during unscrambling:", error);
                 // TODO: Refund credits if applicable
-                const response = await fetch(`${API_URL}/api/refund-credits`, {
-                    method: 'POST',
-                    body: {
-                        userId: userData.id,
-                        username: userData.username,
-                        email: userData.email,
-                        password: localStorage.getItem('passwordtxt'),
-                        credits: actionCost,
-                        params: params,
-                    }
+                handleRefundCredits(actionCost);
 
-                });
-
-                console.log("Refund response:", response);
-                throw new Error(error.message || 'Unscrambling failed');
             }
 
         } catch (err) {
@@ -526,16 +512,71 @@ export default function PhotoUnscramblerPro() {
     };
 
 
-    const handleRefundCredits = async (actionCost) => {
+    const confirmSpendingCredits = () => {
+
+
+        const LQ = 2;
+        const SDcharge = 3;
+        const HDcharge = 5;
+        const FHDCharge = 10;
+
+        let fileDetails = {
+            type: 'image',
+            size: selectedFile?.size || 0,
+            name: selectedFile?.name || '',
+            horizontal: imageRef.current?.naturalWidth || 0,
+            vertical: imageRef.current?.naturalHeight || 0
+        };
+
+        // Calculate cost based on photo resolution from fileDetails
+        const width = fileDetails.horizontal;
+        const height = fileDetails.vertical;
+
+        console.log('Photo Dimensions:', width, 'x', height);
+        console.log('Photo Size:', fileDetails.size, 'bytes');
+
+        let resolutionCost = LQ;
+        if (width >= 1920 && height >= 1080) {
+            resolutionCost = FHDCharge;
+        } else if (width >= 1280 && height >= 720) {
+            resolutionCost = HDcharge;
+        } else if (width >= 854 && height >= 480) {
+            resolutionCost = SDcharge;
+        } else {
+            resolutionCost = LQ;
+        }
+
+        let calculatedCost = Math.ceil(Math.sqrt(resolutionCost + 1) * (1 + fileDetails.size / (1000 * 1000 * 0.5))); // scale by size in MB over 0.5MB
+        const finalCost = Math.ceil(calculatedCost * Math.sqrt(scrambleLevel));
+        console.log('Total Cost after scramble level adjustment:', finalCost);
+        setActionCost(finalCost);
+
+        // Show credit confirmation modal before scrambling
+        setShowCreditModal(true);
+        setScrambleLevel(decodedKey.cols >= decodedKey.rows ? decodedKey.cols : decodedKey.rows);
+
+        // onGenerate();
+    };
+
+
+    const handleRefundCredits = async (actionCosts) => {
         // Generate noise seed
         // const nSeed = genRandomSeed();
         // setNoiseSeed(nSeed);
+
+        let cost = 0;
+
+        if (actionCosts != actionCost) {
+            cost = parseInt(localStorage.getItem('lastActionCost')) || actionCost;
+        } else {
+            cost = actionCost;
+        }
 
         const result = await refundCredits({
             userId: userData.id,
             username: userData.username,
             email: userData.email,
-            credits: actionCost,
+            credits: cost,
             currentCredits: userCredits,
             password: localStorage.getItem('passwordtxt'),
             action: 'unscramble_photo_pro',
@@ -759,8 +800,8 @@ export default function PhotoUnscramblerPro() {
                                 variant="contained"
                                 // onClick={unscrambleImage}
                                 onClick={() => {
-                                    setShowCreditModal(true);
-                                    setScrambleLevel(decodedKey.cols >= decodedKey.rows ? decodedKey.cols : decodedKey.rows);
+                                    confirmSpendingCredits();
+
                                 }}
                                 startIcon={isProcessing ? <CircularProgress size={20} /> : <CloudDownload />}
                                 disabled={!imageLoaded || !keyValid}

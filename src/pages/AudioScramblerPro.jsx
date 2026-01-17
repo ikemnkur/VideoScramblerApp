@@ -511,14 +511,52 @@ export default function AudioScrambler() {
     }
   };
 
-  const handleScrambleAudio = () => {
-    if (!audioBuffer) {
-      error("Please load an audio file first!");
-      return;
-    }
+  
 
-    setScrambleLevel(2 + audioDuration / segmentSize);
+  const confirmSpendingCredits = () => {
+
+//     const LQ = 2;
+//     const SDcharge = 3;
+//     const HDcharge = 5;
+//     const FHDCharge = 10;
+
+//     let fileDetails = {
+//       type: 'audio',
+//       size: selectedFile?.size || 0,
+//       name: filename || '',
+//       duration: Math.ceil(audioPlayerRef.current?.duration) || 0,
+//       sampleRate: sampleRate,
+//       numberOfChannels: numberOfChannels,
+//     }
+
+//     const duration2 = Math.ceil((fileDetails.duration || 0) / 60); // duration in minutes
+//     const sampleRate2 = fileDetails.sampleRate || 44100;
+//     const numberOfChannels2 = fileDetails.numberOfChannels || 2;
+
+//     console.log('Audio Duration:', fileDetails.duration, 'seconds (', duration2, 'minutes)');
+//     console.log('Audio Size:', fileDetails.size, 'bytes');
+//     console.log("cost due to size: ", (1 + fileDetails.size / (1000 * 1000 * 1)))
+
+    
+// let calculatedCost = Math.ceil((sampleRate2 / 24000) * duration2 + (numberOfChannels2 * fileDetails.size / (1000 * 1000 * 1))); // scale by size in MB over 1MB
+
+//     console.log('Calculated Audio Cost:', calculatedCost);
+
+
+//     const finalCost = Math.ceil(calculatedCost * Math.sqrt(scrambleLevel));
+//     console.log('Total Cost after scramble level adjustment:', finalCost);
+//     setActionCost(finalCost);
+
+//     // Show credit confirmation modal before scrambling
+//     if (!audioBuffer) {
+//       error("Please load an audio file first!");
+//       return;
+//     }
+
+//     setScrambleLevel(2 + audioDuration / segmentSize);
     setShowCreditModal(true);
+
+    // onGenerate();
   };
 
   const handleCreditConfirm = async (actualCostSpent) => {
@@ -526,12 +564,12 @@ export default function AudioScrambler() {
     setIsProcessing(true);
 
     // Now you have access to the actual cost that was calculated and spent
-    console.log('Credits spent:', actualCostSpent);
+    // console.log('Credits spent:', actualCostSpent);
 
     // You can use this value for logging, analytics, or displaying to user
     // For example, update a state variable:
-    // setLastCreditCost(actualCostSpent);
-    setActionCost(actualCostSpent);
+
+    setActionCost(localStorage.getItem('lastActionCost') || 0);
 
     try {
       const segSize = parseFloat(segmentSize) || 2;
@@ -674,106 +712,6 @@ export default function AudioScrambler() {
       error('Error downloading key');
     }
   };
-
-  // const handleScrambledFileSelect = async (event) => {
-  //   const file = event.target.files?.[0];
-  //   if (!file) return;
-
-  //   try {
-  //     const arrayBuffer = await file.arrayBuffer();
-  //     const buffer = await audioContext.decodeAudioData(arrayBuffer);
-  //     setScrambledAudioBuffer(buffer);
-  //     success('Scrambled audio loaded');
-  //   } catch (err) {
-  //     console.error("Error loading scrambled audio:", err);
-  //     error('Error loading scrambled audio');
-  //   }
-  // };
-
-  // const handleKeyFileSelect = async (event) => {
-  //   const file = event.target.files?.[0];
-  //   if (!file) return;
-
-  //   try {
-  //     const text = await file.text();
-  //     const keyData = decryptKeyData(text);
-  //     setLoadedKeyData(keyData);
-  //     success('🔑 Key loaded!');
-  //   } catch (err) {
-  //     console.error("Error loading key:", err);
-  //     error('Invalid or corrupted key file');
-  //   }
-  // };
-
-  // const handleUnscramble = async () => {
-  //   if (!scrambledAudioBuffer) {
-  //     error('Please load scrambled audio!');
-  //     return;
-  //   }
-
-  //   if (!loadedKeyData) {
-  //     error('Please load key file!');
-  //     return;
-  //   }
-
-  //   setIsProcessing(true);
-
-  //   try {
-  //     let recoveredBuffer = scrambledAudioBuffer;
-
-  //     // Remove noise
-  //     if (loadedKeyData.noise?.enabled) {
-  //       const noise = generateMultiFrequencyNoise(
-  //         scrambledAudioBuffer.length,
-  //         loadedKeyData.noise.level,
-  //         loadedKeyData.noise.seed
-  //       );
-  //       recoveredBuffer = reverseNoise(recoveredBuffer, noise);
-  //     }
-
-  //     // Un-shuffle
-  //     if (loadedKeyData.shuffle?.enabled) {
-  //       const shuffleOrderOrSeed = loadedKeyData.shuffle.shuffleOrder || loadedKeyData.shuffle.seed;
-
-  //       recoveredBuffer = await unshuffleAudio(
-  //         recoveredBuffer,
-  //         loadedKeyData.shuffle.segmentSize,
-  //         loadedKeyData.shuffle.padding,
-  //         shuffleOrderOrSeed,
-  //         loadedKeyData.audio.duration
-  //       );
-  //     }
-
-  //     setRecoveredAudioBuffer(recoveredBuffer);
-
-  //     const url = bufferToWavUrl(recoveredBuffer, loadedKeyData.audio.channels, loadedKeyData.audio.sampleRate);
-  //     if (unscrambledAudioPlayerRef.current) {
-  //       unscrambledAudioPlayerRef.current.src = url;
-  //     }
-
-  //     setIsProcessing(false);
-  //     success('✅ Audio unscrambled!');
-  //   } catch (err) {
-  //     console.error('Unscramble error:', err);
-  //     error('Error: ' + err.message);
-  //     setIsProcessing(false);
-  //   }
-  // };
-
-  // const handleDownloadRecovered = () => {
-  //   if (!recoveredAudioBuffer) {
-  //     error("Please unscramble audio first!");
-  //     return;
-  //   }
-
-  //   const url = bufferToWavUrl(recoveredAudioBuffer, loadedKeyData.audio.channels, loadedKeyData.audio.sampleRate);
-  //   const a = document.createElement('a');
-  //   a.href = url;
-  //   a.download = 'recovered-audio.wav';
-  //   a.click();
-  //   success("Recovered audio downloaded!");
-  // };
-
 
 
   // Update waveforms on time update
@@ -1045,7 +983,7 @@ export default function AudioScrambler() {
           <Box sx={{ display: 'flex', gap: 2, flexWrap: 'wrap', mb: 3 }}>
             <Button
               variant="contained"
-              onClick={handleScrambleAudio}
+              onClick={confirmSpendingCredits}
               startIcon={<Lock />}
               disabled={!audioBuffer || isProcessing}
               sx={{
