@@ -524,6 +524,31 @@ export default function PhotoUnscrambler() {
         success('Unscrambled image downloaded!');
       }
     }, 'image/png');
+
+    
+    // log succesful media unscramble event to analytics
+    api.post('/api/analytics/unscramble-event', {
+      username: userData.username,
+      userId: userData.id,
+      creator: decodedParams?.creator || 'unknown',
+      scrambleType: 'photo',
+      scrambleLevel: scrambleLevel,
+      timestamp: new Date().toISOString(),
+      actionCost: actionCost,
+      keyId: decodedParams?.keyId || 'unknown',
+      unscrambleKey: decodedParams ? JSON.stringify(decodedParams) : null,
+      mediaDetails: {
+        name: selectedFile?.name || 'unknown',
+        size: selectedFile?.size || 0,
+        width: scrambledImageRef.current?.naturalWidth || 0,
+        height: scrambledImageRef.current?.naturalHeight || 0
+      }
+    }).catch(err => {
+      console.error('Failed to log analytics event:', err); 
+
+    });
+
+
   };
 
   const downloadUnscrambledImage = () => {

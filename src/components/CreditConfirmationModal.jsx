@@ -144,6 +144,8 @@ export default function CreditConfirmationModal({
     }
   };
 
+  
+
   const handleConfirm = async () => {
     const result = await spendCredits();
     if (result) {
