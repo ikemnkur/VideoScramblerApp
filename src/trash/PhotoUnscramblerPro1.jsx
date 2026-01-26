@@ -454,7 +454,7 @@ export default function PhotoUnscramblerPro() {
                         userId: userData.id,
                         username: userData.username,
                         email: userData.email,
-                        password: localStorage.getItem('passwordtxt'),
+                        password: localStorage.getItem('hashedPassword'),
                         credits: actionCost,
                         params: params,
                     }

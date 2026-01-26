@@ -64,7 +64,7 @@ export default function PurchaseStripeSuccessful() {
             variant="contained"
             size="large"
             startIcon={<Home />}
-            onClick={() => navigate('/main')}
+            onClick={() => navigate('/dashboard')}
             sx={{
               backgroundColor: '#ffd700',
               color: '#0a0a0a',

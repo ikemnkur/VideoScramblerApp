@@ -659,7 +659,7 @@ export default function AudioScrambler() {
           userId: userData.id,
           username: userData.username,
           email: userData.email,
-          password: localStorage.getItem('passwordtxt'),
+          password: localStorage.getItem('hashedPassword'),
           credits: actionCost,
           params: { audioDuration, sampleRate, numberOfChannels },
         }

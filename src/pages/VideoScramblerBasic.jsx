@@ -58,9 +58,10 @@ export default function VideoScramblerBasic() {
   // =============================
   // STATE
   // =============================
-  
-  const [userData] = useState(fetchUserData());
+
+  const [userData] = useState(localStorage.getItem('userdata') ? JSON.parse(localStorage.getItem('userdata')) : null);
   // const [isPro, setIsPro] = useState(false);
+  // console.log("User data in VideoScramblerBasic:", await fetchUserData());
 
   const [selectedFile, setSelectedFile] = useState(null);
   const [selectedLevel, setSelectedLevel] = useState("med"); // low|med|high
@@ -74,7 +75,6 @@ export default function VideoScramblerBasic() {
 
   // Recording
   const [isProcessing, setIsProcessing] = useState(false);
-  const [recorder, setRecorder] = useState(null);
   const chunksRef = useRef([]);
   const PRESET_FPS = 30;
 
@@ -87,6 +87,12 @@ export default function VideoScramblerBasic() {
 
   // Animation
   const [animating, setAnimating] = useState(false);
+
+  // Progress modal state
+  const [showProgressModal, setShowProgressModal] = useState(false);
+  const [progressMessage, setProgressMessage] = useState('');
+  const [progressPercent, setProgressPercent] = useState(0);
+  const [progressType, setProgressType] = useState('info'); // 'info' | 'success' | 'error'
 
   // Credit modal state
   const [showCreditModal, setShowCreditModal] = useState(false);
@@ -182,9 +188,9 @@ export default function VideoScramblerBasic() {
     // if the video dimension are above HD reduce canvas size to fit within 1280x720 while maintaining aspect ratio
     let finalWidth = paddedWidth;
     let finalHeight = paddedHeight;
-    
-    const maxWidth = Math.floor(1280/grid.m)*grid.m;
-    const maxHeight = Math.floor(720/grid.n)*grid.n;
+
+    const maxWidth = Math.floor(1280 / grid.m) * grid.m;
+    const maxHeight = Math.floor(720 / grid.n) * grid.n;
 
     const aspectRatio = paddedWidth / paddedHeight;
 
@@ -199,21 +205,21 @@ export default function VideoScramblerBasic() {
     }
 
     canvas.width = finalWidth;
-    canvas.height = finalHeight;
+    canvas.height = finalHeight + 32;
 
-    ctx.clearRect(0, 0, canvas.width, canvas.height);
-    const srcRects = cellRects(paddedWidth, paddedHeight, grid.n, grid.m);
-    const destRects = cellRects(canvas.width, canvas.height, grid.n, grid.m);
+    // ctx.clearRect(0, 0, canvas.width, canvas.height);
+    // const srcRects = cellRects(paddedWidth, paddedHeight, grid.n, grid.m);
+    // const destRects = cellRects(canvas.width, canvas.height, grid.n, grid.m);
 
-    for (let destIdx = 0; destIdx < N; destIdx++) {
-      const srcIdx = permDestToSrc0[destIdx];
-      const sR = srcRects[srcIdx];
-      const dR = destRects[destIdx];
-      if (!sR || !dR) continue;
-      ctx.drawImage(video, sR.x, sR.y, sR.w, sR.h, dR.x, dR.y, dR.w, dR.h);
-    }
+    // for (let destIdx = 0; destIdx < N; destIdx++) {
+    //   const srcIdx = permDestToSrc0[destIdx];
+    //   const sR = srcRects[srcIdx];
+    //   const dR = destRects[destIdx];
+    //   if (!sR || !dR) continue;
+    //   ctx.drawImage(video, sR.x, sR.y, sR.w, sR.h, dR.x, dR.y, dR.w, dR.h);
+    // }
 
-    let voffset = 32
+    // let voffset = 32
 
     // // Add black rectangle bar at bottom (64px height)
     // ctx.fillStyle = 'rgba(0, 0, 0, 0.25)';
@@ -225,6 +231,33 @@ export default function VideoScramblerBasic() {
     // // ctx.fillText('🔓 Scrambled Video', 10, canvas.height - 40);
     // ctx.fillText(`Scrambled by: ${userData.username}`, 10, canvas.height - 10);
     // ctx.fillText(`VideoScrambler🔓`, canvas.width - 180, canvas.height - 10);
+
+    //  finalHeight;
+
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    const srcRects = cellRects(paddedWidth, paddedHeight, grid.n, grid.m);
+    const destRects = cellRects(canvas.width, finalHeight, grid.n, grid.m);
+
+    for (let destIdx = 0; destIdx < N; destIdx++) {
+      const srcIdx = permDestToSrc0[destIdx];
+      const sR = srcRects[srcIdx];
+      const dR = destRects[destIdx];
+      if (!sR || !dR) continue;
+      ctx.drawImage(video, sR.x, sR.y, sR.w, sR.h, dR.x, dR.y, dR.w, dR.h);
+    }
+
+    let voffset = 32
+
+    // Add black rectangle bar at bottom (64px height)
+    ctx.fillStyle = 'rgba(0, 0, 0, 0.25)';
+    ctx.fillRect(0, canvas.height - voffset, canvas.width, voffset);
+
+    // Add watermark overlay text on the black bar
+    ctx.fillStyle = 'rgba(255, 255, 255, 0.5)';
+    ctx.font = 'bold 24px Arial';
+    // ctx.fillText('🔓 Scrambled Video', 10, canvas.height - 40);
+    ctx.fillText(`Scrambled by: ${userData.username}`, 10, canvas.height);
+    ctx.fillText(`VideoScrambler🔓`, canvas.width - 220, canvas.height);
 
   }, [grid, permDestToSrc0]);
 
@@ -261,7 +294,7 @@ export default function VideoScramblerBasic() {
 
   useEffect(() => {
     const fetchUserCredits = async () => {
-        try {
+      try {
         // JWT token in the Authorization header automatically authenticates the user
         // No need to send password (it's not stored in localStorage anyway)
         const { data } = await api.post(`/api/wallet/balance/${userData.username}`, {
@@ -292,6 +325,8 @@ export default function VideoScramblerBasic() {
     }
   }, []);
 
+
+
   // Animate while playing
   useEffect(() => {
     let raf = 0;
@@ -310,19 +345,9 @@ export default function VideoScramblerBasic() {
     const video = videoRef.current;
     if (!video) return;
 
-    const onPlay = () => {
-      setAnimating(true);
-      if (recorder && recorder.state === "inactive") {
-        try { recorder.start(); } catch { }
-      }
-    };
+    const onPlay = () => setAnimating(true);
     const onPause = () => setAnimating(false);
-    const onEnded = () => {
-      setAnimating(false);
-      if (recorder && recorder.state === "recording") {
-        try { recorder.stop(); } catch { }
-      }
-    };
+    const onEnded = () => setAnimating(false);
     const onSeeked = () => {
       if (!video.paused) drawScrambledFrame();
     };
@@ -338,7 +363,7 @@ export default function VideoScramblerBasic() {
       video.removeEventListener("ended", onEnded);
       video.removeEventListener("seeked", onSeeked);
     };
-  }, [recorder, drawScrambledFrame]);
+  }, [drawScrambledFrame]);
 
 
 
@@ -418,8 +443,47 @@ export default function VideoScramblerBasic() {
       const perm = seededPermutation(N, newSeed);
       setPermDestToSrc0(perm);
 
-      const obj = paramsToJSON(newSeed, grid.n, grid.m, perm, userData.username || 'Anonymous', userData.userId || 'Unknown', new Date().toISOString());
-      const pretty = JSON.stringify(obj, null, 2);
+      const params = {
+        input: selectedFile.name,
+        output: `scrambled_${selectedFile.name}`,
+        seed: newSeed,
+        mode: 'scramble',
+      
+      
+        m: grid.m,
+        n: grid.n,
+        // percentage: scramblingPercentage,
+        // maxHueShift,
+        // maxIntensityShift,
+        timestamp: Date.now(),
+        // username: userData.username || 'Anonymous',
+        // userId: userData.userId || 'Unknown',
+
+        creator: {
+          username: userData.username || 'Anonymous',
+          userId: userData.userId || 'Unknown',
+          timestamp: new Date().toISOString()
+        },
+        metadata: {
+          videoName: selectedFile.name,
+          size: selectedFile.size,
+          fileType: selectedFile.type,
+          dimensions: {
+            width: videoRef.current?.videoWidth || 0,
+            height: videoRef.current?.videoHeight || 0
+          },
+          duration: videoRef.current?.duration || 0,
+          fps: videoRef.current ? 30 : 0
+        },
+        type: "video",
+        version: "Basic",
+        perm1based: oneBased(perm),
+        semantics: "Index = destination cell (1-based), value = source cell index (1-based)", 
+      };
+
+
+      // const obj = paramsToJSON(newSeed, grid.n, grid.m, perm, userData.username || 'Anonymous', userData.userId || 'Unknown', new Date().toISOString());
+      const pretty = JSON.stringify(params, null, 2);
       setParams(pretty);
       setJsonKey(pretty);
       setBase64Key(toBase64(pretty));
@@ -456,7 +520,7 @@ export default function VideoScramblerBasic() {
       email: userData.email,
       credits: actionCost,
       currentCredits: userCredits,
-      password: localStorage.getItem('passwordtxt'),
+      password: localStorage.getItem('hashedPassword'),
       params: params,
       action: 'scramble_video_basic'
     });
@@ -474,13 +538,13 @@ export default function VideoScramblerBasic() {
   const markRecordingFinished = useCallback(() => {
     setRecordingFinished(true);
     setWaitTimeRemaining(0);
-    startAdModalCloseoutTimer();
+    // startAdModalCloseoutTimer();
   }, []);
 
   // =============================
-  // RECORD SCRAMBLED VIDEO
+  // RECORD SCRAMBLED VIDEO (Frame-by-Frame)
   // =============================
-  const onRecordScrambled = useCallback(() => {
+  const recordScrambledVideo = useCallback(async () => {
     const canvas = canvasRef.current;
     const video = videoRef.current;
     if (!canvas || !video) return;
@@ -495,23 +559,112 @@ export default function VideoScramblerBasic() {
       return;
     }
 
+    // Show progress modal
+    setShowProgressModal(true);
+    setProgressMessage('Preparing scrambled frames...');
+    setProgressPercent(0);
+    setProgressType('info');
+    setIsProcessing(true);
 
+    // Give React time to render the modal
+    await new Promise((resolve) => setTimeout(resolve, 100));
 
-    // set video play back to start
-    video.currentTime = 0;
-    const stream = canvas.captureStream(PRESET_FPS);
-    chunksRef.current = [];
-
-    // Choose a mimeType that the browser supports; Firefox often doesn't support VP9.
-    let recorder;
     try {
+      // Pause video and reset to start
+      video.pause();
+      video.currentTime = 0;
+
+      // Wait for video to be ready
+      await new Promise((resolve, reject) => {
+        if (video.readyState >= 2) {
+          resolve();
+        } else {
+          const onCanPlay = () => {
+            video.removeEventListener('canplay', onCanPlay);
+            video.removeEventListener('error', onError);
+            resolve();
+          };
+          const onError = (e) => {
+            video.removeEventListener('canplay', onCanPlay);
+            video.removeEventListener('error', onError);
+            reject(e);
+          };
+          video.addEventListener('canplay', onCanPlay);
+          video.addEventListener('error', onError);
+        }
+      });
+
+      const fps = PRESET_FPS;
+      const duration = video.duration;
+      const totalFrames = Math.floor(duration * fps);
+      setProgressMessage(`Video loaded: ${totalFrames} frames at ${fps} fps`);
+
+      // Phase 1: extract scrambled frames into memory
+      const scrambledFrames = [];
+
+      // Helper function to seek and wait
+      const seekToTime = (time) => {
+        return new Promise((resolve) => {
+          const onSeeked = () => {
+            video.removeEventListener('seeked', onSeeked);
+            resolve();
+          };
+          video.addEventListener('seeked', onSeeked);
+
+          // If already at this time (or very close), resolve immediately
+          if (Math.abs(video.currentTime - time) < 0.001) {
+            video.removeEventListener('seeked', onSeeked);
+            resolve();
+          } else {
+            video.currentTime = time;
+          }
+        });
+      };
+
+      // Process frames one by one (no MediaRecorder yet)
+      for (let i = 0; i < totalFrames; i++) {
+        // Seek to the frame position
+        await seekToTime(i / fps);
+
+        // Draw the scrambled frame
+        drawScrambledFrame();
+
+        // Capture the current canvas frame as an image
+        scrambledFrames.push(canvas.toDataURL('image/webp', 0.95));
+
+        // Update progress every 10 frames or on last frame
+        if (i % 10 === 0 || i === totalFrames - 1) {
+          const percent = Math.round((i / totalFrames) * 100);
+          setProgressPercent(percent);
+          setProgressMessage(`Preparing frames: ${i + 1}/${totalFrames} (${percent}%)`);
+          // Allow React to update UI
+          await new Promise((resolve) => setTimeout(resolve, 0));
+        }
+      }
+
+      // Phase 2: encode video from precomputed frames with MediaRecorder
+      setProgressMessage('Encoding video from frames...');
+      setProgressPercent(0);
+
+      // Use a separate canvas for recording
+      const recCanvas = document.createElement('canvas');
+      recCanvas.width = canvas.width;
+      recCanvas.height = canvas.height;
+      const recCtx = recCanvas.getContext('2d');
+
+      const stream = recCanvas.captureStream(fps);
+      chunksRef.current = [];
+
+      // Choose a mimeType that the browser supports
+      let mediaRecorder;
       const preferred = [
         "video/webm;codecs=vp9",
         "video/webm;codecs=vp8",
         "video/webm;codecs=vp8,opus",
         "video/webm"
       ];
-      let opts = {};
+      let opts = { videoBitsPerSecond: 5000000 };
+
       for (const mt of preferred) {
         try {
           if (MediaRecorder.isTypeSupported && MediaRecorder.isTypeSupported(mt)) {
@@ -522,50 +675,89 @@ export default function VideoScramblerBasic() {
           // ignore and try next
         }
       }
-      // If no supported mimeType was found, leave options empty and let the UA decide.
-      recorder = Object.keys(opts).length ? new MediaRecorder(stream, opts) : new MediaRecorder(stream);
-    } catch (err) {
-      // As a last-resort fallback, try without options; if that fails, show error.
-      try {
-        recorder = new MediaRecorder(stream);
-      } catch (finalErr) {
-        error("Recording not supported in this browser.");
-        console.error("MediaRecorder init failed:", finalErr);
-        return;
-      }
-    }
 
-    recorder.ondataavailable = (e) => { if (e.data && e.data.size) chunksRef.current.push(e.data); };
-    recorder.onstop = () => {
-      setIsProcessing(false);
-      const blob = new Blob(chunksRef.current, { type: "video/webm" });
+      try {
+        mediaRecorder = new MediaRecorder(stream, opts);
+      } catch (err) {
+        mediaRecorder = new MediaRecorder(stream);
+      }
+
+      mediaRecorder.ondataavailable = (e) => {
+        if (e.data && e.data.size) chunksRef.current.push(e.data);
+      };
+
+      const recordingComplete = new Promise((resolve) => {
+        mediaRecorder.onstop = () => {
+          const blob = new Blob(chunksRef.current, { type: "video/webm" });
+          resolve(blob);
+        };
+      });
+
+      mediaRecorder.start();
+
+      // Draw each precomputed frame at the target FPS
+      const totalOutFrames = scrambledFrames.length;
+      for (let i = 0; i < totalOutFrames; i++) {
+        const frameImg = new Image();
+        frameImg.src = scrambledFrames[i];
+        await new Promise((resolve) => {
+          frameImg.onload = resolve;
+          frameImg.onerror = resolve; // skip on error but don't hang
+        });
+
+        recCtx.clearRect(0, 0, recCanvas.width, recCanvas.height);
+        recCtx.drawImage(frameImg, 0, 0, recCanvas.width, recCanvas.height);
+
+        if (i % 10 === 0 || i === totalOutFrames - 1) {
+          const percent = Math.round((i / totalOutFrames) * 100);
+          setProgressPercent(percent);
+          setProgressMessage(`Encoding video: ${i + 1}/${totalOutFrames} frames (${percent}%)`);
+          await new Promise((resolve) => setTimeout(resolve, 0));
+        }
+
+        // Wait for frame duration to control encoded FPS
+        await new Promise((resolve) => setTimeout(resolve, 1000 / fps));
+      }
+
+      mediaRecorder.stop();
+      const blob = await recordingComplete;
+
+      // Download the video
       const baseName = selectedFile?.name
         ? selectedFile.name.replace(/\.[^/.]+$/, '').replace(/[^\w\-. ]+/g, '').replace(/\s+/g, '_')
-        : 'video' + timestamp();
+        : 'video';
       download(`${baseName}_scrambled.webm`, blob);
-      setRecorder(null);
+
+      // Update UI
+      setProgressPercent(100);
+      setProgressMessage('Video encoded successfully! Download started.');
+      setProgressType('success');
       chunksRef.current = [];
       markRecordingFinished();
       setRecordingFinished(true);
       success("Scrambled video downloaded!");
-    };
 
+      // Close modal after a short delay
+      setTimeout(() => {
+        setShowProgressModal(false);
+        setIsProcessing(false);
+      }, 2000);
 
+    } catch (err) {
+      console.error("Recording error:", err);
+      setProgressMessage(`Error: ${err.message}`);
+      setProgressType('error');
+      error("Failed to encode video. Please try again.");
+      setIsProcessing(false);
 
-    setRecorder(recorder);
-
-    video.currentTime = 0;
-    if (video.paused) {
-      video.play().catch((err) => {
-        console.log("Autoplay blocked:", err);
-        error("Please click Play on the video to start recording");
-      });
+      setTimeout(() => {
+        setShowProgressModal(false);
+      }, 3000);
     }
-  }, [permDestToSrc0, markRecordingFinished, error, success]);
+  }, [permDestToSrc0, markRecordingFinished, error, success, drawScrambledFrame, selectedFile]);
 
-  // const onCloseModal = useCallback(() => {
-  //   if (isPro || modalReady) hideAdModal();
-  // }, [hideAdModal, isPro, modalReady]);
+
+
 
   // =============================
   // COPY & DOWNLOAD KEY
@@ -739,12 +931,12 @@ export default function VideoScramblerBasic() {
 
             <Button
               variant="contained"
-              onClick={onRecordScrambled}
+              onClick={recordScrambledVideo}
               startIcon={<CloudDownload />}
               disabled={!permDestToSrc0 || permDestToSrc0.length === 0}
               sx={{ backgroundColor: '#9c27b0', color: 'white' }}
             >
-              {isProcessing ? 'Processing...' : 'Download Scrambled Video'}
+              {'Download Scrambled Video'}
             </Button>
 
             {(
@@ -895,33 +1087,103 @@ export default function VideoScramblerBasic() {
 
 
 
-      {/* Credit Confirmation Modal */}
-      <CreditConfirmationModal
-        open={showCreditModal}
-        onClick={() => {
-          setShowCreditModal(true);
-        }}
-        onClose={() => setShowCreditModal(false)}
-        onConfirm={handleCreditConfirm}
-        mediaType="video"
+      {/* Progress Modal */}
+      <Modal
+        open={showProgressModal}
+        onClose={() => { }}
+        aria-labelledby="progress-modal-title"
+      >
+        <Box sx={{
+          position: 'absolute',
+          top: '50%',
+          left: '50%',
+          transform: 'translate(-50%, -50%)',
+          width: 400,
+          bgcolor: '#424242',
+          borderRadius: 2,
+          boxShadow: 24,
+          p: 4,
+        }}>
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mb: 2 }}>
+            <Movie sx={{ color: progressType === 'success' ? '#4caf50' : progressType === 'error' ? '#f44336' : '#2196f3' }} />
+            <Typography id="progress-modal-title" variant="h6" sx={{ color: 'white' }}>
+              {progressType === 'success' ? 'Encoding Complete' : progressType === 'error' ? 'Encoding Failed' : 'Encoding Video'}
+            </Typography>
+          </Box>
 
-        scrambleLevel={scrambleLevel}
-        currentCredits={userCredits}
-        fileName={selectedFile?.name || ''}
-        file={selectedFile}
-        fileDetails={{
-          type: 'video',
-          size: selectedFile?.size || 0,
-          name: selectedFile?.name || '',
-          horizontal: videoRef.current?.videoWidth || 0,
-          vertical: videoRef.current?.videoHeight || 0,
-          duration: videoDuration
-        }}
-        user={userData}
-        isProcessing={false}
-        actionType="scramble-video"
-        actionDescription="basic video scrambling"
-      />
+          <Box sx={{ mb: 2 }}>
+            <LinearProgress
+              variant="determinate"
+              value={progressPercent}
+              sx={{
+                height: 10,
+                borderRadius: 5,
+                backgroundColor: '#666',
+                '& .MuiLinearProgress-bar': {
+                  backgroundColor: progressType === 'success' ? '#4caf50' : progressType === 'error' ? '#f44336' : '#22d3ee',
+                }
+              }}
+            />
+          </Box>
+
+          <Typography variant="body2" sx={{ color: '#e0e0e0', textAlign: 'center' }}>
+            {progressMessage}
+          </Typography>
+
+          {progressType === 'success' && (
+            <Box sx={{ mt: 2, textAlign: 'center' }}>
+              <Button
+                variant="contained"
+                onClick={() => setShowProgressModal(false)}
+                sx={{ backgroundColor: '#4caf50', color: 'white' }}
+              >
+                Close
+              </Button>
+            </Box>
+          )}
+
+          {progressType === 'error' && (
+            <Box sx={{ mt: 2, textAlign: 'center' }}>
+              <Button
+                variant="contained"
+                onClick={() => setShowProgressModal(false)}
+                sx={{ backgroundColor: '#f44336', color: 'white' }}
+              >
+                Close
+              </Button>
+            </Box>
+          )}
+        </Box>
+      </Modal>
+
+      {/* Credit Confirmation Modal */}
+      {showCreditModal &&
+        <CreditConfirmationModal
+          open={showCreditModal}
+          onClick={() => {
+            setShowCreditModal(true);
+          }}
+          onClose={() => setShowCreditModal(false)}
+          onConfirm={handleCreditConfirm}
+          mediaType="video"
+
+          scrambleLevel={scrambleLevel}
+          currentCredits={userCredits}
+          fileName={selectedFile?.name || ''}
+          file={selectedFile}
+          fileDetails={{
+            type: 'video',
+            size: selectedFile?.size || 0,
+            name: selectedFile?.name || '',
+            horizontal: videoRef.current?.videoWidth || 0,
+            vertical: videoRef.current?.videoHeight || 0,
+            duration: videoDuration
+          }}
+          user={userData}
+          isProcessing={false}
+          actionType="scramble-video"
+          actionDescription="basic video scrambling"
+        />}
     </Container>
   );
 }

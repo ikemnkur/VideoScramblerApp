@@ -184,12 +184,13 @@ export default function VideoUnscramblerPro() {
           setKeyCode(btoa(text)); // Convert to base64 for consistency
           success('🔑 Key file loaded and decoded successfully!');
         }
-
-        if (decodedParams.type !== "video") {
+        const decoded = fromBase64(text.trim());
+        const keyData = JSON.parse(decoded);
+        if (keyData.type !== "video") {
           error('The loaded key file is not a valid video scramble key.');
-        } else if (decodedParams.version !== "premium" || decodedParams.version !== "standard") {
-          error('Use the ' + decodedParams.version + ' ' + decodedParams.type + ' scrambler to unscramble this file.');
-          alert('The loaded key file will not work with this scrambler version, you must use the ' + decodedParams.version + ' ' + decodedParams.type + ' scrambler to unscramble this file.');
+        } else if (keyData.version !== "premium" || keyData.version !== "standard") {
+          error('Use the ' + keyData.version + ' ' + keyData.type + ' scrambler to unscramble this file.');
+          alert('The loaded key file will not work with this scrambler version, you must use the ' + keyData.version + ' ' + keyData.type + ' scrambler to unscramble this file.');
         }
       }
     } catch (err) {
@@ -479,7 +480,7 @@ export default function VideoUnscramblerPro() {
       email: userData.email,
       credits: setActionCost(localStorage.getItem('lastActionCost') || actionCost),
       currentCredits: userCredits,
-      password: localStorage.getItem('passwordtxt'),
+      password: localStorage.getItem('hashedPassword'),
       params: decodedParams,
       action: 'unscramble-video-pro'
     });

@@ -42,6 +42,7 @@ import CreditConfirmationModal from '../components/CreditConfirmationModal';
 import { refundCredits } from '../utils/creditUtils';
 import api from '../api/client';
 import { all } from 'axios';
+import ttsWatermarkService from '../utils/ttsWatermarkService';
 
 export default function VideoUnscramblerBasic() {
   const API_URL = import.meta.env.VITE_API_SERVER_URL || 'http://localhost:3001'; // = 'http://localhost:3001/api';
@@ -89,6 +90,16 @@ export default function VideoUnscramblerBasic() {
   const [rectsDest, setRectsDest] = useState([]);
   const [rectsSrcFromShuffled, setRectsSrcFromShuffled] = useState([]);
   const [srcToDest, setSrcToDest] = useState([]);
+
+  // Progress modal state
+  const [showProgressModal, setShowProgressModal] = useState(false);
+  const [progressMessage, setProgressMessage] = useState('');
+  const [progressPercent, setProgressPercent] = useState(0);
+  const [progressType, setProgressType] = useState('info'); // 'info' | 'success' | 'error'
+
+  // Recording state
+  const chunksRef = useRef([]);
+  const PRESET_FPS = 30;
 
 
 
@@ -171,7 +182,16 @@ export default function VideoUnscramblerBasic() {
     return { n, m, permDestToSrc0: perm };
   };
 
-  // ========== EVENT HANDLERS ==========
+  // Download utility function
+  const download = (filename, blob) => {
+    const a = document.createElement("a");
+    a.href = URL.createObjectURL(blob);
+    a.download = filename;
+    a.click();
+    setTimeout(() => URL.revokeObjectURL(a.href), 2500);
+  };
+
+  // ========== EVENT HANDLERS ========== 
 
   const handleFileSelect = (event) => {
     const file = event.target.files?.[0];
@@ -230,12 +250,14 @@ export default function VideoUnscramblerBasic() {
           success('🔑 Key file loaded and decoded successfully!');
         }
       }
-
-      if (decodedParams.type == "video") {
+      
+       const decoded = fromBase64(text.trim());
+      const keyData = JSON.parse(decoded);
+      if (keyData.type !== "video") {
         error('The loaded key file is not a valid video scramble key.');
-      } else if (decodedParams.version !== "Basic") {
-        error('Use the ' + decodedParams.version + ' ' + decodedParams.type + ' scrambler to unscramble this file.');
-        alert('The loaded key file will not work with this scrambler version, you must use the ' + decodedParams.version + ' ' + decodedParams.type + ' scrambler to unscramble this file.');
+      } else if (keyData.version !== "Basic") {
+        error('Use the ' + keyData.version + ' ' + keyData.type + ' scrambler to unscramble this file.');
+        alert('The loaded key file will not work with this scrambler version, you must use the ' + keyData.version + ' ' + keyData  .type + ' scrambler to unscramble this file.');
       }
     } catch (err) {
       console.error("Error loading key:", err);
@@ -322,9 +344,11 @@ export default function VideoUnscramblerBasic() {
 
       const canvas = unscrambleCanvasRef.current;
 
+      const tagOffset = 32; 
+
       // Adjust canvas size
       canvas.width = Math.floor(video.videoWidth / unscrambleParams.m) * unscrambleParams.m;
-      canvas.height = Math.floor(video.videoHeight / unscrambleParams.n) * unscrambleParams.n;
+      canvas.height = Math.floor(video.videoHeight / unscrambleParams.n) * unscrambleParams.n - tagOffset; //the tag is along the bottom and is 32 px
 
 
 
@@ -337,7 +361,7 @@ export default function VideoUnscramblerBasic() {
         setSrcToDest(storedSrcToDest);
         console.log("Using stored srcToDest from localStorage:", storedSrcToDest);
       } else {
-        throw new Error("Permutation length doesn't match n*m");
+        throw new Error(`Permutation length doesn't match ${n}*${m}`);
       }
       // }
 
@@ -354,10 +378,11 @@ export default function VideoUnscramblerBasic() {
   const buildUnscrambleRects = () => {
     const video = shufVideoRef.current;
     const canvas = unscrambleCanvasRef.current;
+    let tagOffset = 32; // pixels to exclude from bottom (watermark area)
     if (!video || !canvas) return;
 
-    const destRects = cellRects(canvas.width, canvas.height, unscrambleParams.n, unscrambleParams.m);
-    const srcRects = cellRects(video.videoWidth, video.videoHeight, unscrambleParams.n, unscrambleParams.m);
+    const destRects = cellRects(canvas.width, canvas.height - tagOffset, unscrambleParams.n, unscrambleParams.m);
+    const srcRects = cellRects(video.videoWidth, video.videoHeight - tagOffset, unscrambleParams.n, unscrambleParams.m);
     const inversePerm = inversePermutation(unscrambleParams.permDestToSrc0);
 
     setRectsDest(destRects);
@@ -373,21 +398,28 @@ export default function VideoUnscramblerBasic() {
     const canvas = targetCanvas || unscrambleCanvasRef.current;
     if (!video || !canvas || !video.videoWidth || !srcToDest.length) return;
 
+    const tagOffset = 32; // pixels to exclude from bottom (watermark area)
+
     canvas.width = Math.floor(video.videoWidth / unscrambleParams.m) * unscrambleParams.m;
-    canvas.height = Math.floor(video.videoHeight / unscrambleParams.n) * unscrambleParams.n;
-
-
+    canvas.height = Math.floor(video.videoHeight / unscrambleParams.n) * unscrambleParams.n - tagOffset; // bottom 32 pixels from watermark
 
     const ctx = canvas.getContext('2d');
     ctx.clearRect(0, 0, canvas.width, canvas.height);
     const N = unscrambleParams.n * unscrambleParams.m;
+
+    // Adjust source rectangles to exclude bottom 32 pixels watermark
+    const videoHeightWithoutWatermark = video.videoHeight - tagOffset;
 
     for (let origIdx = 0; origIdx < N; origIdx++) {
       const shuffledDestIdx = srcToDest[origIdx];
       const sR = rectsSrcFromShuffled[shuffledDestIdx];
       const dR = rectsDest[origIdx];
       if (!sR || !dR) continue;
-      ctx.drawImage(video, sR.x, sR.y, sR.w, sR.h, dR.x, dR.y, dR.w, dR.h);
+      
+      // Only draw if the source rectangle doesn't extend into the watermark area
+      if (sR.y + sR.h <= videoHeightWithoutWatermark) {
+        ctx.drawImage(video, sR.x, sR.y, sR.w, sR.h, dR.x, dR.y, dR.w, dR.h);
+      }
     }
 
     // Add transparent watermark overlay to indicate unscrambled
@@ -396,6 +428,219 @@ export default function VideoUnscramblerBasic() {
     ctx.fillText(`🔓 Unscrambled by: ${userData.username}`, 10, canvas.height / 2 + 7);
 
   }, [srcToDest, rectsSrcFromShuffled, rectsDest, unscrambleParams]);
+
+
+  // =============================
+  // RECORD UNSCRAMBLED VIDEO (Frame-by-Frame)
+  // =============================
+  const recordUnscrambledVideo = useCallback(async () => {
+    const canvas = unscrambleCanvasRef.current;
+    const video = shufVideoRef.current;
+    if (!canvas || !video) return;
+
+    if (!video.src) {
+      error("Please select a video file first");
+      return;
+    }
+
+    if (!srcToDest || srcToDest.length === 0) {
+      error("Please unscramble the video first");
+      return;
+    }
+
+    // Show progress modal
+    setShowProgressModal(true);
+  setProgressMessage('Preparing unscrambled frames...');
+    setProgressPercent(0);
+    setProgressType('info');
+    setIsProcessing(true);
+
+    // Give React time to render the modal
+    await new Promise((resolve) => setTimeout(resolve, 100));
+
+    try {
+      // Pause video and reset to start
+      video.pause();
+      video.currentTime = 0;
+
+      // Wait for video to be ready
+      await new Promise((resolve, reject) => {
+        if (video.readyState >= 2) {
+          resolve();
+        } else {
+          const onCanPlay = () => {
+            video.removeEventListener('canplay', onCanPlay);
+            video.removeEventListener('error', onError);
+            resolve();
+          };
+          const onError = (e) => {
+            video.removeEventListener('canplay', onCanPlay);
+            video.removeEventListener('error', onError);
+            reject(e);
+          };
+          video.addEventListener('canplay', onCanPlay);
+          video.addEventListener('error', onError);
+        }
+      });
+
+      const fps = PRESET_FPS;
+      const duration = video.duration;
+      const totalFrames = Math.floor(duration * fps);
+      setProgressMessage(`Video loaded: ${totalFrames} frames at ${fps} fps`);
+
+      // Phase 1: extract unscrambled frames into memory (no MediaRecorder yet)
+      const unscrambledFrames = [];
+
+      // Helper function to seek and wait
+      const seekToTime = (time) => {
+        return new Promise((resolve) => {
+          const onSeeked = () => {
+            video.removeEventListener('seeked', onSeeked);
+            resolve();
+          };
+          video.addEventListener('seeked', onSeeked);
+
+          // If already at this time (or very close), resolve immediately
+          if (Math.abs(video.currentTime - time) < 0.001) {
+            video.removeEventListener('seeked', onSeeked);
+            resolve();
+          } else {
+            video.currentTime = time;
+          }
+        });
+      };
+
+      // Process frames one by one, drawing unscrambled output and capturing images
+      for (let i = 0; i < totalFrames; i++) {
+        // Seek to the frame position
+        await seekToTime(i / fps);
+
+        // Draw the unscrambled frame
+        drawUnscrambledFrame();
+
+        // Capture current canvas content as an image frame
+        unscrambledFrames.push(canvas.toDataURL('image/webp', 0.95));
+
+        // Update progress every 10 frames or on last frame
+        if (i % 10 === 0 || i === totalFrames - 1) {
+          const percent = Math.round((i / totalFrames) * 100);
+          setProgressPercent(percent);
+          setProgressMessage(`Preparing frames: ${i + 1}/${totalFrames} (${percent}%)`);
+          // Allow React to update UI
+          await new Promise((resolve) => setTimeout(resolve, 0));
+        }
+      }
+
+      // Phase 2: encode video from precomputed frames using MediaRecorder
+      setProgressMessage('Encoding video from frames...');
+      setProgressPercent(0);
+
+      // Use a separate canvas for recording to avoid interfering with the preview canvas
+      const recCanvas = document.createElement('canvas');
+      recCanvas.width = canvas.width;
+      recCanvas.height = canvas.height;
+      const recCtx = recCanvas.getContext('2d');
+
+      const stream = recCanvas.captureStream(fps);
+      chunksRef.current = [];
+
+      // Choose a mimeType that the browser supports
+      let mediaRecorder;
+      const preferred = [
+        "video/webm;codecs=vp9",
+        "video/webm;codecs=vp8",
+        "video/webm;codecs=vp8,opus",
+        "video/webm"
+      ];
+      let opts = { videoBitsPerSecond: 5000000 };
+
+      for (const mt of preferred) {
+        try {
+          if (MediaRecorder.isTypeSupported && MediaRecorder.isTypeSupported(mt)) {
+            opts.mimeType = mt;
+            break;
+          }
+        } catch (e) {
+          // ignore and try next
+        }
+      }
+
+      try {
+        mediaRecorder = new MediaRecorder(stream, opts);
+      } catch (err) {
+        mediaRecorder = new MediaRecorder(stream);
+      }
+
+      mediaRecorder.ondataavailable = (e) => {
+        if (e.data && e.data.size) chunksRef.current.push(e.data);
+      };
+
+      const recordingComplete = new Promise((resolve) => {
+        mediaRecorder.onstop = () => {
+          const blob = new Blob(chunksRef.current, { type: "video/webm" });
+          resolve(blob);
+        };
+      });
+
+      mediaRecorder.start();
+
+      const totalOutFrames = unscrambledFrames.length;
+      for (let i = 0; i < totalOutFrames; i++) {
+        const frameImg = new Image();
+        frameImg.src = unscrambledFrames[i];
+        await new Promise((resolve) => {
+          frameImg.onload = resolve;
+          frameImg.onerror = resolve; // skip broken frames without hanging
+        });
+
+        recCtx.clearRect(0, 0, recCanvas.width, recCanvas.height);
+        recCtx.drawImage(frameImg, 0, 0, recCanvas.width, recCanvas.height);
+
+        if (i % 10 === 0 || i === totalOutFrames - 1) {
+          const percent = Math.round((i / totalOutFrames) * 100);
+          setProgressPercent(percent);
+          setProgressMessage(`Encoding video: ${i + 1}/${totalOutFrames} frames (${percent}%)`);
+          await new Promise((resolve) => setTimeout(resolve, 0));
+        }
+
+        // Wait for frame duration to control encoded FPS
+        await new Promise((resolve) => setTimeout(resolve, 1000 / fps));
+      }
+
+      mediaRecorder.stop();
+      const blob = await recordingComplete;
+
+      // Download the video
+      const baseName = selectedFile?.name
+        ? selectedFile.name.replace(/\.[^/.]+$/, '').replace(/[^\w\-. ]+/g, '').replace(/\s+/g, '_')
+        : 'video';
+      download(`${baseName}_unscrambled.webm`, blob);
+
+      // Update UI
+      setProgressPercent(100);
+      setProgressMessage('Video encoded successfully! Download started.');
+      setProgressType('success');
+      chunksRef.current = [];
+      success("Unscrambled video downloaded!");
+
+      // Close modal after a short delay
+      setTimeout(() => {
+        setShowProgressModal(false);
+        setIsProcessing(false);
+      }, 2000);
+
+    } catch (err) {
+      console.error("Recording error:", err);
+      setProgressMessage(`Error: ${err.message}`);
+      setProgressType('error');
+      error("Failed to encode video. Please try again.");
+      setIsProcessing(false);
+
+      setTimeout(() => {
+        setShowProgressModal(false);
+      }, 3000);
+    }
+  }, [srcToDest, error, success, drawUnscrambledFrame, selectedFile]);
 
 
 
@@ -468,7 +713,7 @@ export default function VideoUnscramblerBasic() {
       email: userData.email,
       credits: actionCost,
       currentCredits: userCredits,
-      password: localStorage.getItem('passwordtxt'),
+      password: localStorage.getItem('hashedPassword'),
       params: decodedParams,
       action: 'unscramble_video_basic'
     });
@@ -494,7 +739,7 @@ export default function VideoUnscramblerBasic() {
       const video = shufVideoRef.current;
       if (canvas && video && video.videoWidth) {
         canvas.width = video.videoWidth;
-        canvas.height = video.videoHeight;
+        canvas.height = video.videoHeight - 32;
         drawUnscrambledFrame();
       }
     }
@@ -503,7 +748,7 @@ export default function VideoUnscramblerBasic() {
       const video = shufVideoRef.current;
       if (canvas && video && video.videoWidth) {
         canvas.width = video.videoWidth;
-        canvas.height = video.videoHeight;
+        canvas.height = video.videoHeight - 32;
         drawUnscrambledFrame(modalCanvasRef.current);
       }
     }
@@ -801,10 +1046,19 @@ export default function VideoUnscramblerBasic() {
               </Button>
 
               <Button
+                variant="contained"
+                onClick={recordUnscrambledVideo}
+                startIcon={<CloudDownload />}
+                disabled={!srcToDest.length}
+                sx={{ backgroundColor: '#9c27b0', color: 'white' }}
+              >
+                {'Download Unscrambled Video'}
+              </Button>
+
+              <Button
                 variant="outlined"
-                // onClick={() => setIsPro(true)}
                 onClick={() => {
-                  navigate('/plans')
+                  window.location.href = '/plans';
                 }}
                 sx={{ borderColor: 'gold', color: 'gold', ml: 'auto' }}
               >
@@ -989,6 +1243,75 @@ export default function VideoUnscramblerBasic() {
             />
 
           </Box>
+        </Box>
+      </Modal>
+
+      {/* Progress Modal */}
+      <Modal
+        open={showProgressModal}
+        onClose={() => {}}
+        aria-labelledby="progress-modal-title"
+      >
+        <Box sx={{
+          position: 'absolute',
+          top: '50%',
+          left: '50%',
+          transform: 'translate(-50%, -50%)',
+          width: 400,
+          bgcolor: '#424242',
+          borderRadius: 2,
+          boxShadow: 24,
+          p: 4,
+        }}>
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mb: 2 }}>
+            <Movie sx={{ color: progressType === 'success' ? '#4caf50' : progressType === 'error' ? '#f44336' : '#2196f3' }} />
+            <Typography id="progress-modal-title" variant="h6" sx={{ color: 'white' }}>
+              {progressType === 'success' ? 'Encoding Complete' : progressType === 'error' ? 'Encoding Failed' : 'Encoding Video'}
+            </Typography>
+          </Box>
+
+          <Box sx={{ mb: 2 }}>
+            <LinearProgress
+              variant="determinate"
+              value={progressPercent}
+              sx={{
+                height: 10,
+                borderRadius: 5,
+                backgroundColor: '#666',
+                '& .MuiLinearProgress-bar': {
+                  backgroundColor: progressType === 'success' ? '#4caf50' : progressType === 'error' ? '#f44336' : '#22d3ee',
+                }
+              }}
+            />
+          </Box>
+
+          <Typography variant="body2" sx={{ color: '#e0e0e0', textAlign: 'center' }}>
+            {progressMessage}
+          </Typography>
+
+          {progressType === 'success' && (
+            <Box sx={{ mt: 2, textAlign: 'center' }}>
+              <Button
+                variant="contained"
+                onClick={() => setShowProgressModal(false)}
+                sx={{ backgroundColor: '#4caf50', color: 'white' }}
+              >
+                Close
+              </Button>
+            </Box>
+          )}
+
+          {progressType === 'error' && (
+            <Box sx={{ mt: 2, textAlign: 'center' }}>
+              <Button
+                variant="contained"
+                onClick={() => setShowProgressModal(false)}
+                sx={{ backgroundColor: '#f44336', color: 'white' }}
+              >
+                Close
+              </Button>
+            </Box>
+          )}
         </Box>
       </Modal>
 

@@ -16,11 +16,19 @@ const token = localStorage.getItem('token');
     localStorage.removeItem('userdata');
     localStorage.removeItem('accountType');
     localStorage.removeItem('unlockedKeys'); // Clear unlocked keys on logout
-    navigate('/login'); // Redirect to login page
+    // navigate('/login'); // Redirect to login page
+    window.location.href = '/login'; // Reload to update NavBar
   }
 
   function handleLogin() {
-    navigate('/login'); // Redirect to login page
+    // setTimeout(() => {
+    //   navigate('/login'); // Redirect to login page
+    // }, 500);
+
+    window.location.href = '/login'; // Reload to update NavBar
+    
+    //  
+    // navigate('/login'); // Redirect to login page
   }
 
   return (

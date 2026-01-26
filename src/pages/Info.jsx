@@ -18,12 +18,7 @@ import {
   TableCell,
   TableBody,
 } from "@mui/material";
-// import { fetchInfoData, fetchUserProfile } from './api';
-// import Notifications from './Notifications';
-// import { useParams } from 'react-router-dom';
-// import { fetchDisplayAds } from './api';
-// import AdObject from '../pages/AdObject'; // Adjust path as needed
-// import AdVideoObject from '../pages/AdVideoObject'; // Adjust path as needed
+
 
 const Info = () => {
   const navigate = useNavigate();
@@ -61,34 +56,6 @@ const Info = () => {
 
   // Ref for seeking to timestamps in videos
   const howToVideoRef = useRef(null);
-
-  //   // Load user profile
-  //   useEffect(() => {
-  //     const loadUserProfile = async () => {
-  //       try {
-  //         const profileRes = await fetchUserProfile();
-  //         setProfile(profileRes);
-  //         const updatedUserData = {
-  //           ...profileRes,
-  //           birthDate: profileRes.birthDate ? profileRes.birthDate.split('T')[0] : '',
-  //         };
-  //         setUserData(updatedUserData);
-  //         localStorage.setItem('userdata', JSON.stringify(updatedUserData));
-  //         setTier(parseInt(profileRes.accountTier));
-  //       } catch (err) {
-  //         console.error('Error fetching user profile:', err);
-  //         setSnackbarMessage(
-  //           err.response?.data?.message ||
-  //           'Failed to load user profile, please refresh or login again'
-  //         );
-  //         setOpenSnackbar(true);
-  //         // if (err.response?.status === 401) {
-  //         // setTimeout(() => navigate('/login'), 500);
-  //         // }
-  //       }
-  //     };
-  //     loadUserProfile();
-  //   }, [navigate]);
 
   // Load info data
   useEffect(() => {
@@ -282,39 +249,44 @@ const Info = () => {
               justifyContent: "center",
             }}
           >
-            {/* <Button variant="outlined" onClick={() => navigate('/register')}>
-              Try Clout Coin
-            </Button> */}
-            <Button
-              variant="outlined"
-              onClick={() => navigate("/login")}
-              sx={{
-                borderColor: "#ffd700",
-                color: "#ffd700",
-                "&:hover": {
-                  borderColor: "#ffed4e",
-                  backgroundColor: "rgba(255, 215, 0, 0.1)",
-                  color: "#ffed4e",
-                },
-              }}
-            >
-              Log In to Scramblurr
-            </Button>
-            <Button
-              variant="outlined"
-              onClick={() => navigate("/main")}
-              sx={{
-                borderColor: "#00e676",
-                color: "#00e676",
-                "&:hover": {
-                  borderColor: "#00c853",
-                  backgroundColor: "rgba(0, 230, 118, 0.1)",
-                  color: "#00c853",
-                },
-              }}
-            >
-              Go to Dashboard
-            </Button>
+            {/* if the user is not logged in */}
+            {localStorage.getItem("userdata") ? null : (
+              <Button
+                variant="outlined"
+                onClick={() => navigate("/login")}
+                sx={{
+                  borderColor: "#ffd700",
+                  color: "#ffd700",
+                  "&:hover": {
+                    borderColor: "#ffed4e",
+                    backgroundColor: "rgba(255, 215, 0, 0.1)",
+                    color: "#ffed4e",
+                  },
+                }}
+              >
+                Log In to Scramblurr
+              </Button>
+            )}
+
+            {/* if the user is logged in */}
+            {!localStorage.getItem("userdata") ? null : (
+              <Button
+                variant="outlined"
+                onClick={() => navigate("/dashboard")}
+                sx={{
+                  borderColor: "#00e676",
+                  color: "#00e676",
+                  "&:hover": {
+                    borderColor: "#00c853",
+                    backgroundColor: "rgba(0, 230, 118, 0.1)",
+                    color: "#00c853",
+                  },
+                }}
+              >
+                Go to Dashboard
+              </Button>
+            )}
+
           </Box>
         </Paper>
 
@@ -360,7 +332,7 @@ const Info = () => {
               phone.
             </p>
             <p>
-            Audio Scrambler mode coming soon (for Basic Plan members and higher) 
+              Audio Scrambler mode coming soon (for Basic Plan members and higher)
             </p>
 
             Better Leak Detector modes coming soon (for Premium Plan members)

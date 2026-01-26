@@ -30,7 +30,7 @@ export async function refundCredits({
       userId,
       username,
       email,
-      password: password || localStorage.getItem('passwordtxt'),
+      password: password || localStorage.getItem('hashedPassword'),
       credits,
       currentCredits,
       params

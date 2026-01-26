@@ -21,6 +21,7 @@ import {
 import api from '../api/client';
 import { useToast } from '../contexts/ToastContext';
 import { refundCredits } from '../utils/creditUtils';
+// import multer from 'multer';
 
 // {/* Credit Confirmation Modal */ }
 
@@ -71,10 +72,10 @@ export default function CreditConfirmationModal({
 
     async function fetchData(params) {
       console.log('Fetching user credits for', userData.username);
-      const response = await api.post(`api/wallet/balance/${userData.username}`, {
+      const response = await api.post(`/api/wallet/balance/${userData.username}`, {
         username: userData.username,
         email: userData.email,
-        password: localStorage.getItem('passwordtxt')
+        password: localStorage.getItem('hashedPassword')
       });
 
       if (response.status === 200 && response.data) {
@@ -144,7 +145,7 @@ export default function CreditConfirmationModal({
     }
   };
 
-  
+
 
   const handleConfirm = async () => {
     const result = await spendCredits();
@@ -154,7 +155,7 @@ export default function CreditConfirmationModal({
     }
   };
 
-  
+
 
 
   // =============================
@@ -207,7 +208,7 @@ export default function CreditConfirmationModal({
         resolutionCost = LQ;
       }
 
-      calculatedCost = Math.ceil(Math.sqrt(resolutionCost+1) * (1 + fileDetails.size / (1000 * 1000 * 0.5))); // scale by size in MB over 0.5MB
+      calculatedCost = Math.ceil(Math.sqrt(resolutionCost + 1) * (1 + fileDetails.size / (1000 * 1000 * 0.5))); // scale by size in MB over 0.5MB
 
       // console.log('Calculated Photo Cost:', calculatedCost);
 
@@ -245,11 +246,27 @@ export default function CreditConfirmationModal({
       calculatedCost = Math.ceil(Math.sqrt(duration * resolutionCost) * (1 + fileDetails.size / (1000 * 1000 * 1))); // scale by size in MB over 1MB
     }
 
-    const finalCost = Math.ceil(calculatedCost * Math.sqrt(scrambleLevel));
-    console.log('Total Cost after scramble level adjustment:', finalCost);
+    let multipler = 1;
 
+    if (actionType.includes('leakCheck')) {
+      if (mediaType === 'video') {
+
+        multipler = 5; // videos are more GPU compute expensive to leak check
+      } else if (mediaType === 'audio') {
+        localStorage.setItem('lastAudioLeakCheckCost', finalCost);
+        multipler = 4; // audios are very time expensive to leak check
+      } else if (mediaType === 'photo') {
+        localStorage.setItem('lastPhotoLeakCheckCost', finalCost);
+        multipler = 2; // photos are less compute expensive to leak check
+      }
+
+      console.log('Stored leak check cost for', mediaType, ':', finalCost);
+    }
+
+    const finalCost = Math.ceil(calculatedCost * Math.sqrt(scrambleLevel) * multipler);
+    console.log('Total Cost after scramble level adjustment:', finalCost);
     localStorage.setItem('lastActionCost', finalCost);
-    
+
     setTotalCost(finalCost);
     setHasEnoughCredits(userCredits >= finalCost);
     setRemainingCredits(userCredits - finalCost);

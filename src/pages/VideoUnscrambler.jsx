@@ -101,7 +101,7 @@ export default function VideoUnscrambler() {
 
   useEffect(() => {
     const fetchUserCredits = async () => {
-       try {
+      try {
         // JWT token in the Authorization header automatically authenticates the user
         // No need to send password (it's not stored in localStorage anyway)
         const { data } = await api.post(`/api/wallet/balance/${userData.username}`, {
@@ -239,11 +239,13 @@ export default function VideoUnscrambler() {
           success('🔑 Key file loaded and decoded successfully!');
         }
 
-        if (decodedParams.type !== "video") {
+        const decoded = fromBase64(text.trim());
+        const keyData = JSON.parse(decoded);
+        if (keyData.type !== "video") {
           error('The loaded key file is not a valid video scramble key.');
-        } else if (decodedParams.version !== "free" ) {
-          error('Use the ' + decodedParams.version + ' ' + decodedParams.type + ' scrambler to unscramble this file.');
-          alert('The loaded key file will not work with this scrambler version, you must use the ' + decodedParams.version + ' ' + decodedParams.type + ' scrambler to unscramble this file.');
+        } else if (keyData.version !== "free") {
+          error('Use the ' + keyData.version + ' ' + keyData.type + ' scrambler to unscramble this file.');
+          alert('The loaded key file will not work with this scrambler version, you must use the ' + keyData.version + ' ' + keyData.type + ' scrambler to unscramble this file.');
         }
 
 
@@ -514,7 +516,7 @@ export default function VideoUnscrambler() {
       email: userData.email,
       credits: actionCost,
       currentCredits: userCredits,
-      password: localStorage.getItem('passwordtxt'),
+      password: localStorage.getItem('hashedPassword'),
       params: decodedParams,
       action: 'unscramble_video_pro'
     });

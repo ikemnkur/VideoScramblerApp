@@ -219,11 +219,13 @@ export default function PhotoUnscrambler() {
         }
       }
 
-      if (decodedParams.type == "photo") {
+      const decoded = fromBase64(text.trim());
+      const keyData = JSON.parse(decoded);
+      if (keyData.type == "photo") {
         error('The loaded key file is not a valid video scramble key.');
-      } else if (decodedParams.version !== "premium" || decodedParams.version !== "standard") {
-        error('Use the ' + decodedParams.version + ' ' + decodedParams.type + ' scrambler to unscramble this file.');
-        alert('The loaded key file will not work with this scrambler version, you must use the ' + decodedParams.version + ' ' + decodedParams.type + ' scrambler to unscramble this file.');
+      } else if (keyData.version !== "premium" || keyData.version !== "standard") {
+        error('Use the ' + keyData.version + ' ' + keyData.type + ' scrambler to unscramble this file.');
+        alert('The loaded key file will not work with this scrambler version, you must use the ' + keyData.version + ' ' + keyData.type + ' scrambler to unscramble this file.');
       }
     } catch (err) {
       console.error("Error loading key:", err);
@@ -355,7 +357,7 @@ export default function PhotoUnscrambler() {
       email: userData.email,
       credits: actionCost,
       currentCredits: userCredits,
-      password: localStorage.getItem('passwordtxt'),
+      password: localStorage.getItem('hashedPassword'),
       params: decodedParams
     });
 

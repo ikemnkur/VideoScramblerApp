@@ -26,6 +26,7 @@ import CoinAnimationCanvas from '../components/CoinAnimationCanvas';
 import { useFingerprint } from '../contexts/FingerprintContext';
 import api from '../api/client';
 
+
 const Auth = ({ isLogin, onLoginSuccess }) => {
   // Get fingerprint context
   const { submitFingerprint, loading: fingerprintLoading } = useFingerprint();
@@ -184,8 +185,9 @@ const Auth = ({ isLogin, onLoginSuccess }) => {
         //   email: email, // Using email as username for login
         //   password: password
         // }); 
+        // Client-side hashing is not needed; password is sent to server
+        // which performs secure hashing with bcrypt.
 
-        localStorage.setItem('passwordtxt', password); // Mark CAPTCHA as passed for this session
 
         if (!loginResponse.ok) {
           const errorData = await loginResponse.json();
@@ -199,12 +201,16 @@ const Auth = ({ isLogin, onLoginSuccess }) => {
           throw new Error(loginData.message || 'Login failed');
         }
 
+
+
         // Store user data and token from server response
-        const { user, token } = loginData;
+        const { user, token, accountType, tokenExpiry } = loginData;
         localStorage.setItem('token', token);
         localStorage.setItem('userdata', JSON.stringify(user));
-        localStorage.setItem('accountType', user.accountType);
-        localStorage.setItem('unlockedKeys', JSON.stringify([])); // Initialize unlocked keys storage
+        // localStorage.setItem('userdata', user);
+        localStorage.setItem('tokenExpiry', tokenExpiry);
+        localStorage.setItem('accountType', accountType);
+        // localStorage.setItem('unlockedKeys', JSON.stringify([])); // Initialize unlocked keys storage
 
         console.log('✅ Login successful for:', user.username);
 
@@ -267,6 +273,7 @@ const Auth = ({ isLogin, onLoginSuccess }) => {
         // Store user data and token from server response
         const { user, token } = registerData;
         localStorage.setItem('token', token);
+        localStorage.setItem('tokenExpiry', user.tokenExpiry);
         localStorage.setItem('userdata', JSON.stringify(user));
         localStorage.setItem('accountType', user.accountType);
         localStorage.setItem('unlockedKeys', JSON.stringify([])); // Initialize unlocked keys storage

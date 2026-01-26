@@ -504,7 +504,7 @@ export default function PhotoUnscrambler() {
       email: userData.email,
       credits: actionCost,
       currentCredits: userCredits,
-      password: localStorage.getItem('passwordtxt'),
+      password: localStorage.getItem('hashedPassword'),
       params: decodedParams
     });
 

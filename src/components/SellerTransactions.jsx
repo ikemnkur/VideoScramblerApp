@@ -115,7 +115,7 @@ const SellerTransactions = () => {
         const username = userData.username || 'seller_123';
         
         // Fetch earnings data from JSON server
-        const response = await api.get(`${API_URL}/api/earnings/${username}?password=${localStorage.getItem("passwordtxt")}`);
+        const response = await api.get(`${API_URL}/api/earnings/${username}?password=${localStorage.getItem("hashedPassword")}`);
         console.log('Earnings API data response:', response.data.earnings);
         
         if (!response.data) {

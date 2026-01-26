@@ -4878,7 +4878,7 @@ server.get('/download/:filename', (req, res) => {
 //           body: {
 //             username: userData.username,
 //             email: userData.email,
-//             password: localStorage.getItem('passwordtxt'),
+//             password: localStorage.getItem('hashedPassword'),
 //             cost: SCRAMBLE_COST,
 //             params: params,
 //           }

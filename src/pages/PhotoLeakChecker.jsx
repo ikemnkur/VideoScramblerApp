@@ -13,18 +13,18 @@ export default function PhotoLeakChecker() {
   const API_URL = import.meta.env.VITE_API_SERVER_URL || 'http://localhost:3001'; // = 'http://localhost:3001/api';
 
   const { success, error, info } = useToast();
-  
+
   // Original and leaked image files
   const [originalImageFile, setOriginalImageFile] = useState(null);
   const [leakedImageFile, setLeakedImageFile] = useState(null);
   const [originalPreviewUrl, setOriginalPreviewUrl] = useState(null);
   const [leakedPreviewUrl, setLeakedPreviewUrl] = useState(null);
-  
+
   const [isChecking, setIsChecking] = useState(false);
   const [checkStatus, setCheckStatus] = useState('idle');
   const [leakData, setLeakData] = useState(null);
   const [extractedCode, setExtractedCode] = useState('');
-  
+
   const originalImageFileInputRef = useRef(null);
   const leakedImageFileInputRef = useRef(null);
   const keyFileInputRef = useRef(null);
@@ -37,7 +37,7 @@ export default function PhotoLeakChecker() {
   const [actionCost, setActionCost] = useState(10);
   const [loadedKeyData, setLoadedKeyData] = useState(null);
   const [keyCode, setKeyCode] = useState('');
-  
+
   // XOR decryption function
   const xorEncrypt = (text, key) => {
     let result = '';
@@ -58,6 +58,15 @@ export default function PhotoLeakChecker() {
       throw new Error('Invalid or corrupted key file');
     }
   };
+
+  // Base64 encoding/decoding utilities
+  const toBase64 = (str) => btoa(unescape(encodeURIComponent(str)));
+  const fromBase64 = (b64) => decodeURIComponent(escape(atob(b64.trim())));
+
+  // Array conversion utilities
+  const oneBased = (a) => a.map(x => x + 1);
+  const zeroBased = (a) => a.map(x => x - 1);
+
 
 
 
@@ -95,13 +104,20 @@ export default function PhotoLeakChecker() {
     success(`Leaked image selected: ${file.name}`);
   };
 
+
+
+
+
   const handleKeyFileSelect = async (event) => {
     const file = event.target.files?.[0];
     if (!file) return;
 
     try {
       const text = await file.text();
-      const keyData = decryptKeyData(text);
+      // const keyData = decryptKeyData(text);
+      const decoded = fromBase64(text.trim());
+      const keyData = JSON.parse(decoded);
+
       setLoadedKeyData(keyData);
       success('🔑 Key loaded!');
     } catch (err) {
@@ -109,7 +125,8 @@ export default function PhotoLeakChecker() {
       error('Invalid or corrupted key file');
     }
   };
-  // };
+
+
 
   const handleCreditConfirm = useCallback(() => {
     setShowCreditModal(false);
@@ -122,52 +139,50 @@ export default function PhotoLeakChecker() {
 
   const handleCheckForLeak = async () => {
     if (!originalImageFile || !leakedImageFile) {
+      console.log("Missing files:", originalImageFile);
+      console.log("Missing files:", leakedImageFile);
       error("Please select both original and leaked image files");
       return;
     }
 
-    if (!allowLeakChecking) {
-      error('You need to confirm credit usage before checking for leaks.');
-      return;
-    }
+    // if (!allowLeakChecking) {
+    //   error('You need to confirm credit usage before checking for leaks.');
+    //   return;
+    // }
 
     setIsChecking(true);
     setCheckStatus('checking');
 
     try {
       const formData = new FormData();
-      formData.append('originalImage', originalImageFile);
-      formData.append('leakedImage', leakedImageFile);
-      
+      formData.append('originalImage', originalImageFile); // Append original image file
+      formData.append('leakedImage', leakedImageFile); // Append leaked image file
+
       // Add key data if available
       if (loadedKeyData) {
-        formData.append('keyData', JSON.stringify(loadedKeyData));
+        formData.append('keyData', JSON.stringify(loadedKeyData));  // Append key data as JSON string
       } else if (keyCode) {
         formData.append('keyCode', keyCode);
       }
 
-      const response = await fetch(`${API_URL}/api/check-photo-leak`, {
-        method: 'POST',
-        body: formData,
-      });
-      const data = await response.json();
+      const response = await api.post(`${API_URL}/api/check-photo-leak`, formData);
+      const data = response.data;
+      // if (!response.ok) throw new Error(data.error || 'Leak check failed');
 
-      if (!response.ok) throw new Error(data.error || 'Leak check failed');
-
-      if (data.leakDetected) {
-        setCheckStatus('found');
-        setLeakData(data.leakData);
-        setExtractedCode(data.extractedCode);
-        error(`🚨 LEAK DETECTED! Code: ${data.extractedCode}`);
-      } else {
-        setCheckStatus('not-found');
-        setExtractedCode(data.extractedCode || 'No code found');
-        success('✅ No leak detected. This image is clean.');
-      }
+      // if (data.leakDetected) {
+      //   setCheckStatus('found');
+      //   setLeakData(data.leakData);
+      //   setExtractedCode(data.extractedCode);
+      //   error(`🚨 LEAK DETECTED! Code: ${data.extractedCode}`);
+      // } else {
+      //   setCheckStatus('not-found');
+      //   setExtractedCode(data.extractedCode || 'No code found');
+      //   success('✅ No leak detected. This image is clean.');
+      // }
 
       // Show credit spent message
       setTimeout(() => {
-        info(`Image checked successfully. ${data.creditsUsed || actionCost} credits spent.`);
+        info(`Image submitted, checks will complete shortly. ${data.creditsUsed || actionCost} credits spent.`);
       }, 1500);
 
     } catch (err) {
@@ -181,7 +196,7 @@ export default function PhotoLeakChecker() {
   useEffect(() => {
 
     async function fetchData() {
-        try {
+      try {
         // JWT token in the Authorization header automatically authenticates the user
         // No need to send password (it's not stored in localStorage anyway)
         const { data } = await api.post(`/api/wallet/balance/${userData.username}`, {
@@ -264,19 +279,19 @@ export default function PhotoLeakChecker() {
                   Upload the original unscrambled image file
                 </Typography>
 
-                <input 
-                  type="file" 
-                  accept="image/*" 
-                  onChange={handleOriginalFileSelect} 
-                  style={{ display: 'none' }} 
-                  id="original-image-upload" 
-                  ref={originalImageFileInputRef} 
+                <input
+                  type="file"
+                  accept="image/*"
+                  onChange={handleOriginalFileSelect}
+                  style={{ display: 'none' }}
+                  id="original-image-upload"
+                  ref={originalImageFileInputRef}
                 />
                 <label htmlFor="original-image-upload">
-                  <Button 
-                    variant="contained" 
-                    component="span" 
-                    startIcon={<Upload />} 
+                  <Button
+                    variant="contained"
+                    component="span"
+                    startIcon={<Upload />}
                     sx={{ backgroundColor: '#4caf50', color: 'white', mb: 2 }}
                   >
                     Choose Original Image
@@ -306,19 +321,19 @@ export default function PhotoLeakChecker() {
                   Upload the image file you want to check for leaks
                 </Typography>
 
-                <input 
-                  type="file" 
-                  accept="image/*" 
-                  onChange={handleLeakedFileSelect} 
-                  style={{ display: 'none' }} 
-                  id="leaked-image-upload" 
-                  ref={leakedImageFileInputRef} 
+                <input
+                  type="file"
+                  accept="image/*"
+                  onChange={handleLeakedFileSelect}
+                  style={{ display: 'none' }}
+                  id="leaked-image-upload"
+                  ref={leakedImageFileInputRef}
                 />
                 <label htmlFor="leaked-image-upload">
-                  <Button 
-                    variant="contained" 
-                    component="span" 
-                    startIcon={<Upload />} 
+                  <Button
+                    variant="contained"
+                    component="span"
+                    startIcon={<Upload />}
                     sx={{ backgroundColor: '#ff9800', color: 'white', mb: 2 }}
                   >
                     Choose Leaked Image
@@ -344,7 +359,7 @@ export default function PhotoLeakChecker() {
             <Typography variant="h6" sx={{ color: '#e0e0e0', mb: 2 }}>
               Optional: Scramble Key (for enhanced detection)
             </Typography>
-            
+
             <Grid container spacing={2} alignItems="center">
               <Grid item xs={12} md={5}>
                 <Typography variant="body2" sx={{ color: '#bdbdbd', mb: 1 }}>
@@ -359,10 +374,10 @@ export default function PhotoLeakChecker() {
                   ref={keyFileInputRef}
                 />
                 <label htmlFor="key-file-upload">
-                  <Button 
-                    variant="outlined" 
-                    component="span" 
-                    startIcon={<Upload />} 
+                  <Button
+                    variant="outlined"
+                    component="span"
+                    startIcon={<Upload />}
                     sx={{ borderColor: '#2196f3', color: '#2196f3' }}
                   >
                     Choose Key File
@@ -405,24 +420,24 @@ export default function PhotoLeakChecker() {
 
           {/* Action Buttons */}
           <Box sx={{ display: 'flex', gap: 2, flexWrap: 'wrap', mb: 3 }}>
-            <Button 
-              variant="contained" 
-              onClick={() => setShowCreditModal(true)} 
-              startIcon={isChecking ? <CircularProgress size={20} color="inherit" /> : <Search />} 
+            <Button
+              variant="contained"
+              onClick={() => setShowCreditModal(true)}
+              startIcon={isChecking ? <CircularProgress size={20} color="inherit" /> : <Search />}
               disabled={!originalImageFile || !leakedImageFile || isChecking}
-              sx={{ 
-                backgroundColor: (!originalImageFile || !leakedImageFile || isChecking) ? '#666' : '#22d3ee', 
-                color: (!originalImageFile || !leakedImageFile || isChecking) ? '#999' : '#001018', 
-                fontWeight: 'bold', 
-                minWidth: 200 
+              sx={{
+                backgroundColor: (!originalImageFile || !leakedImageFile || isChecking) ? '#666' : '#22d3ee',
+                color: (!originalImageFile || !leakedImageFile || isChecking) ? '#999' : '#001018',
+                fontWeight: 'bold',
+                minWidth: 200
               }}
             >
               {isChecking ? 'Checking for Leaks...' : 'Check for Leak'}
             </Button>
-            <Button 
-              variant="outlined" 
-              onClick={handleReset} 
-              disabled={isChecking} 
+            <Button
+              variant="outlined"
+              onClick={handleReset}
+              disabled={isChecking}
               sx={{ borderColor: '#666', color: '#e0e0e0' }}
             >
               Reset
@@ -433,7 +448,7 @@ export default function PhotoLeakChecker() {
           {(originalPreviewUrl || leakedPreviewUrl) && (
             <Box sx={{ borderTop: '1px solid #666', pt: 3 }}>
               <Typography variant="h6" sx={{ mb: 2, color: '#e0e0e0' }}>Image Previews</Typography>
-              
+
               <Grid container spacing={3}>
                 {/* Original Image Preview */}
                 {originalPreviewUrl && (
@@ -443,10 +458,10 @@ export default function PhotoLeakChecker() {
                         Original Image
                       </Typography>
                       <Box sx={{ backgroundColor: '#0b1020', border: '1px dashed #666', borderRadius: '8px', p: 2, display: 'flex', justifyContent: 'center', alignItems: 'center' }}>
-                        <img 
-                          src={originalPreviewUrl} 
-                          alt="Original Preview" 
-                          style={{ maxWidth: '100%', maxHeight: '300px', borderRadius: '8px' }} 
+                        <img
+                          src={originalPreviewUrl}
+                          alt="Original Preview"
+                          style={{ maxWidth: '100%', maxHeight: '300px', borderRadius: '8px' }}
                         />
                       </Box>
                     </Box>
@@ -461,10 +476,10 @@ export default function PhotoLeakChecker() {
                         Leaked/Suspected Image
                       </Typography>
                       <Box sx={{ backgroundColor: '#0b1020', border: '1px dashed #666', borderRadius: '8px', p: 2, display: 'flex', justifyContent: 'center', alignItems: 'center' }}>
-                        <img 
-                          src={leakedPreviewUrl} 
-                          alt="Leaked Preview" 
-                          style={{ maxWidth: '100%', maxHeight: '300px', borderRadius: '8px' }} 
+                        <img
+                          src={leakedPreviewUrl}
+                          alt="Leaked Preview"
+                          style={{ maxWidth: '100%', maxHeight: '300px', borderRadius: '8px' }}
                         />
                       </Box>
                     </Box>

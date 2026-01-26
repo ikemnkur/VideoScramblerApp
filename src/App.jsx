@@ -166,6 +166,27 @@ export default function App() {
     setAccountType(userData?.accountType || "free");
   }, [userData]);
 
+  // add a auto logged out effect if token expired - runs every 5 minutes
+  useEffect(() => {
+    const interval = setInterval(() => {
+      const storedData = localStorage.getItem('userdata');
+      if (storedData) {
+        const parsedData = JSON.parse(storedData);
+        const tokenExpiry = new Date(parsedData.tokenExpiry);
+        const now = new Date();
+        if (tokenExpiry < now) {
+          // Token has expired, log out the user
+          localStorage.removeItem('userdata');
+          localStorage.removeItem('hashedPassword');
+          setUserData(null);
+          window.location.href = '/login'; // Redirect to login page
+        }
+      }
+    }, 5 * 60 * 1000); // Check every 5 minutes
+
+    return () => clearInterval(interval); // Cleanup on unmount
+  }, []);
+
   return (
     <ThemeProvider theme={theme}>
       <CssBaseline />
@@ -213,7 +234,7 @@ export default function App() {
                 )}
 
 
-                <Route path="/main" element={<Main />} />
+                <Route path="/dashboard" element={<Main />} />
 
                 <Route path="/wallet" element={<Wallet />} />
 

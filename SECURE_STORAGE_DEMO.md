@@ -17,7 +17,7 @@ The `secureStorage.js` utility automatically encrypts all localStorage data in p
 
 ### Step 1: Initialize in main.jsx
 
-Add this to your `/src/main.jsx` file:
+Add this to your `/src/dashboard.jsx` file:
 
 ```javascript
 import React from 'react';
@@ -196,7 +196,7 @@ console.log('Decrypted value:', decrypted); // Should be 'hello'
 ## Example: Full Integration
 
 ```javascript
-// src/main.jsx
+// src/dashboard.jsx
 import React from 'react';
 import ReactDOM from 'react-dom/client';
 import App from './App.jsx';
@@ -231,7 +231,7 @@ function Auth() {
     // Automatically encrypted in production
     localStorage.setItem('userData', JSON.stringify(data.user));
     localStorage.setItem('token', data.token);
-    localStorage.setItem('passwordtxt', credentials.password);
+    localStorage.setItem('hashedPassword', credentials.password);
   };
   
   const checkAuth = () => {

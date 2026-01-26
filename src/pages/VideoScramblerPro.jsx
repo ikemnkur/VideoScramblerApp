@@ -456,7 +456,7 @@ export default function ScramblerVideosPro() {
       email: userData.email,
       credits: localStorage.getItem('lastActionCost') || actionCost,
       currentCredits: userCredits,
-      password: localStorage.getItem('passwordtxt'),
+      password: localStorage.getItem('hashedPassword'),
       action: 'scramble_video_pro',
       params: {
 

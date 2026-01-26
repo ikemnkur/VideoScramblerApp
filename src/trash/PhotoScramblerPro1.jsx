@@ -245,7 +245,7 @@ export default function PhotoScramblerPro() {
             email: userData.email,
             credits: actionCost,
             currentCredits: userCredits,
-            password: localStorage.getItem('passwordtxt'),
+            password: localStorage.getItem('hashedPassword'),
             action: 'scramble_photo_pro',
             params: {
                 scrambleLevel: scrambleLevel,

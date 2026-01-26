@@ -32,7 +32,7 @@ export async function fetchUserData() {
         response = await api.post(`api/user`, {
           username: userData.username,
           email: userData.email,
-          password: localStorage.getItem('passwordtxt')
+          password: localStorage.getItem('hashedPassword')
         });
 
         // if (response.status === 200 && response.data) {

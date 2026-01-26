@@ -353,7 +353,7 @@
 //         const response = await api.post(`api/wallet/balance/${userData.username}`, {
 //           username: userData.username,
 //           email: userData.email,
-//           password: localStorage.getItem('passwordtxt')
+//           password: localStorage.getItem('hashedPassword')
 //         });
 
 //         if (response.status === 200 && response.data) {
@@ -563,7 +563,7 @@
 //       email: userData.email,
 //       credits: actionCost,
 //       currentCredits: userCredits,
-//       password: localStorage.getItem('passwordtxt'),
+//       password: localStorage.getItem('hashedPassword'),
 //       params: params,
 //       action: 'scramble_video_basic'
 //     });

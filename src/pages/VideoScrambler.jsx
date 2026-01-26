@@ -131,7 +131,7 @@ export default function VideoScrambler() {
 
   function paramsToJSON(seed, n, m, perm) {
     return {
-      version: 2,
+      // version: 2,
       seed: Number(seed),
       n: Number(n),
       m: Number(m),
@@ -203,11 +203,40 @@ export default function VideoScrambler() {
     }
 
     canvas.width = finalWidth;
-    canvas.height = finalHeight;
+
+
+    canvas.height = finalHeight + 32;
+
+    // ctx.clearRect(0, 0, canvas.width, canvas.height);
+    // const srcRects = cellRects(paddedWidth, paddedHeight, grid.n, grid.m);
+    // const destRects = cellRects(canvas.width, canvas.height, grid.n, grid.m);
+
+    // for (let destIdx = 0; destIdx < N; destIdx++) {
+    //   const srcIdx = permDestToSrc0[destIdx];
+    //   const sR = srcRects[srcIdx];
+    //   const dR = destRects[destIdx];
+    //   if (!sR || !dR) continue;
+    //   ctx.drawImage(video, sR.x, sR.y, sR.w, sR.h, dR.x, dR.y, dR.w, dR.h);
+    // }
+
+    // let voffset = 32
+
+    // // Add black rectangle bar at bottom (64px height)
+    // ctx.fillStyle = 'rgba(0, 0, 0, 0.25)';
+    // ctx.fillRect(0, canvas.height - voffset, canvas.width, voffset);
+
+    // // Add watermark overlay text on the black bar
+    // ctx.fillStyle = 'rgba(255, 255, 255, 0.5)';
+    // ctx.font = 'bold 20px Arial';
+    // // ctx.fillText('🔓 Scrambled Video', 10, canvas.height - 40);
+    // ctx.fillText(`Scrambled by: ${userData.username}`, 10, canvas.height - 10);
+    // ctx.fillText(`VideoScrambler🔓`, canvas.width - 180, canvas.height - 10);
+
+    //  finalHeight;
 
     ctx.clearRect(0, 0, canvas.width, canvas.height);
     const srcRects = cellRects(paddedWidth, paddedHeight, grid.n, grid.m);
-    const destRects = cellRects(canvas.width, canvas.height, grid.n, grid.m);
+    const destRects = cellRects(canvas.width, finalHeight, grid.n, grid.m);
 
     for (let destIdx = 0; destIdx < N; destIdx++) {
       const srcIdx = permDestToSrc0[destIdx];
@@ -225,10 +254,10 @@ export default function VideoScrambler() {
 
     // Add watermark overlay text on the black bar
     ctx.fillStyle = 'rgba(255, 255, 255, 0.5)';
-    ctx.font = 'bold 20px Arial';
+    ctx.font = 'bold 24px Arial';
     // ctx.fillText('🔓 Scrambled Video', 10, canvas.height - 40);
-    ctx.fillText(`Scrambled by: ${userData.username}`, 10, canvas.height - 10);
-    ctx.fillText(`VideoScrambler🔓`, canvas.width - 180, canvas.height - 10);
+    ctx.fillText(`Scrambled by: ${userData.username}`, 10, canvas.height);
+    ctx.fillText(`VideoScrambler🔓`, canvas.width - 220, canvas.height);
 
   }, [grid, permDestToSrc0]);
 
@@ -265,7 +294,7 @@ export default function VideoScrambler() {
 
   useEffect(() => {
     const fetchUserCredits = async () => {
-       try {
+      try {
         // JWT token in the Authorization header automatically authenticates the user
         // No need to send password (it's not stored in localStorage anyway)
         const { data } = await api.post(`/api/wallet/balance/${userData.username}`, {
@@ -460,7 +489,7 @@ export default function VideoScrambler() {
       email: userData.email,
       credits: actionCost,
       currentCredits: userCredits,
-      password: localStorage.getItem('passwordtxt'),
+      password: localStorage.getItem('hashedPassword'),
       params: params
     });
 
@@ -625,6 +654,65 @@ export default function VideoScrambler() {
       });
     }
   }, [permDestToSrc0, showAdModal, markRecordingFinished, error, success]);
+
+
+  async function createVideoFromFrames(frames, isDuplicate, fps, originalName) {
+    const canvas = document.createElement('canvas');
+    const stream = canvas.captureStream(fps);
+    const mediaRecorder = new MediaRecorder(stream, {
+      mimeType: 'video/webm;codecs=vp9',
+      videoBitsPerSecond: 5000000
+    });
+
+    const chunks = [];
+    mediaRecorder.ondataavailable = (e) => chunks.push(e.data);
+
+    mediaRecorder.onstop = () => {
+      const blob = new Blob(chunks, { type: 'video/webm' });
+      const url = URL.createObjectURL(blob);
+
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `encoded_${originalName.replace(/\.[^/.]+$/, '')}.webm`;
+      a.click();
+
+      showStatus('✅ Video encoded successfully! Download started.', 'success');
+    };
+
+    mediaRecorder.start();
+
+    // Load first frame to get dimensions
+    const img = new Image();
+    img.src = frames[0];
+    await new Promise(resolve => img.onload = resolve);
+
+    canvas.width = img.width;
+    canvas.height = img.height;
+    const ctx = canvas.getContext('2d');
+
+    // Draw frames
+    for (let i = 0; i < frames.length; i++) {
+      const frameImg = new Image();
+      frameImg.src = frames[i];
+      await new Promise(resolve => frameImg.onload = resolve);
+
+      ctx.drawImage(frameImg, 0, 0);
+
+      // Darken duplicate frames by 10%
+      if (isDuplicate[i]) {
+        ctx.fillStyle = 'rgba(0, 0, 0, 0.1)';
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+      }
+
+      if (i % 50 === 0) {
+        showStatus(`Encoding video: ${i}/${frames.length} frames`, 'info');
+      }
+
+      await new Promise(resolve => setTimeout(resolve, 1000 / fps));
+    }
+
+    mediaRecorder.stop();
+  }
 
 
   const downloadRecording = () => {

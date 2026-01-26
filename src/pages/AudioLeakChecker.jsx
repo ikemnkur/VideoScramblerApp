@@ -1,6 +1,6 @@
 // AudioLeakChecker.jsx - Steganography-based leak detection for audios
 import React, { useState, useRef, useEffect, useCallback } from 'react';
-import { Container, TextField, Typography, Card, CardContent, Button, Box, Grid, Paper, Alert, CircularProgress, Chip, List, ListItem, ListItemText } from '@mui/material';
+import { Container, TextField, Typography, Card, CardContent, Button, Box, Grid, Paper, Alert, CircularProgress, Chip, List, ListItem, ListItemText, Dialog, DialogTitle, DialogContent, DialogActions } from '@mui/material';
 import { Speaker, Search, CheckCircle, Warning, Upload, Person, Movie } from '@mui/icons-material';
 import { useToast } from '../contexts/ToastContext';
 import CreditConfirmationModal from '../components/CreditConfirmationModal';
@@ -35,6 +35,7 @@ export default function AudioLeakChecker() {
   const [actionCost, setActionCost] = useState(5);
   const [loadedKeyData, setLoadedKeyData] = useState(null);
   const [keyCode, setKeyCode] = useState('');
+  const [showResultInfoModal, setShowResultInfoModal] = useState(false);
 
   const timeout = 1500; // 1.5 seconds
 
@@ -59,20 +60,30 @@ export default function AudioLeakChecker() {
     }
   };
 
-  const handleKeyFileSelect = async (event) => {
+   // Base64 encoding/decoding utilities
+  const toBase64 = (str) => btoa(unescape(encodeURIComponent(str)));
+  const fromBase64 = (b64) => decodeURIComponent(escape(atob(b64.trim())));
+
+  // Array conversion utilities
+  const oneBased = (a) => a.map(x => x + 1);
+  const zeroBased = (a) => a.map(x => x - 1);
+
+
+   const handleKeyFileSelect = async (event) => {
     const file = event.target.files?.[0];
     if (!file) return;
 
     try {
       const text = await file.text();
-      const keyData = decryptKeyData(text);
+      // const keyData = decryptKeyData(text);
+      const decoded = fromBase64(text.trim());
+      const keyData = JSON.parse(decoded);
+     
       setLoadedKeyData(keyData);
       success('🔑 Key loaded!');
     } catch (err) {
       console.error("Error loading key:", err);
-      const errorMsg = 'Invalid or corrupted key file';
-      console.error(errorMsg);
-      showError(errorMsg);
+      error('Invalid or corrupted key file');
     }
   };
 
@@ -140,6 +151,11 @@ export default function AudioLeakChecker() {
     setIsChecking(true);
     setCheckStatus('checking');
 
+    // Show informational modal after a short delay to explain timing
+    setTimeout(() => {
+      setShowResultInfoModal(true);
+    }, 1000);
+
     try {
       const formData = new FormData();
       formData.append('originalAudio', originalAudioFile);
@@ -152,31 +168,29 @@ export default function AudioLeakChecker() {
         formData.append('keyCode', keyCode);
       }
 
-      const response = await fetch(`${API_URL}/api/check-audio-leak`, {
-        method: 'POST',
-        body: formData,
-      });
-      const data = await response.json();
+
+      const response = await api.post(`${API_URL}/api/check-audio-leak`, formData);
+      const data = response.data;
 
 
       // if (!response.ok) throw new Error(data.error || 'Leak check failed');
 
-      if (data.leakDetected) {
-        setCheckStatus('found');
-        setLeakData(data.leakData);
-        setExtractedCode(data.extractedCode);
-        const errorMsg = `🚨 LEAK DETECTED! Code: ${data.extractedCode}`;
-        console.error(errorMsg);
-        showError(errorMsg);
-      } else {
-        setCheckStatus('not-found');
-        setExtractedCode(data.extractedCode || 'No code found');
-        success('✅ No leak detected. This audio is clean.');
-      }
+      // if (data.leakDetected) {
+      //   setCheckStatus('found');
+      //   setLeakData(data.leakData);
+      //   setExtractedCode(data.extractedCode);
+      //   const errorMsg = `🚨 LEAK DETECTED! Code: ${data.extractedCode}`;
+      //   console.error(errorMsg);
+      //   showError(errorMsg);
+      // } else {
+      //   setCheckStatus('not-found');
+      //   setExtractedCode(data.extractedCode || 'No code found');
+      //   success('✅ No leak detected. This audio is clean.');
+      // }
 
       // Show credit spent message
       setTimeout(() => {
-        info(`Audio checked successfully. ${data.creditsUsed || actionCost} credits spent.`);
+        info(`Audio submitted, checks will complete shortly. ${data.creditsUsed || actionCost} credits spent.`);
       }, 2000);
 
     } catch (err) {
@@ -204,7 +218,7 @@ export default function AudioLeakChecker() {
         const response = await api.post(`api/wallet/balance/${userData.username}`, {
           username: userData.username,
           email: userData.email,
-          password: localStorage.getItem('passwordtxt')
+          password: localStorage.getItem('hashedPassword')
         });
 
         if (response.status === 200 && response.data) {
@@ -539,6 +553,26 @@ export default function AudioLeakChecker() {
           ⚡ <strong>Note:</strong> Audio processing may take longer depending on file size and length. The system analyzes audio frames to extract hidden watermark codes. Leak detections are only available for media made with the premium version.
         </Typography>
       </Paper>
+
+      {/* Result Timing Info Modal */}
+      <Dialog
+        open={showResultInfoModal}
+        onClose={() => setShowResultInfoModal(false)}
+      >
+        <DialogTitle>
+          Leak Check In Progress
+        </DialogTitle>
+        <DialogContent>
+          <Typography variant="body1" sx={{ mt: 1 }}>
+            The detailed results of this leak check may take a few days to fully process. A summary of the findings will be sent to your email{userData?.email ? ` (${userData.email})` : ''} once the analysis is complete.
+          </Typography>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setShowResultInfoModal(false)} autoFocus>
+            OK, got it
+          </Button>
+        </DialogActions>
+      </Dialog>
 
       {/* Credit Confirmation Modal */}
       <CreditConfirmationModal

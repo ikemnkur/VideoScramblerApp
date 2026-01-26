@@ -44,17 +44,17 @@ export default function MainPage() {
 
         try {
             // Direct API call to JSON Server
-            let response;
+            // let response;
 
             // fetch data if no data fetched before or last fetch was over 1.5 minutes ago
             // let lastDataFetchTooOld = !localStorage.getItem('lastDataFetch') ||
             //     (Date.now() - parseInt(localStorage.getItem('lastDataFetch') || "0", 10) > 1.5 * 60 * 1000);
 
 
-            response = await api.post(`api/user`, {
+            let response = await api.post(`/api/user`, {
                 username: userData.username,
                 email: userData.email,
-                password: localStorage.getItem('passwordtxt')
+                password: "Password"//localStorage.getItem('hashedPassword')
             });
 
             // if (response.status === 200 && response.data) {

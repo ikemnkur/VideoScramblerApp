@@ -595,7 +595,7 @@ export default function VideoUnscramblerBasic() {
       email: userData.email,
       credits: actionCost,
       currentCredits: userCredits,
-      password: localStorage.getItem('passwordtxt'),
+      password: localStorage.getItem('hashedPassword'),
       params: decodedParams,
       action: 'unscramble_video_basic'
     });
