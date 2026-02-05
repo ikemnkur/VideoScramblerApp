@@ -6,6 +6,7 @@ import { BrowserRouter, Routes, Route, useLocation } from 'react-router-dom';
 import NavBar from './components/NavBar';
 // import YourKeys from './pages/YourKeys';
 import Wallet from './pages/Wallet';
+import VerifyAccount from './pages/VerifyAccount';
 // import CreateKey from './pages/CreateKey';
 // import Unlock from './pages/Unlock';
 // import Earnings from './pages/Earnings';
@@ -207,6 +208,8 @@ export default function App() {
 
                 <Route path="/help" element={<HelpPage />} />
                 <Route path="/info" element={<Info />} />
+
+                <Route path="/verify-account" element={<VerifyAccount />} />
 
 
                 {/* Purchase Credits Routes */}
