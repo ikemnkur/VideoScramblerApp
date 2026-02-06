@@ -201,10 +201,12 @@ const Auth = ({ isLogin, onLoginSuccess }) => {
           throw new Error(loginData.message || 'Login failed');
         }
 
-
+        
+        
 
         // Store user data and token from server response
-        const { user, token, accountType, tokenExpiry } = loginData;
+        const { user, token, accountType, tokenExpiry, verification } = loginData;
+        localStorage.setItem('verification', JSON.stringify(verification));
         localStorage.setItem('token', token);
         localStorage.setItem('userdata', JSON.stringify(user));
         // localStorage.setItem('userdata', user);
@@ -302,11 +304,18 @@ const Auth = ({ isLogin, onLoginSuccess }) => {
         onLoginSuccess();
       }
 
-      // Always navigate to main page after successful auth
-      console.log('🧭 Navigating to /dashboard page...');
-      setTimeout(() => {
-        navigate('/');
-      }, 500);
+      // // Always navigate to main page after successful auth
+      // console.log('🧭 Navigating to /dashboard page...');
+      // setTimeout(() => {
+      //   navigate('/');
+      // }, 500);
+
+         // Always navigate to main page after successful auth
+        console.log('navigating to /verify-account page...');
+        setTimeout(() => {
+          navigate(`/verify-account?email=${email}&username=${username}&amount1=${verification.amount1}&amount2=${verification.amount2}&timeLeft=${verification.timeLeft}`);
+        }, 500);
+      
 
     } catch (error) {
       console.error('Auth error:', error || 'An error occurred');
