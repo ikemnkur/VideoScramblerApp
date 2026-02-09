@@ -484,7 +484,7 @@ export default function VideoUnscramblerPro() {
 
 
   useEffect(() => {
-    const fetchUserData = async () => {
+    const fetchUserData1 = async () => {
       const userData = JSON.parse(localStorage.getItem("userdata"));
       setUserData(userData);
 
@@ -516,7 +516,7 @@ export default function VideoUnscramblerPro() {
       }
     };
 
-    fetchUserData();
+    fetchUserData1();
 
     // Cleanup function - revoke object URL when component unmounts
     return () => {

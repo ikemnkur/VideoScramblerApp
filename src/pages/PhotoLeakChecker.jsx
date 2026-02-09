@@ -541,7 +541,7 @@ export default function PhotoLeakChecker() {
 
 
       {/* Credit Confirmation Modal */}
-      <CreditConfirmationModal
+      {showCreditModal && ( <CreditConfirmationModal
         open={showCreditModal}
         onClose={() => setShowCreditModal(false)}
         onConfirm={handleCreditConfirm}
@@ -560,7 +560,8 @@ export default function PhotoLeakChecker() {
         }}
         actionType="photo-leak-check"
         actionDescription="photo leak detection"
-      />
+      />)}
+     
     </Container>
   );
 }

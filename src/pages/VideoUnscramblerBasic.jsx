@@ -354,16 +354,16 @@ export default function VideoUnscramblerBasic() {
 
 
 
-      // if (!permDestToSrc0 || permDestToSrc0.length !== n * m) {
-      // fecth from localStorage as fallback
-      const storedSrcToDest = JSON.parse(localStorage.getItem('srcToDest'));
-      if (storedSrcToDest && storedSrcToDest.length === n * m) {
-        setSrcToDest(storedSrcToDest);
-        console.log("Using stored srcToDest from localStorage:", storedSrcToDest);
-      } else {
-        throw new Error(`Permutation length doesn't match ${n}*${m}`);
-      }
+      // // if (!permDestToSrc0 || permDestToSrc0.length !== n * m) {
+      // // fecth from localStorage as fallback
+      // const storedSrcToDest = JSON.parse(localStorage.getItem('srcToDest'));
+      // if (storedSrcToDest && storedSrcToDest.length === n * m) {
+      //   setSrcToDest(storedSrcToDest);
+      //   console.log("Using stored srcToDest from localStorage:", storedSrcToDest);
+      // } else {
+      //   throw new Error(`Permutation length doesn't match ${n}*${m}`);
       // }
+      // // }
 
       console.log("SrcToDest: ", srcToDest);
 

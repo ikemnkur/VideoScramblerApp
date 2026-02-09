@@ -23,6 +23,8 @@ import {
 const Info = () => {
   const navigate = useNavigate();
 
+  const API_URL = import.meta.env.VITE_API_SERVER_URL || 'http://localhost:3001';
+
   // Component state
   const [InfoData, setInfoData] = useState(null);
   const [profile, setProfile] = useState(null);
@@ -54,8 +56,27 @@ const Info = () => {
   const [supportContactInfo, setSupportContactInfo] = useState("");
   const [faqSearch, setFaqSearch] = useState("");
 
+  // Fly game state
+  const [flies, setFlies] = useState([]);
+  const [deadFlies, setDeadFlies] = useState([]); // Separate array for dead flies
+  const [fliesKilled, setFliesKilled] = useState(0);
+  const [totalFlies, setTotalFlies] = useState(0); // Track total flies spawned
+  const [swatterPos, setSwatterPos] = useState({ x: 0, y: 0, rotation: 0 });
+  const [lastClickTime, setLastClickTime] = useState(0);
+  const [lastClickPos, setLastClickPos] = useState({ x: 0, y: 0 });
+  
+  // Refs for game loop data (to avoid stale closures)
+  const deadFliesRef = useRef([]);
+  const killedFlyIdsRef = useRef(new Set()); // Track IDs of killed flies
+  
   // Ref for seeking to timestamps in videos
   const howToVideoRef = useRef(null);
+  const canvasRef = useRef(null);
+  const gameAnimationRef = useRef(null);
+  const flyImages = useRef([]);
+  const swatterImage = useRef(null);
+  const splatterImage = useRef(null);
+  const bgAdImage = useRef(null);
 
   // Load info data
   useEffect(() => {
@@ -94,24 +115,461 @@ const Info = () => {
   const handleOpenPopupAdModal = () => setOpenPopupAdModal(true);
   const handleClosePopupAdModal = () => setOpenPopupAdModal(false);
 
-  // Display and auto-close popup ad modal using useEffect
+  // Handle canvas mouse/touch move for swatter
+  const handleCanvasMove = (e) => {
+    if (!canvasRef.current) return;
+    
+    const canvas = canvasRef.current;
+    const rect = canvas.getBoundingClientRect();
+    const scaleX = canvas.width / rect.width;
+    const scaleY = canvas.height / rect.height;
+    
+    let clientX, clientY;
+    
+    if (e.type.startsWith('touch')) {
+      clientX = e.touches[0]?.clientX || e.changedTouches[0]?.clientX;
+      clientY = e.touches[0]?.clientY || e.changedTouches[0]?.clientY;
+    } else {
+      clientX = e.clientX;
+      clientY = e.clientY;
+    }
+    
+    const x = (clientX - rect.left) * scaleX;
+    const y = (clientY - rect.top) * scaleY;
+    
+    // Calculate rotation based on movement direction
+    const dx = x - swatterPos.x;
+    const dy = y - swatterPos.y;
+    const rotation = Math.atan2(dy, dx) + Math.PI / 4;
+    
+    setSwatterPos({ x, y, rotation });
+  };
+
+  // Handle canvas click for fly swatting
+  const handleCanvasClick = (e) => {
+    if (!canvasRef.current) return;
+    
+    const canvas = canvasRef.current;
+    const rect = canvas.getBoundingClientRect();
+    const scaleX = canvas.width / rect.width;
+    const scaleY = canvas.height / rect.height;
+    
+    let clientX, clientY;
+    
+    if (e.type.startsWith('touch')) {
+      clientX = e.changedTouches[0].clientX;
+      clientY = e.changedTouches[0].clientY;
+    } else {
+      clientX = e.clientX;
+      clientY = e.clientY;
+    }
+    
+    const x = (clientX - rect.left) * scaleX;
+    const y = (clientY - rect.top) * scaleY;
+    
+    const now = Date.now();
+    const timeSinceLastClick = now - lastClickTime;
+    const distanceFromLastClick = Math.sqrt(
+      Math.pow(x - lastClickPos.x, 2) + Math.pow(y - lastClickPos.y, 2)
+    );
+    
+    // Double-click detection (within 500ms and 50px)
+    const isDoubleClick = timeSinceLastClick < 500 && distanceFromLastClick < 50;
+    
+    if (isDoubleClick) {
+      // Check if clicked on a fly (larger hitbox)
+      setFlies(prevFlies => {
+        let flyWasKilled = false;
+        const remainingFlies = [];
+        
+        for (const fly of prevFlies) {
+          // Skip if this fly was already killed
+          if (killedFlyIdsRef.current.has(fly.id)) {
+            continue;
+          }
+          
+          const distance = Math.sqrt(Math.pow(x - fly.x, 2) + Math.pow(y - fly.y, 2));
+          if (distance < 35 && !flyWasKilled) {
+            // Mark this fly as killed in the ref (for the animation loop)
+            killedFlyIdsRef.current.add(fly.id);
+            
+            // Kill this fly - add to dead flies array
+            const deadFly = {
+              x: fly.x,
+              y: fly.y,
+              opacity: 1,
+              killedAt: Date.now(),
+              id: fly.id // Use the same ID
+            };
+            setDeadFlies(prev => {
+              const newDeadFlies = [...prev, deadFly];
+              deadFliesRef.current = newDeadFlies;
+              return newDeadFlies;
+            });
+            setFliesKilled(prev => prev + 1);
+            flyWasKilled = true;
+            // Don't add this fly to remainingFlies (remove it)
+          } else {
+            remainingFlies.push(fly);
+          }
+        }
+        
+        return remainingFlies;
+      });
+    }
+    
+    setLastClickTime(now);
+    setLastClickPos({ x, y });
+    
+    // On mobile, animate swatter to click position
+    if (e.type.startsWith('touch')) {
+      const dx = x - swatterPos.x;
+      const dy = y - swatterPos.y;
+      const rotation = Math.atan2(dy, dx) + Math.PI / 4;
+      
+      // Smooth transition will be handled by the state update
+      setSwatterPos({ x, y, rotation });
+    }
+  };
+
+  // Display popup ad modal using useEffect
   useEffect(() => {
     const openTimer = setTimeout(() => {
       handleOpenPopupAdModal();
     }, 10000);
 
-    const closeTimer = setTimeout(() => {
-      setOpenPopupAdModal(false);
-    }, 20000);
-
     return () => {
       clearTimeout(openTimer);
-      clearTimeout(closeTimer);
     };
   }, []);
 
+  // Initialize fly game when modal opens
+  useEffect(() => {
+    if (!openPopupAdModal) return;
+
+    // Small delay to ensure canvas is mounted
+    const initTimeout = setTimeout(() => {
+      if (!canvasRef.current) {
+        console.error("Canvas ref not available");
+        return;
+      }
+
+      const canvas = canvasRef.current;
+      const ctx = canvas.getContext('2d');
+      const PADDING = 100;
+      const NUM_FLIES = Math.floor(Math.random() * 3) + 3; // 3-5 flies
+
+      // Load images
+      const sampleImages = [
+        "https://img.freepik.com/free-psd/sneakers-template-design_23-2151824425.jpg?semt=ais_hybrid&w=740&q=80",
+        "https://business.yelp.com/wp-content/uploads/2023/11/social-media-ads-example.png",
+        "https://www.smartsheet.com/sites/default/files/2023-09/IC-mcdonalds-im-lovin-it-c.jpg",
+        "https://lineardesign.com/wp-content/uploads/2019/12/Google-Banner-Ads-Example-Audible-1.jpg",
+        "https://static.wixstatic.com/media/0e0314_defacf16c0c04edc8087bf216b9524bb~mv2.jpg/v1/fill/w_924,h_1104,al_c,q_85,enc_avif,quality_auto/0e0314_defacf16c0c04edc8087bf216b9524bb~mv2.jpg",
+      ];
+
+      // Load background ad image
+      bgAdImage.current = new Image();
+      bgAdImage.current.crossOrigin = "anonymous";
+      bgAdImage.current.src = sampleImages[Math.floor(Math.random() * sampleImages.length)];
+
+      // Load fly image (using emoji as fallback if image doesn't load)
+      const fly = new Image();
+      fly.src = "/fly-insect.png";
+      fly.onerror = () => {
+        // Create emoji-based fly if image fails
+        const emojiCanvas = document.createElement('canvas');
+        emojiCanvas.width = 64;
+        emojiCanvas.height = 64;
+        const emojiCtx = emojiCanvas.getContext('2d');
+        emojiCtx.font = '40px Arial';
+        emojiCtx.fillText('🪰', 12, 45);
+        fly.src = emojiCanvas.toDataURL();
+      };
+      flyImages.current = [fly];
+
+      // Load swatter image
+      swatterImage.current = new Image();
+      swatterImage.current.src = "/fly-swatter.png";
+      swatterImage.current.onerror = () => {
+        const emojiCanvas = document.createElement('canvas');
+        emojiCanvas.width = 128;
+        emojiCanvas.height = 128;
+        const emojiCtx = emojiCanvas.getContext('2d');
+        emojiCtx.font = '80px Arial';
+        emojiCtx.fillText('🪤', 20, 90);
+        swatterImage.current.src = emojiCanvas.toDataURL();
+      };
+
+      // Load splatter image
+      splatterImage.current = new Image();
+      splatterImage.current.src = "/fly-splatter.png";
+      splatterImage.current.onerror = () => {
+        const emojiCanvas = document.createElement('canvas');
+        emojiCanvas.width = 64;
+        emojiCanvas.height = 64;
+        const emojiCtx = emojiCanvas.getContext('2d');
+        emojiCtx.font = '40px Arial';
+        emojiCtx.fillText('💥', 12, 45);
+        splatterImage.current.src = emojiCanvas.toDataURL();
+      };
+
+      // Initialize flies with random positions and velocities
+      const initialFlies = Array.from({ length: NUM_FLIES }, (_, index) => ({
+        id: `fly-${index}-${Date.now()}`, // Unique ID for each fly
+        x: PADDING + Math.random() * (canvas.width - 2 * PADDING),
+        y: PADDING + Math.random() * (canvas.height - 2 * PADDING),
+        vx: (Math.random() - 0.5) * 4 + (Math.random() > 0.5 ? 1 : -1), // Ensure non-zero velocity
+        vy: (Math.random() - 0.5) * 4 + (Math.random() > 0.5 ? 1 : -1),
+        lastDirectionChange: Date.now(),
+      }));
+
+      setFlies(initialFlies);
+      setDeadFlies([]);
+      deadFliesRef.current = [];
+      killedFlyIdsRef.current = new Set(); // Reset killed fly IDs
+      setFliesKilled(0);
+      setTotalFlies(NUM_FLIES);
+
+      // Store flies in a ref to avoid stale closures
+      let currentFlies = [...initialFlies];
+      let currentSwatterPos = { x: canvas.width / 2, y: canvas.height / 2, rotation: 0 };
+
+      // Game loop
+      const animate = () => {
+        if (!canvasRef.current) return;
+        
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+        // Draw background ad or fallback gradient
+        if (bgAdImage.current && bgAdImage.current.complete && bgAdImage.current.naturalWidth > 0) {
+          ctx.drawImage(bgAdImage.current, 0, 0, canvas.width, canvas.height);
+        } else {
+          // Draw a gradient background as fallback
+          const gradient = ctx.createLinearGradient(0, 0, canvas.width, canvas.height);
+          gradient.addColorStop(0, '#1a1a2e');
+          gradient.addColorStop(0.5, '#16213e');
+          gradient.addColorStop(1, '#0f3460');
+          ctx.fillStyle = gradient;
+          ctx.fillRect(0, 0, canvas.width, canvas.height);
+          
+          // Add some text to make it look like an ad
+          ctx.fillStyle = '#ffd700';
+          ctx.font = 'bold 24px Arial';
+          ctx.textAlign = 'center';
+          ctx.fillText('SPECIAL OFFER!', canvas.width / 2, canvas.height / 2 - 20);
+          ctx.font = '16px Arial';
+          ctx.fillStyle = '#ffffff';
+          ctx.fillText('Swat the flies to continue', canvas.width / 2, canvas.height / 2 + 20);
+        }
+
+        const now = Date.now();
+
+        // Draw dead flies with splatters (they don't move, just fade out)
+        const currentDeadFlies = deadFliesRef.current;
+        const updatedDeadFlies = [];
+        
+        for (const deadFly of currentDeadFlies) {
+          const newOpacity = Math.max(0, deadFly.opacity - 0.01); // Slower fade
+          
+          if (newOpacity > 0) {
+            // Draw splatter first (underneath)
+            ctx.save();
+            ctx.globalAlpha = newOpacity;
+            if (splatterImage.current && splatterImage.current.complete && splatterImage.current.naturalWidth > 0) {
+              ctx.drawImage(splatterImage.current, deadFly.x - 25, deadFly.y - 25, 50, 50);
+            } else {
+              // Fallback splatter - red splat
+              ctx.fillStyle = '#8B0000';
+              ctx.beginPath();
+              ctx.arc(deadFly.x, deadFly.y, 20, 0, Math.PI * 2);
+              ctx.fill();
+              // Add some splatter dots
+              ctx.fillStyle = '#A00000';
+              for (let i = 0; i < 5; i++) {
+                ctx.beginPath();
+                ctx.arc(
+                  deadFly.x + (Math.random() - 0.5) * 30,
+                  deadFly.y + (Math.random() - 0.5) * 30,
+                  5,
+                  0,
+                  Math.PI * 2
+                );
+                ctx.fill();
+              }
+            }
+            
+            // Draw dead fly on top of splatter
+            if (flyImages.current[0] && flyImages.current[0].complete && flyImages.current[0].naturalWidth > 0) {
+              ctx.drawImage(flyImages.current[0], deadFly.x - 15, deadFly.y - 15, 30, 30);
+            } else {
+              // Fallback dead fly
+              ctx.fillStyle = '#000';
+              ctx.beginPath();
+              ctx.ellipse(deadFly.x, deadFly.y, 12, 8, 0, 0, Math.PI * 2);
+              ctx.fill();
+            }
+            ctx.restore();
+            
+            updatedDeadFlies.push({ ...deadFly, opacity: newOpacity });
+          }
+        }
+        
+        deadFliesRef.current = updatedDeadFlies;
+        setDeadFlies(updatedDeadFlies);
+
+        // Update and draw living flies (filter out killed ones)
+        currentFlies = currentFlies
+          .filter(fly => !killedFlyIdsRef.current.has(fly.id)) // Remove killed flies from animation loop
+          .map(fly => {
+          // Change direction every 2 seconds
+          let { vx, vy, lastDirectionChange } = fly;
+          if (now - lastDirectionChange > 2000) {
+            vx = (Math.random() - 0.5) * 6 + (Math.random() > 0.5 ? 1 : -1);
+            vy = (Math.random() - 0.5) * 6 + (Math.random() > 0.5 ? 1 : -1);
+            lastDirectionChange = now;
+          }
+
+          // Update position
+          let newX = fly.x + vx;
+          let newY = fly.y + vy;
+
+          // Bounce off borders with padding
+          if (newX < PADDING || newX > canvas.width - PADDING) {
+            vx = -vx;
+            newX = Math.max(PADDING, Math.min(canvas.width - PADDING, newX));
+          }
+          if (newY < PADDING || newY > canvas.height - PADDING) {
+            vy = -vy;
+            newY = Math.max(PADDING, Math.min(canvas.height - PADDING, newY));
+          }
+
+          // Draw fly with rotation based on direction of travel
+          const flyRotation = Math.atan2(vy, vx);
+          ctx.save();
+          ctx.translate(newX, newY);
+          ctx.rotate(flyRotation+90);
+          
+          if (flyImages.current[0] && flyImages.current[0].complete && flyImages.current[0].naturalWidth > 0) {
+            ctx.drawImage(flyImages.current[0], -15, -15, 30, 30);
+          } else {
+            // Fallback fly drawing
+            ctx.fillStyle = '#000';
+            ctx.beginPath();
+            ctx.ellipse(0, 0, 12, 8, 0, 0, Math.PI * 2);
+            ctx.fill();
+            // Wings
+            ctx.fillStyle = 'rgba(200, 200, 200, 0.7)';
+            ctx.beginPath();
+            ctx.ellipse(-8, -5, 8, 4, -0.5, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.beginPath();
+            ctx.ellipse(8, -5, 8, 4, 0.5, 0, Math.PI * 2);
+            ctx.fill();
+          }
+          
+          ctx.restore();
+
+          return { ...fly, x: newX, y: newY, vx, vy, lastDirectionChange };
+        });
+
+        setFlies([...currentFlies]);
+
+        // Draw swatter at current position (bigger - 128x128)
+        ctx.save();
+        ctx.translate(currentSwatterPos.x, currentSwatterPos.y);
+        ctx.rotate(currentSwatterPos.rotation);
+        if (swatterImage.current && swatterImage.current.complete && swatterImage.current.naturalWidth > 0) {
+          ctx.drawImage(swatterImage.current, -64, -64, 128, 128);
+        } else {
+          // Fallback swatter drawing (bigger)
+          ctx.fillStyle = '#8B4513';
+          ctx.fillRect(-12, -75, 24, 150);
+          ctx.fillStyle = '#CD853F';
+          ctx.fillRect(-50, -75, 100, 60);
+          // Grid pattern
+          ctx.strokeStyle = '#000';
+          ctx.lineWidth = 2;
+          for (let i = -40; i <= 40; i += 15) {
+            ctx.beginPath();
+            ctx.moveTo(i, -75);
+            ctx.lineTo(i, -15);
+            ctx.stroke();
+          }
+          for (let i = -65; i <= -15; i += 15) {
+            ctx.beginPath();
+            ctx.moveTo(-50, i);
+            ctx.lineTo(50, i);
+            ctx.stroke();
+          }
+        }
+        ctx.restore();
+
+        gameAnimationRef.current = requestAnimationFrame(animate);
+      };
+
+      // Listen for swatter position updates
+      const handleSwatterUpdate = () => {
+        setSwatterPos(pos => {
+          currentSwatterPos = pos;
+          return pos;
+        });
+      };
+      
+      const swatterUpdateInterval = setInterval(handleSwatterUpdate, 16);
+
+      animate();
+
+      // Auto-close after 20 seconds
+      const autoCloseTimer = setTimeout(() => {
+        setOpenPopupAdModal(false);
+        setFlies([]);
+        setDeadFlies([]);
+        deadFliesRef.current = [];
+        killedFlyIdsRef.current = new Set();
+        setFliesKilled(0);
+        setTotalFlies(0);
+      }, 20000);
+
+      // Store cleanup refs
+      gameAnimationRef.current = { 
+        cleanup: () => {
+          cancelAnimationFrame(gameAnimationRef.current);
+          clearInterval(swatterUpdateInterval);
+          clearTimeout(autoCloseTimer);
+        }
+      };
+    }, 100); // 100ms delay to ensure canvas is mounted
+
+    return () => {
+      clearTimeout(initTimeout);
+      if (gameAnimationRef.current) {
+        if (typeof gameAnimationRef.current.cleanup === 'function') {
+          gameAnimationRef.current.cleanup();
+        } else {
+          cancelAnimationFrame(gameAnimationRef.current);
+        }
+      }
+    };
+  }, [openPopupAdModal]);
+
+  // Check if all flies are killed and close modal
+  useEffect(() => {
+    if (totalFlies > 0 && fliesKilled >= totalFlies && openPopupAdModal) {
+      setTimeout(() => {
+        setOpenPopupAdModal(false);
+        setFlies([]);
+        setDeadFlies([]);
+        deadFliesRef.current = [];
+        killedFlyIdsRef.current = new Set();
+        setFliesKilled(0);
+        setTotalFlies(0);
+      }, 3000);
+    }
+  }, [fliesKilled, totalFlies, openPopupAdModal]);
+
   // Submit support ticket form (placeholder)
-  const handleSubmitSupportTicket = () => {
+  const handleSubmitSupportTicket = async () => {
     console.log("Submitting support ticket with:", {
       supportProblemType,
       supportTitle,
@@ -120,12 +578,40 @@ const Info = () => {
       supportUsername: userData.username || supportUsername,
       supportUserId: userData.id || "0", // Fallback to 0 if userData is not available
     });
+
+    // Use the authentication endpoint we set up in the server
+    const feedbackResponse = await fetch(`${API_URL}/api/feedback`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        // email: email, // Using email as username for login
+        // password: password,
+        supportProblemType,
+        supportTitle,
+        supportMessage,
+        supportContactInfo,
+        supportUsername: userData.username || supportUsername,
+        supportUserId: userData.id || "0", // Fallback to 0 if userData is not available
+      })
+    });
+
+    if (!feedbackResponse.ok) {
+      const errorData = await feedbackResponse.json();
+      throw new Error(errorData.message || 'Feedback submission failed');
+    }
+
+    const feedbackData = await feedbackResponse.json();
+    console.log('✅ Feedback response from server:', feedbackData);
+
+
     setSupportProblemType("");
     setSupportTitle("");
     setSupportMessage("");
     setSupportContactInfo("");
     setOpenSupportModal(false);
-    setSnackbarMessage("Support ticket submitted (placeholder)");
+    setSnackbarMessage("Support ticket submitted successfully");
     setOpenSnackbar(true);
   };
 
@@ -630,9 +1116,9 @@ const Info = () => {
             p: 4,
             width: { xs: "90%", sm: "400px" },
             borderRadius: 2,
-          }}
-        >
-          <Typography
+            }}
+          >
+            <Typography
             id="support-modal-title"
             variant="h6"
             gutterBottom
@@ -641,32 +1127,44 @@ const Info = () => {
               fontWeight: "bold",
               mb: 3,
             }}
-          >
+            >
             Submit Feedback
-          </Typography>
-          <Select
+            </Typography>
+            <Select
             fullWidth
             value={supportProblemType}
             onChange={(e) => setSupportProblemType(e.target.value)}
             displayEmpty
-            sx={{
-              mb: 2,
-              backgroundColor: "#2a2a2a",
-              color: "#ffffff",
-              "& .MuiOutlinedInput-notchedOutline": {
-                borderColor: "#ffd700",
+            variant="outlined"
+            MenuProps={{
+              PaperProps: {
+              sx: {
+                bgcolor: "#2a2a2a",
+                color: "#ffffff",
+                "& .MuiMenuItem-root:hover": { bgcolor: "#3a3a3a" },
               },
-              "&:hover .MuiOutlinedInput-notchedOutline": {
-                borderColor: "#ffed4e",
-              },
-              "&.Mui-focused .MuiOutlinedInput-notchedOutline": {
-                borderColor: "#ffd700",
-              },
-              "& .MuiSvgIcon-root": {
-                color: "#ffd700",
               },
             }}
-          >
+            sx={{
+              mb: 2,
+              "& .MuiSelect-select": {
+              backgroundColor: "#2a2a2a",
+              color: "#ffffff",
+              },
+              "& .MuiOutlinedInput-notchedOutline": {
+              borderColor: "#ffd700",
+              },
+              "&:hover .MuiOutlinedInput-notchedOutline": {
+              borderColor: "#ffed4e",
+              },
+              "&.Mui-focused .MuiOutlinedInput-notchedOutline": {
+              borderColor: "#ffd700",
+              },
+              "& .MuiSvgIcon-root": {
+              color: "#ffd700",
+              },
+            }}
+            >
             <MenuItem value="" disabled>
               Select Feedback Type
             </MenuItem>
@@ -676,8 +1174,8 @@ const Info = () => {
             <MenuItem value="billing-issue">Billing Issue</MenuItem>
             <MenuItem value="report-scammer">Report Scammer/Abuse</MenuItem>
             <MenuItem value="other">Other</MenuItem>
-          </Select>
-          <TextField
+            </Select>
+            <TextField
             label="Title"
             fullWidth
             value={supportTitle}
@@ -687,15 +1185,15 @@ const Info = () => {
               "& .MuiInputLabel-root": { color: "#ffd700" },
               "& .MuiInputLabel-root.Mui-focused": { color: "#ffd700" },
               "& .MuiOutlinedInput-root": {
-                backgroundColor: "#2a2a2a",
-                color: "#ffffff",
-                "& fieldset": { borderColor: "#ffd700" },
-                "&:hover fieldset": { borderColor: "#ffed4e" },
-                "&.Mui-focused fieldset": { borderColor: "#ffd700" },
+              backgroundColor: "#2a2a2a",
+              color: "#ffffff9f",
+              "& fieldset": { borderColor: "#ffd700" },
+              "&:hover fieldset": { borderColor: "#ffed4e" },
+              "&.Mui-focused fieldset": { borderColor: "#ffd700" },
               },
             }}
-          />
-          <TextField
+            />
+            <TextField
             label="Message"
             fullWidth
             multiline
@@ -707,15 +1205,15 @@ const Info = () => {
               "& .MuiInputLabel-root": { color: "#ffd700" },
               "& .MuiInputLabel-root.Mui-focused": { color: "#ffd700" },
               "& .MuiOutlinedInput-root": {
-                backgroundColor: "#2a2a2a",
-                color: "#ffffff",
-                "& fieldset": { borderColor: "#ffd700" },
-                "&:hover fieldset": { borderColor: "#ffed4e" },
-                "&.Mui-focused fieldset": { borderColor: "#ffd700" },
+              backgroundColor: "#2a2a2a",
+              color: "#ffffff",
+              "& fieldset": { borderColor: "#ffd700" },
+              "&:hover fieldset": { borderColor: "#ffed4e" },
+              "&.Mui-focused fieldset": { borderColor: "#ffd700" },
               },
             }}
-          />
-          <TextField
+            />
+            <TextField
             label="Email or Other Contact Info"
             fullWidth
             value={supportContactInfo}
@@ -725,16 +1223,16 @@ const Info = () => {
               "& .MuiInputLabel-root": { color: "#ffd700" },
               "& .MuiInputLabel-root.Mui-focused": { color: "#ffd700" },
               "& .MuiOutlinedInput-root": {
-                backgroundColor: "#2a2a2a",
-                color: "#ffffff",
-                "& fieldset": { borderColor: "#ffd700" },
-                "&:hover fieldset": { borderColor: "#ffed4e" },
-                "&.Mui-focused fieldset": { borderColor: "#ffd700" },
+              backgroundColor: "#2a2a2a",
+              color: "#ffffff",
+              "& fieldset": { borderColor: "#ffd700" },
+              "&:hover fieldset": { borderColor: "#ffed4e" },
+              "&.Mui-focused fieldset": { borderColor: "#ffd700" },
               },
             }}
-          />
+            />
 
-          <TextField
+            <TextField
             label="Username"
             fullWidth
             value={supportUsername}
@@ -744,21 +1242,21 @@ const Info = () => {
               "& .MuiInputLabel-root": { color: "#ffd700" },
               "& .MuiInputLabel-root.Mui-focused": { color: "#ffd700" },
               "& .MuiOutlinedInput-root": {
-                backgroundColor: "#2a2a2a",
-                color: "#ffffff",
-                "& fieldset": { borderColor: "#ffd700" },
-                "&:hover fieldset": { borderColor: "#ffed4e" },
-                "&.Mui-focused fieldset": { borderColor: "#ffd700" },
+              backgroundColor: "#2a2a2a",
+              color: "#ffffff",
+              "& fieldset": { borderColor: "#ffd700" },
+              "&:hover fieldset": { borderColor: "#ffed4e" },
+              "&.Mui-focused fieldset": { borderColor: "#ffd700" },
               },
             }}
-          />
-          <Box sx={{ display: "flex", justifyContent: "flex-end", gap: 2 }}>
+            />
+            <Box sx={{ display: "flex", justifyContent: "flex-end", gap: 2 }}>
             <Button
               variant="text"
               onClick={handleCloseSupportModal}
               sx={{
-                color: "#e0e0e0",
-                "&:hover": { backgroundColor: "rgba(224, 224, 224, 0.1)" },
+              color: "#e0e0e0",
+              "&:hover": { backgroundColor: "rgba(224, 224, 224, 0.1)" },
               }}
             >
               Cancel
@@ -767,27 +1265,26 @@ const Info = () => {
               variant="contained"
               onClick={handleSubmitSupportTicket}
               sx={{
-                backgroundColor: "#00e676",
-                color: "#000000",
-                fontWeight: "bold",
-                "&:hover": {
-                  backgroundColor: "#00c853",
-                  boxShadow: "0 0 15px rgba(0, 230, 118, 0.5)",
-                },
+              backgroundColor: "#00e676",
+              color: "#000000",
+              fontWeight: "bold",
+              "&:hover": {
+                backgroundColor: "#00c853",
+                boxShadow: "0 0 15px rgba(0, 230, 118, 0.5)",
+              },
               }}
             >
               Submit
             </Button>
+            </Box>
           </Box>
-        </Box>
-      </Modal>
+          </Modal>
 
-      {/* Popup Ad Modal */}
+          {/* Popup Ad Modal */}
       <Modal
-        // prevent closing by clicking outside
-        disableBackdropClick
         open={openPopupAdModal}
-        onClose={handleClosePopupAdModal}
+        onClose={() => {}} // Disable closing by clicking backdrop
+        disableEscapeKeyDown // Disable closing with ESC key
         aria-labelledby="popup-ad-modal-title"
         aria-describedby="popup-ad-modal-description"
       >
@@ -797,9 +1294,9 @@ const Info = () => {
             top: "50%",
             left: "50%",
             transform: "translate(-50%, -50%)",
-            bgcolor: "#1a1a1a", // Dark background
-            color: "#ffffff", // White text
-            border: "2px solid #ffd700", // Gold border
+            bgcolor: "#1a1a1a",
+            color: "#ffffff",
+            border: "2px solid #ffd700",
             boxShadow: "0 8px 32px rgba(255, 215, 0, 0.3)",
             p: 2,
             width: { xs: "90%", sm: "600px" },
@@ -813,20 +1310,28 @@ const Info = () => {
             sx={{
               color: "#ffd700",
               fontWeight: "bold",
+              textAlign: "center",
             }}
           >
-            Popup Ad
+            Swat the Flies to Continue! ({fliesKilled}/{totalFlies})
           </Typography>
 
           <canvas
+            ref={canvasRef}
             id="popupAdCanvas"
             width="560"
             height="315"
+            onMouseMove={handleCanvasMove}
+            onTouchMove={handleCanvasMove}
+            onClick={handleCanvasClick}
+            onTouchEnd={handleCanvasClick}
             style={{
               border: "1px solid #ffd700",
               width: "100%",
               height: "auto",
               backgroundColor: "#0a0a0a",
+              cursor: "none",
+              touchAction: "none",
             }}
           >
             Your browser does not support the canvas element.
@@ -835,9 +1340,15 @@ const Info = () => {
           <Typography
             id="popup-ad-modal-description"
             variant="body2"
-            sx={{ color: "#e0e0e0", mt: 1 }}
+            sx={{ color: "#e0e0e0", mt: 1, textAlign: "center" }}
           >
-            This is a popup ad, it will close automatically after a few seconds.
+            Double-click on the flies to swat them! 🪰
+            {fliesKilled >= totalFlies && totalFlies > 0 && (
+              <span style={{ color: "#00e676", fontWeight: "bold" }}>
+                {" "}
+                - Great job! Closing in 3 seconds...
+              </span>
+            )}
           </Typography>
         </Box>
       </Modal>

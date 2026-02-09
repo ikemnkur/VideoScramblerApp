@@ -60,7 +60,7 @@ export default function AudioLeakChecker() {
     }
   };
 
-   // Base64 encoding/decoding utilities
+  // Base64 encoding/decoding utilities
   const toBase64 = (str) => btoa(unescape(encodeURIComponent(str)));
   const fromBase64 = (b64) => decodeURIComponent(escape(atob(b64.trim())));
 
@@ -69,7 +69,7 @@ export default function AudioLeakChecker() {
   const zeroBased = (a) => a.map(x => x - 1);
 
 
-   const handleKeyFileSelect = async (event) => {
+  const handleKeyFileSelect = async (event) => {
     const file = event.target.files?.[0];
     if (!file) return;
 
@@ -78,7 +78,7 @@ export default function AudioLeakChecker() {
       // const keyData = decryptKeyData(text);
       const decoded = fromBase64(text.trim());
       const keyData = JSON.parse(decoded);
-     
+
       setLoadedKeyData(keyData);
       success('🔑 Key loaded!');
     } catch (err) {
@@ -548,7 +548,7 @@ export default function AudioLeakChecker() {
       )}
 
 
-      <Paper elevation={1} sx={{ p: 2, backgroundColor: '#fff3e0' }}>
+      <Paper elevation={1} sx={{ p: 2, backgroundColor: '#3b3b3b' }}>
         <Typography variant="body2" color="black">
           ⚡ <strong>Note:</strong> Audio processing may take longer depending on file size and length. The system analyzes audio frames to extract hidden watermark codes. Leak detections are only available for media made with the premium version.
         </Typography>
@@ -559,35 +559,38 @@ export default function AudioLeakChecker() {
         open={showResultInfoModal}
         onClose={() => setShowResultInfoModal(false)}
       >
-        <DialogTitle>
-          Leak Check In Progress
-        </DialogTitle>
-        <DialogContent>
-          <Typography variant="body1" sx={{ mt: 1 }}>
-            The detailed results of this leak check may take a few days to fully process. A summary of the findings will be sent to your email{userData?.email ? ` (${userData.email})` : ''} once the analysis is complete.
-          </Typography>
-        </DialogContent>
-        <DialogActions>
-          <Button onClick={() => setShowResultInfoModal(false)} autoFocus>
-            OK, got it
-          </Button>
-        </DialogActions>
+        <Box sx={{ p: 2, backgroundColor: '#3b3b3b' }}>
+          <DialogTitle>
+            Leak Check In Progress
+          </DialogTitle>
+          <DialogContent>
+            <Typography variant="body1" sx={{ mt: 1 }}>
+              The detailed results of this leak check may take a few days to fully process. A summary of the findings will be sent to your email{userData?.email ? ` (${userData.email})` : ''} once the analysis is complete.
+            </Typography>
+          </DialogContent>
+          <DialogActions>
+            <Button onClick={() => setShowResultInfoModal(false)} autoFocus>
+              OK, got it
+            </Button>
+          </DialogActions>
+        </Box>
+
       </Dialog>
 
       {/* Credit Confirmation Modal */}
-      <CreditConfirmationModal
+      {showCreditModal && (<CreditConfirmationModal
         open={showCreditModal}
         onClose={() => setShowCreditModal(false)}
         onConfirm={handleCreditConfirm}
         mediaType="audio"
-        description="check out audio"      
-        
+        description="check out audio"
+
         // isProcessing={isProcessing}
 
         currentCredits={userCredits}
         fileName={`${originalAudioFile?.name || ''} vs ${leakedAudioFile?.name || ''}`}
         file={leakedAudioFile}
-        
+
         isProcessing={false}
         fileDetails={{
           type: 'audio-leak-check',
@@ -599,10 +602,11 @@ export default function AudioLeakChecker() {
         user={userData}
         actionType="audio-leak-check"
         actionDescription="audio leak detection"
-      />
+      />)}
 
-      
-     
+
+
+
     </Container>
   );
 }

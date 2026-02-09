@@ -7,6 +7,7 @@ import NavBar from './components/NavBar';
 // import YourKeys from './pages/YourKeys';
 import Wallet from './pages/Wallet';
 import VerifyAccount from './pages/VerifyAccount';
+import VerifyEmail from './pages/VerifyEmail';
 // import CreateKey from './pages/CreateKey';
 // import Unlock from './pages/Unlock';
 // import Earnings from './pages/Earnings';
@@ -131,6 +132,10 @@ export default function App() {
 
   // Fetch fresh user data on mount
   useEffect(() => {
+    if (window.location.pathname === "/login" || window.location.pathname === "/register" || window.location.pathname === "/verify-account" || window.location.pathname === "/help" || window.location.pathname === "/info") {
+      return; // Don't fetch user data on auth or public pages
+    }
+
     localStorage.setItem('currentModeSelection', "free");
     const loadUserData = async () => {
       const freshUserData = await fetchUserData();
@@ -210,6 +215,8 @@ export default function App() {
                 <Route path="/info" element={<Info />} />
 
                 <Route path="/verify-account" element={<VerifyAccount />} />
+                <Route path="/verify-email" element={<VerifyEmail />} />
+                <Route path="/password-reset" element={<VerifyAccount isPasswordReset={true} />} />
 
 
                 {/* Purchase Credits Routes */}
@@ -247,14 +254,14 @@ export default function App() {
 
                 <Route path="/subscribe-confirmation" element={<SubscribeConfirmation />} />
 
-                <Route path="/stripe/success" element={ 
+                <Route path="/stripe/success" element={
                   <ProtectedRoute> <StripeCheckoutForm /> </ProtectedRoute>} />
 
                 <Route path="/stripe-checkout" element={
                   <ProtectedRoute> <StripeCheckoutForm /> </ProtectedRoute>} />
 
                 {/* <Route path="/stripe-checkout" element={
-              <ProtectedRoute> <StripeCheckoutForm credits={5000} amount={5000} currency="usd" description="Purchase of 5000 credits" metadata={{}} priceId="price_1J2Yw2L2g2g2g2" /> </ProtectedRoute>} /> */}
+                <ProtectedRoute> <StripeCheckoutForm credits={5000} amount={5000} currency="usd" description="Purchase of 5000 credits" metadata={{}} priceId="price_1J2Yw2L2g2g2g2" /> </ProtectedRoute>} /> */}
                 <Route path="/return" element={
                   <ProtectedRoute> <Return /> </ProtectedRoute>} />
 
@@ -264,14 +271,14 @@ export default function App() {
 
                 {/* Free Services */}
                 {/* {accountType === 'free' ? ( */}
-                  <>
+                <>
 
-                    <Route path="/photo-scrambler" element={<PhotoScrambler />} />
-                    <Route path="/photo-unscrambler" element={<PhotoUnscrambler />} />
-                    <Route path="/video-unscrambler" element={<VideoUnscrambler />} />
-                    <Route path="/video-scrambler" element={<VideoScrambler />} />
+                  <Route path="/photo-scrambler" element={<PhotoScrambler />} />
+                  <Route path="/photo-unscrambler" element={<PhotoUnscrambler />} />
+                  <Route path="/video-unscrambler" element={<VideoUnscrambler />} />
+                  <Route path="/video-scrambler" element={<VideoScrambler />} />
 
-                  </>
+                </>
                 {/* ) : null} */}
 
                 {/* Basic Services Rules */}
@@ -307,13 +314,13 @@ export default function App() {
 
                     <Route path="/photo-unscrambler-pro" element={<PhotoUnscramblerPro />} />
 
-                      <Route path="/video-scrambler-standard" element={<VideoScramblerStandard />} />
+                    <Route path="/video-scrambler-standard" element={<VideoScramblerStandard />} />
 
                     <Route path="/video-unscrambler-standard" element={<VideoUnscramblerStandard />} />
 
 
 
-                  
+
                     {/* Audio Editor Routes (in future) */}
 
                     <Route path="/audio-scrambler-pro" element={<AudioScramblerPro />} />

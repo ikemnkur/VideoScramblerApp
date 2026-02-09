@@ -595,6 +595,7 @@ export default function VideoLeakChecker() {
         open={showResultInfoModal}
         onClose={() => setShowResultInfoModal(false)}
       >
+        <Box sx={{ p: 2, backgroundColor: '#3b3b3b' }}></Box>
         <DialogTitle>
           Leak Check In Progress
         </DialogTitle>
@@ -608,30 +609,34 @@ export default function VideoLeakChecker() {
             OK, got it
           </Button>
         </DialogActions>
+        <Box />
       </Dialog>
 
       {/* Credit Confirmation Modal */}
-      <CreditConfirmationModal
-        open={showCreditModal}
-        onClose={() => setShowCreditModal(false)}
-        onConfirm={handleCreditConfirm}
-        mediaType="video"
-        currentCredits={userCredits}
-        fileName={`${originalVideoFile?.name || ''} vs ${leakedVideoFile?.name || ''}`}
-        file={leakedVideoFile}
-        user={userData}
-        isProcessing={false}
-        fileDetails={{
-          type: 'video-leak-check',
-          size: (originalVideoFile?.size || 0) + (leakedVideoFile?.size || 0),
-          originalFile: originalVideoFile?.name || '',
-          leakedFile: leakedVideoFile?.name || '',
-          originalSize: originalVideoFile?.size || 0,
-          leakedSize: leakedVideoFile?.size || 0
-        }}
-        actionType="video-leak-check"
-        actionDescription="video leak detection"
-      />
+      {showCreditModal && (
+        <CreditConfirmationModal
+          open={showCreditModal}
+          onClose={() => setShowCreditModal(false)}
+          onConfirm={handleCreditConfirm}
+          mediaType="video"
+          currentCredits={userCredits}
+          fileName={`${originalVideoFile?.name || ''} vs ${leakedVideoFile?.name || ''}`}
+          file={leakedVideoFile}
+          user={userData}
+          isProcessing={false}
+          fileDetails={{
+            type: 'video-leak-check',
+            size: (originalVideoFile?.size || 0) + (leakedVideoFile?.size || 0),
+            originalFile: originalVideoFile?.name || '',
+            leakedFile: leakedVideoFile?.name || '',
+            originalSize: originalVideoFile?.size || 0,
+            leakedSize: leakedVideoFile?.size || 0
+          }}
+          actionType="video-leak-check"
+          actionDescription="video leak detection"
+        />
+      )}
+
     </Container>
   );
 }

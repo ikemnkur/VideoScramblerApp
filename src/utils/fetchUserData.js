@@ -21,7 +21,8 @@ export async function fetchUserData() {
         let userData = userDataStr ? JSON.parse(userDataStr) : null;
 
         if (!userData || !userData.username || !userData.email) {
-          throw new Error('No valid user data in localStorage');
+          // throw new Error('No valid user data in localStorage');
+          console.warn('No valid user data in localStorage');
         }
 
         console.log("Fetching user data for:", userData.username, userData.email);

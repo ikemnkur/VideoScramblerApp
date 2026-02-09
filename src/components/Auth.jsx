@@ -201,11 +201,11 @@ const Auth = ({ isLogin, onLoginSuccess }) => {
           throw new Error(loginData.message || 'Login failed');
         }
 
-        
-        
+        console.log('User data received from server:', loginData.user);
+
 
         // Store user data and token from server response
-        const { user, token, accountType, tokenExpiry, verification } = loginData;
+        let { user, token, accountType, tokenExpiry, verification } = loginData;
         localStorage.setItem('verification', JSON.stringify(verification));
         localStorage.setItem('token', token);
         localStorage.setItem('userdata', JSON.stringify(user));
@@ -310,12 +310,12 @@ const Auth = ({ isLogin, onLoginSuccess }) => {
       //   navigate('/');
       // }, 500);
 
-         // Always navigate to main page after successful auth
-        console.log('navigating to /verify-account page...');
-        setTimeout(() => {
-          navigate(`/verify-account?email=${email}&username=${username}&amount1=${verification.amount1}&amount2=${verification.amount2}&timeLeft=${verification.timeLeft}`);
-        }, 500);
-      
+      // Always navigate to main page after successful auth
+      console.log('navigating to /verify-account page...');
+      setTimeout(() => {
+        navigate(`/verify-account?email=${email}&username=${username}&amount1=${verification.amount1}&amount2=${verification.amount2}&timeLeft=${verification.timeLeft}`);
+      }, 500);
+
 
     } catch (error) {
       console.error('Auth error:', error || 'An error occurred');
@@ -591,10 +591,10 @@ const Auth = ({ isLogin, onLoginSuccess }) => {
                   />
                 ) : (
 
-                <SimpleDotCaptcha
-                  onPass={handleCaptchaSuccess}
-                  onFail={handleCaptchaFailure}
-                />
+                  <SimpleDotCaptcha
+                    onPass={handleCaptchaSuccess}
+                    onFail={handleCaptchaFailure}
+                  />
                 )}
               </Box>
             </>
