@@ -105,14 +105,14 @@ export default function VideoLeakChecker() {
     success(`Leaked video selected: ${file.name}`);
   };
 
-  const handleCreditConfirm = useCallback(() => {
+   const handleCreditConfirm = useCallback(() => {
     setShowCreditModal(false);
-
     setAllowLeakChecking(true);
-
-    handleCheckForLeak();
-
-  }, []);
+    // Delay to ensure modal closes before processing
+    setTimeout(() => {
+      handleCheckForLeak();
+    }, 100);
+  }, [originalVideoFile, leakedVideoFile, loadedKeyData, keyCode]);
 
   const handleKeyFileSelect = async (event) => {
     const file = event.target.files?.[0];
@@ -132,50 +132,7 @@ export default function VideoLeakChecker() {
     }
   };
 
-  // const handleKeyFileSelect = async (event) => {
-  //   const file = event.target.files?.[0];
-  //   if (!file) return;
-
-  //   try {
-  //     const text = await file.text();
-
-  //     // Try to decrypt the key file (if it's encrypted)
-  //     try {
-  //       const keyData = decryptKeyData(text);
-  //       // Set the decoded parameters directly
-  //       setDecodedParams(keyData);
-  //       setKeyCode(text); // Store the encrypted key in the text box
-  //       success('🔑 Key file loaded and decoded successfully!');
-  //     } catch (decryptErr) {
-  //       // If decryption fails, try to parse as plain JSON or base64
-  //       try {
-  //         // Check if it's base64 encoded
-  //         const decoded = fromBase64(text.trim());
-  //         const keyData = JSON.parse(decoded);
-  //         setDecodedParams(keyData);
-  //         setKeyCode(text.trim());
-  //         console.log("Decoded key data from base64:", keyData);
-  //         success('🔑 Key file loaded and decoded successfully!');
-  //       } catch (base64Err) {
-  //         // Try direct JSON parse
-  //         const keyData = JSON.parse(text);
-  //         setDecodedParams(keyData);
-  //         setKeyCode(btoa(text)); // Convert to base64 for consistency
-  //         success('🔑 Key file loaded and decoded successfully!');
-  //       }
-  //     }
-
-  //     if (decodedParams.type == "video") {
-  //       error('The loaded key file is not a valid video scramble key.');
-  //     } else if (decodedParams.version !== "free") {
-  //       error('Use the ' + decodedParams.version + ' ' + decodedParams.type + ' scrambler to unscramble this file.');
-  //       alert('The loaded key file will not work with this scrambler version, you must use the ' + decodedParams.version + ' ' + decodedParams.type + ' scrambler to unscramble this file.');
-  //     }
-  //   } catch (err) {
-  //     console.error("Error loading key:", err);
-  //     error('Invalid or corrupted key file. Please check the file format.');
-  //   }
-  // };
+ 
 
   useEffect(() => {
     const fetchUserCredits = async () => {
@@ -264,7 +221,7 @@ export default function VideoLeakChecker() {
 
       // Show credit spent message
       setTimeout(() => {
-        info(`Video submitted, checks will complete shortly. ${data.creditsUsed || actionCost} credits spent.`);
+        info(`Video submitted, checks will complete shortly and results sent by email. ${data.creditsUsed || actionCost} credits spent.`);
       }, 1500);
 
     } catch (err) {
@@ -536,10 +493,10 @@ export default function VideoLeakChecker() {
               </Grid>
             </Box>
           )}
-
+{/* 
           {checkStatus === 'checking' && <Alert severity="info" icon={<CircularProgress size={20} />} sx={{ mb: 2 }}><strong>Analyzing video...</strong> Extracting hidden code from video frames. This may take a moment.</Alert>}
           {checkStatus === 'error' && <Alert severity="error" sx={{ mb: 2 }}><strong>Error occurred during leak check</strong></Alert>}
-          {checkStatus === 'not-found' && <Alert severity="success" icon={<CheckCircle />} sx={{ mb: 2 }}><strong>Clean Video ✅</strong> No leak detected. {extractedCode && extractedCode !== 'No code found' && <Box sx={{ mt: 1 }}>Extracted code: <code>{extractedCode}</code> (not in database)</Box>}</Alert>}
+          {checkStatus === 'not-found' && <Alert severity="success" icon={<CheckCircle />} sx={{ mb: 2 }}><strong>Clean Video ✅</strong> No leak detected. {extractedCode && extractedCode !== 'No code found' && <Box sx={{ mt: 1 }}>Extracted code: <code>{extractedCode}</code> (not in database)</Box>}</Alert>} */}
         </CardContent>
       </Card>
 

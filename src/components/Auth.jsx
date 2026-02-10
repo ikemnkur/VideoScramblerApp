@@ -181,14 +181,6 @@ const Auth = ({ isLogin, onLoginSuccess }) => {
           })
         });
 
-        // const loginResponse = await api.post('/api/auth/login', {
-        //   email: email, // Using email as username for login
-        //   password: password
-        // }); 
-        // Client-side hashing is not needed; password is sent to server
-        // which performs secure hashing with bcrypt.
-
-
         if (!loginResponse.ok) {
           const errorData = await loginResponse.json();
           throw new Error(errorData.message || 'Login failed');
@@ -209,10 +201,9 @@ const Auth = ({ isLogin, onLoginSuccess }) => {
         localStorage.setItem('verification', JSON.stringify(verification));
         localStorage.setItem('token', token);
         localStorage.setItem('userdata', JSON.stringify(user));
-        // localStorage.setItem('userdata', user);
         localStorage.setItem('tokenExpiry', tokenExpiry);
         localStorage.setItem('accountType', accountType);
-        // localStorage.setItem('unlockedKeys', JSON.stringify([])); // Initialize unlocked keys storage
+
 
         console.log('✅ Login successful for:', user.username);
 
@@ -304,17 +295,21 @@ const Auth = ({ isLogin, onLoginSuccess }) => {
         onLoginSuccess();
       }
 
-      // // Always navigate to main page after successful auth
-      // console.log('🧭 Navigating to /dashboard page...');
-      // setTimeout(() => {
-      //   navigate('/');
-      // }, 500);
+      let verification = JSON.parse(localStorage.getItem('verification')); 
 
-      // Always navigate to main page after successful auth
-      console.log('navigating to /verify-account page...');
-      setTimeout(() => {
-        navigate(`/verify-account?email=${email}&username=${username}&amount1=${verification.amount1}&amount2=${verification.amount2}&timeLeft=${verification.timeLeft}`);
-      }, 500);
+      if (!verification || !verification.amount1 || !verification.amount2 ) {
+        // Always navigate to main page after successful auth
+        console.log('navigating to /verify-account page...');
+        setTimeout(() => {
+          navigate(`/verify-account?email=${email}&username=${username}&amount1=${verification.amount1}&amount2=${verification.amount2}&timeLeft=${verification.timeLeft}`);
+        }, 500);
+      } else {
+        // Always navigate to main page after successful auth
+        console.log('🧭 Navigating to /dashboard page...');
+        setTimeout(() => {
+          navigate('/');
+        }, 500);
+      }
 
 
     } catch (error) {

@@ -248,22 +248,24 @@ export default function CreditConfirmationModal({
 
     let multipler = 1;
 
-    if (actionType.includes('leakCheck')) {
+    if (actionType.includes('leak-check')) {
       if (mediaType === 'video') {
 
         multipler = 5; // videos are more GPU compute expensive to leak check
       } else if (mediaType === 'audio') {
-        localStorage.setItem('lastAudioLeakCheckCost', finalCost);
+        // localStorage.setItem('lastAudioLeakCheckCost', finalCost);
         multipler = 4; // audios are very time expensive to leak check
       } else if (mediaType === 'photo') {
-        localStorage.setItem('lastPhotoLeakCheckCost', finalCost);
+        // localStorage.setItem('lastPhotoLeakCheckCost', finalCost);
         multipler = 2; // photos are less compute expensive to leak check
       }
 
-      console.log('Stored leak check cost for', mediaType, ':', finalCost);
+      calculatedCost  += 25; // base cost for leak checking
+      console.log('Stored leak check cost for', mediaType, ':', calculatedCost * multipler);
     }
 
     const finalCost = Math.ceil(calculatedCost * Math.sqrt(scrambleLevel) * multipler);
+
     console.log('Total Cost after scramble level adjustment:', finalCost);
     localStorage.setItem('lastActionCost', finalCost);
 

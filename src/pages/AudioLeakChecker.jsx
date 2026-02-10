@@ -190,7 +190,7 @@ export default function AudioLeakChecker() {
 
       // Show credit spent message
       setTimeout(() => {
-        info(`Audio submitted, checks will complete shortly. ${data.creditsUsed || actionCost} credits spent.`);
+       info(`Audio submitted, checks will complete shortly and results sent by email. ${data.creditsUsed || actionCost} credits spent.`);
       }, 2000);
 
     } catch (err) {
@@ -206,11 +206,12 @@ export default function AudioLeakChecker() {
   const handleCreditConfirm = useCallback(() => {
     setShowCreditModal(false);
     setAllowLeakChecking(true);
-    // Call handleCheckForLeak on next tick to ensure state is updated
+    // Delay to ensure modal closes before processing
     setTimeout(() => {
       handleCheckForLeak();
-    }, 0);
-  }, [handleCheckForLeak]);
+    }, 100);
+  }, [originalAudioFile, leakedAudioFile, loadedKeyData, keyCode]);
+  
 
   useEffect(() => {
     const fetchUserCredits = async () => {
@@ -501,9 +502,9 @@ export default function AudioLeakChecker() {
 
 
 
-          {checkStatus === 'checking' && <Alert severity="info" icon={<CircularProgress size={20} />} sx={{ mb: 2 }}><strong>Analyzing audio...</strong> Extracting hidden code from audio frames. This may take a moment.</Alert>}
+          {/* {checkStatus === 'checking' && <Alert severity="info" icon={<CircularProgress size={20} />} sx={{ mb: 2 }}><strong>Analyzing audio...</strong> Extracting hidden code from audio frames. This may take a moment.</Alert>}
           {checkStatus === 'error' && <Alert severity="error" sx={{ mb: 2 }}><strong>Error occurred during leak check</strong></Alert>}
-          {checkStatus === 'not-found' && <Alert severity="success" icon={<CheckCircle />} sx={{ mb: 2 }}><strong>Clean Audio ✅</strong> No leak detected. {extractedCode && extractedCode !== 'No code found' && <Box sx={{ mt: 1 }}>Extracted code: <code>{extractedCode}</code> (not in database)</Box>}</Alert>}
+          {checkStatus === 'not-found' && <Alert severity="success" icon={<CheckCircle />} sx={{ mb: 2 }}><strong>Clean Audio ✅</strong> No leak detected. {extractedCode && extractedCode !== 'No code found' && <Box sx={{ mt: 1 }}>Extracted code: <code>{extractedCode}</code> (not in database)</Box>}</Alert>} */}
         </CardContent>
       </Card>
 

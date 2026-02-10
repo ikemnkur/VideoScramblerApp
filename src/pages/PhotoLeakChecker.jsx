@@ -130,12 +130,12 @@ export default function PhotoLeakChecker() {
 
   const handleCreditConfirm = useCallback(() => {
     setShowCreditModal(false);
-
     setAllowLeakChecking(true);
-
-    handleCheckForLeak();
-
-  }, []);
+    // Delay to ensure modal closes before processing
+    setTimeout(() => {
+      handleCheckForLeak();
+    }, 100);
+  }, [originalImageFile, leakedImageFile, loadedKeyData, keyCode]);
 
   const handleCheckForLeak = async () => {
     if (!originalImageFile || !leakedImageFile) {
@@ -182,7 +182,7 @@ export default function PhotoLeakChecker() {
 
       // Show credit spent message
       setTimeout(() => {
-        info(`Image submitted, checks will complete shortly. ${data.creditsUsed || actionCost} credits spent.`);
+        info(`Image submitted, checks will complete shortly and results sent by email. ${data.creditsUsed || actionCost} credits spent.`);
       }, 1500);
 
     } catch (err) {
@@ -489,9 +489,9 @@ export default function PhotoLeakChecker() {
             </Box>
           )}
 
-          {checkStatus === 'checking' && <Alert severity="info" icon={<CircularProgress size={20} />} sx={{ mb: 2 }}><strong>Analyzing image...</strong> Extracting hidden code using steganography detection.</Alert>}
+          {/* {checkStatus === 'checking' && <Alert severity="info" icon={<CircularProgress size={20} />} sx={{ mb: 2 }}><strong>Analyzing image...</strong> Extracting hidden code using steganography detection.</Alert>}
           {checkStatus === 'error' && <Alert severity="error" sx={{ mb: 2 }}><strong>Error occurred during leak check</strong></Alert>}
-          {checkStatus === 'not-found' && <Alert severity="success" icon={<CheckCircle />} sx={{ mb: 2 }}><strong>Clean Image ✅</strong> No leak detected. {extractedCode && extractedCode !== 'No code found' && <Box sx={{ mt: 1 }}>Extracted code: <code>{extractedCode}</code> (not in database)</Box>}</Alert>}
+          {checkStatus === 'not-found' && <Alert severity="success" icon={<CheckCircle />} sx={{ mb: 2 }}><strong>Clean Image ✅</strong> No leak detected. {extractedCode && extractedCode !== 'No code found' && <Box sx={{ mt: 1 }}>Extracted code: <code>{extractedCode}</code> (not in database)</Box>}</Alert>} */}
         </CardContent>
       </Card>
 

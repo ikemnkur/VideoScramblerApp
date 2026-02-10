@@ -144,7 +144,22 @@ export default function App() {
       }
     };
 
+    console.log("App.jsx - Fetching userdata.accountType on mount:", accountType);
+
+   
     loadUserData();
+    
+    if (accountType === "free") {
+      console.log("App.jsx - User is on free account");
+      if (JSON.parse(localStorage.getItem('userdata')).accountType !== "free") {
+        console.log("App.jsx - Detected account type change to free, reloading page...");
+        window.location.reload();
+      }
+    } else {
+      console.log("App.jsx - User is on paid account");
+      
+    }
+
 
     setTimeout(() => {
       updateUserAccess();
