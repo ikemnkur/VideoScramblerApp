@@ -164,7 +164,7 @@ const Auth = ({ isLogin, onLoginSuccess }) => {
     setCaptchaFailed(false);
 
     // Proceed to submit the authentication request after CAPTCHA is passed
-    try {
+    // try {
       console.log('🚀 Starting authentication process...');
       if (isLogin) {
         console.log('📝 Processing login for email:', email);
@@ -295,16 +295,28 @@ const Auth = ({ isLogin, onLoginSuccess }) => {
         onLoginSuccess();
       }
 
-      let verification = JSON.parse(localStorage.getItem('verification')); 
+      // Safely parse verification data from localStorage
+      let verification = null;
+      const verificationData = localStorage.getItem('verification');
+      
+      if (verificationData && verificationData !== 'undefined' && verificationData !== 'null') {
+        try {
+          verification = JSON.parse(verificationData);
+        } catch (error) {
+          console.error('Failed to parse verification data:', error);
+          verification = null;
+        }
+      }
 
-      if (!verification || !verification.amount1 || !verification.amount2 ) {
-        // Always navigate to main page after successful auth
+      // Check if verification is valid and has required fields
+      if (!verification || !verification.amount1 || !verification.amount2) {
+        // Navigate to verify-account page
         console.log('navigating to /verify-account page...');
         setTimeout(() => {
-          navigate(`/verify-account?email=${email}&username=${username}&amount1=${verification.amount1}&amount2=${verification.amount2}&timeLeft=${verification.timeLeft}`);
+          navigate(`/verify-account?email=${email}&username=${username}`);
         }, 500);
       } else {
-        // Always navigate to main page after successful auth
+        // Navigate to main page after successful verification
         console.log('🧭 Navigating to /dashboard page...');
         setTimeout(() => {
           navigate('/');
@@ -312,13 +324,13 @@ const Auth = ({ isLogin, onLoginSuccess }) => {
       }
 
 
-    } catch (error) {
-      console.error('Auth error:', error || 'An error occurred');
-      alert(error.message || 'An error occurred during authentication.');
-      // Reset CAPTCHA state to allow the user to try again
-      setCaptchaPassed(false);
-      setShowCaptcha(false);
-    }
+    // } catch (error) {
+    //   console.error('Auth error:', error || 'An error occurred');
+    //   alert(error.message || 'An error occurred during authentication.');
+    //   // Reset CAPTCHA state to allow the user to try again
+    //   setCaptchaPassed(false);
+    //   setShowCaptcha(false);
+    // }
   }, [email, password, username, name, birthday, accountType, isLogin, navigate, onLoginSuccess]);
 
   // Handler for failed CAPTCHA
