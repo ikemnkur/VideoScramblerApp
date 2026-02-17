@@ -165,163 +165,163 @@ const Auth = ({ isLogin, onLoginSuccess }) => {
 
     // Proceed to submit the authentication request after CAPTCHA is passed
     // try {
-      console.log('🚀 Starting authentication process...');
-      if (isLogin) {
-        console.log('📝 Processing login for email:', email);
+    console.log('🚀 Starting authentication process...');
+    if (isLogin) {
+      console.log('📝 Processing login for email:', email);
 
-        // Use the authentication endpoint we set up in the server
-        const loginResponse = await fetch(`${API_URL}/api/auth/login`, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
-            email: email, // Using email as username for login
-            password: password
-          })
-        });
+      // Use the authentication endpoint we set up in the server
+      const loginResponse = await fetch(`${API_URL}/api/auth/login`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          email: email, // Using email as username for login
+          password: password
+        })
+      });
 
-        if (!loginResponse.ok) {
-          const errorData = await loginResponse.json();
-          throw new Error(errorData.message || 'Login failed');
-        }
-
-        const loginData = await loginResponse.json();
-        console.log('✅ Login response from server:', loginData);
-
-        if (!loginData.user) {
-          throw new Error(loginData.message || 'Login failed');
-        }
-
-        console.log('User data received from server:', loginData.user);
-
-
-        // Store user data and token from server response
-        let { user, token, accountType, tokenExpiry, verification } = loginData;
-        localStorage.setItem('verification', JSON.stringify(verification));
-        localStorage.setItem('token', token);
-        localStorage.setItem('userdata', JSON.stringify(user));
-        localStorage.setItem('tokenExpiry', tokenExpiry);
-        localStorage.setItem('accountType', accountType);
-
-
-        console.log('✅ Login successful for:', user.username);
-
-        // Clear failed CAPTCHA attempts on success
-        localStorage.removeItem('failedCaptcha');
-
-        // Submit device fingerprint to backend
-        console.log('🔐 Submitting device fingerprint...');
-        try {
-          //  const fingerprintResult = await refreshFingerprint(user.id);
-          const fingerprintResult = await submitFingerprint(user.id);
-          // alert('Fingerprint Result: ' + JSON.stringify(fingerprintResult));
-          localStorage.setItem('fingerprintData', JSON.stringify(fingerprintResult));
-          if (fingerprintResult.success) {
-            console.log('✅ Device fingerprint recorded');
-          } else {
-            console.warn('⚠️ Failed to record fingerprint:', fingerprintResult.message);
-            // Don't block login if fingerprint fails
-          }
-        } catch (fpError) {
-          console.error('⚠️ Error recording fingerprint:', fpError);
-          // Don't block login if fingerprint fails
-        }
-
-      } else {
-
-        // ###### Registration Flow ######
-
-        console.log('📝 Processing registration for username:', username);
-
-        // Use the registration endpoint we set up in the server
-        const registerResponse = await fetch(`${API_URL}/api/auth/register`, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
-            username: username,
-            email: email,
-            password: password,
-            firstName: name.split(' ')[0] || name,
-            lastName: name.split(' ').slice(1).join(' ') || '',
-            accountType: "free",
-            birthDate: birthday
-          })
-        });
-
-        if (!registerResponse.ok) {
-          const errorData = await registerResponse.json();
-          throw new Error(errorData.message || 'Registration failed');
-        }
-
-        const registerData = await registerResponse.json();
-        console.log('✅ Registration response from server:', registerData);
-
-        if (!registerData.success) {
-          throw new Error(registerData.message || 'Registration failed');
-        }
-
-        // Store user data and token from server response
-        const { user, token } = registerData;
-        localStorage.setItem('token', token);
-        localStorage.setItem('tokenExpiry', user.tokenExpiry);
-        localStorage.setItem('userdata', JSON.stringify(user));
-        localStorage.setItem('accountType', user.accountType);
-        localStorage.setItem('unlockedKeys', JSON.stringify([])); // Initialize unlocked keys storage
-
-        console.log('✅ Registration successful for:', user.username);
-
-        // Submit device fingerprint to backend after registration
-        console.log('🔐 Submitting device fingerprint...');
-        try {
-          const fingerprintResult = await submitFingerprint(user.id);
-          if (fingerprintResult.success) {
-            console.log('✅ Device fingerprint recorded');
-          } else {
-            console.warn('⚠️ Failed to record fingerprint:', fingerprintResult.message);
-          }
-        } catch (fpError) {
-          console.error('⚠️ Error recording fingerprint:', fpError);
-        }
+      if (!loginResponse.ok) {
+        const errorData = await loginResponse.json();
+        throw new Error(errorData.message || 'Login failed');
       }
+
+      const loginData = await loginResponse.json();
+      console.log('✅ Login response from server:', loginData);
+
+      if (!loginData.user) {
+        throw new Error(loginData.message || 'Login failed');
+      }
+
+      console.log('User data received from server:', loginData.user);
+
+
+      // Store user data and token from server response
+      let { user, token, accountType, tokenExpiry, verification } = loginData;
+      localStorage.setItem('verification', JSON.stringify(verification));
+      localStorage.setItem('token', token);
+      localStorage.setItem('userdata', JSON.stringify(user));
+      localStorage.setItem('tokenExpiry', tokenExpiry);
+      localStorage.setItem('accountType', accountType);
+
+
+      console.log('✅ Login successful for:', user.username);
 
       // Clear failed CAPTCHA attempts on success
       localStorage.removeItem('failedCaptcha');
 
-      console.log('🎯 Calling onLoginSuccess callback...');
-      if (onLoginSuccess) {
-        onLoginSuccess();
-      }
-
-      // Safely parse verification data from localStorage
-      let verification = null;
-      const verificationData = localStorage.getItem('verification');
-      
-      if (verificationData && verificationData !== 'undefined' && verificationData !== 'null') {
-        try {
-          verification = JSON.parse(verificationData);
-        } catch (error) {
-          console.error('Failed to parse verification data:', error);
-          verification = null;
+      // Submit device fingerprint to backend
+      console.log('🔐 Submitting device fingerprint...');
+      try {
+        //  const fingerprintResult = await refreshFingerprint(user.id);
+        const fingerprintResult = await submitFingerprint(user.id);
+        // alert('Fingerprint Result: ' + JSON.stringify(fingerprintResult));
+        localStorage.setItem('fingerprintData', JSON.stringify(fingerprintResult));
+        if (fingerprintResult.success) {
+          console.log('✅ Device fingerprint recorded');
+        } else {
+          console.warn('⚠️ Failed to record fingerprint:', fingerprintResult.message);
+          // Don't block login if fingerprint fails
         }
+      } catch (fpError) {
+        console.error('⚠️ Error recording fingerprint:', fpError);
+        // Don't block login if fingerprint fails
       }
 
-      // Check if verification is valid and has required fields
-      if (!verification || !verification.amount1 || !verification.amount2) {
-        // Navigate to verify-account page
-        console.log('navigating to /verify-account page...');
-        setTimeout(() => {
-          navigate(`/verify-account?email=${email}&username=${username}`);
-        }, 500);
-      } else {
-        // Navigate to main page after successful verification
-        console.log('🧭 Navigating to /dashboard page...');
-        setTimeout(() => {
-          navigate('/');
-        }, 500);
+    } else {
+
+      // ###### Registration Flow ######
+
+      console.log('📝 Processing registration for username:', username);
+
+      // Use the registration endpoint we set up in the server
+      const registerResponse = await fetch(`${API_URL}/api/auth/register`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          username: username,
+          email: email,
+          password: password,
+          firstName: name.split(' ')[0] || name,
+          lastName: name.split(' ').slice(1).join(' ') || '',
+          accountType: "free",
+          birthDate: birthday
+        })
+      });
+
+      if (!registerResponse.ok) {
+        const errorData = await registerResponse.json();
+        throw new Error(errorData.message || 'Registration failed');
       }
+
+      const registerData = await registerResponse.json();
+      console.log('✅ Registration response from server:', registerData);
+
+      if (!registerData.success) {
+        throw new Error(registerData.message || 'Registration failed');
+      }
+
+      // Store user data and token from server response
+      const { user, token } = registerData;
+      localStorage.setItem('token', token);
+      localStorage.setItem('tokenExpiry', user.tokenExpiry);
+      localStorage.setItem('userdata', JSON.stringify(user));
+      localStorage.setItem('accountType', user.accountType);
+      localStorage.setItem('unlockedKeys', JSON.stringify([])); // Initialize unlocked keys storage
+
+      console.log('✅ Registration successful for:', user.username);
+
+      // Submit device fingerprint to backend after registration
+      console.log('🔐 Submitting device fingerprint...');
+      try {
+        const fingerprintResult = await submitFingerprint(user.id);
+        if (fingerprintResult.success) {
+          console.log('✅ Device fingerprint recorded');
+        } else {
+          console.warn('⚠️ Failed to record fingerprint:', fingerprintResult.message);
+        }
+      } catch (fpError) {
+        console.error('⚠️ Error recording fingerprint:', fpError);
+      }
+    }
+
+    // Clear failed CAPTCHA attempts on success
+    localStorage.removeItem('failedCaptcha');
+
+    console.log('🎯 Calling onLoginSuccess callback...');
+    if (onLoginSuccess) {
+      onLoginSuccess();
+    }
+
+    // Safely parse verification data from localStorage
+    let verification = null;
+    const verificationData = localStorage.getItem('verification');
+
+    if (verificationData && verificationData !== 'undefined' && verificationData !== 'null') {
+      try {
+        verification = JSON.parse(verificationData);
+      } catch (error) {
+        console.error('Failed to parse verification data:', error);
+        verification = null;
+      }
+    }
+
+    // Check if verification is valid and has required fields
+    if (!verification || !verification.amount1 || !verification.amount2) {
+      // Navigate to verify-account page
+      console.log('navigating to /verify-account page...');
+      setTimeout(() => {
+        navigate(`/verify-account?email=${email}&username=${username}`);
+      }, 500);
+    } else {
+      // Navigate to main page after successful verification
+      console.log('🧭 Navigating to /dashboard page...');
+      setTimeout(() => {
+        navigate('/');
+      }, 500);
+    }
 
 
     // } catch (error) {
@@ -555,9 +555,13 @@ const Auth = ({ isLogin, onLoginSuccess }) => {
               </form>
               <Box sx={{ mt: 2, textAlign: 'center' }}>
                 {isLogin ? (
-                  <Link component={RouterLink} to="/register">
+                  <> <Link component={RouterLink} to="/register">
                     Don't have an account? Sign Up
                   </Link>
+                    <Link component={RouterLink} to="/forgot-password" sx={{ display: 'block', mt: 1 }}>
+                      Forgot your password?
+                    </Link>
+                  </>
                 ) : (
                   <Link component={RouterLink} to="/login">
                     Already have an account? Login

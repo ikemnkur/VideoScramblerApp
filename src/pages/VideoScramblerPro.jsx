@@ -2,7 +2,7 @@
 // Connects to Flask server on port 5000 for advanced scrambling algorithms
 // Supports: Position, Color, Rotation, Mirror, and Intensity scrambling
 
-import React, { useState, useRef, useEffect, useCallback } from 'react';
+import React, { useState, useRef, useEffect, useCallback, act } from 'react';
 import {
   Container,
   Typography,
@@ -31,7 +31,9 @@ import {
   ContentCopy,
   Settings,
   CloudUpload,
-  AutoAwesome
+  AutoAwesome,
+  CheckBox,
+  // Checkbox
 } from '@mui/icons-material';
 import { useToast } from '../contexts/ToastContext';
 import CreditConfirmationModal from '../components/CreditConfirmationModal';
@@ -59,7 +61,7 @@ export default function ScramblerVideosPro() {
   const [isProcessing, setIsProcessing] = useState(false);
   const [uploadedFilename, setUploadedFilename] = useState('');
   const [scrambledFilename, setScrambledFilename] = useState('');
-  const [keyCode, setKeyCode] = useState('');
+
   const [currentTab, setCurrentTab] = useState(0);
   const [previewUrl, setPreviewUrl] = useState('');
 
@@ -82,7 +84,10 @@ export default function ScramblerVideosPro() {
   const [maxHueShift, setMaxHueShift] = useState(64);
   const [maxIntensityShift, setMaxIntensityShift] = useState(128);
 
-
+  const [keyCode, setKeyCode] = useState('');
+  const [keyUses, setKeyUses] = useState(1000);
+  const [keyExpiry, setKeyExpiry] = useState(100); // in days, 1000 is effectively no expiry
+  const [KeyLimitsActivated, setKeyLimitsActivated] = useState(false);
 
 
   useEffect(() => {
@@ -242,6 +247,11 @@ export default function ScramblerVideosPro() {
           username: userData.username || 'Anonymous',
           userId: userData.userId || 'Unknown',
           timestamp: new Date().toISOString()
+        },
+        limits:{
+          activated: KeyLimitsActivated,
+          uses: KeyLimitsActivated ? keyUses : 1000,
+          expiry: KeyLimitsActivated ? keyExpiry : 100,
         },
         metadata: {
           videoName: selectedFile.name,
@@ -832,6 +842,9 @@ export default function ScramblerVideosPro() {
 
           {/* Key Section */}
           <Box sx={{ borderTop: '1px solid #666', pt: 3, mt: 3 }}>
+
+
+
             <Typography variant="h6" sx={{ mb: 1, color: '#e0e0e0' }}>
               Unscramble Key
             </Typography>
@@ -852,26 +865,95 @@ export default function ScramblerVideosPro() {
               sx={{ mb: 2 }}
             />
 
-            <Box sx={{ display: 'flex', gap: 2, flexWrap: 'wrap' }}>
-              <Button
-                variant="contained"
-                onClick={downloadKey}
-                startIcon={<Download />}
-                disabled={!keyCode}
-                sx={{ backgroundColor: '#22d3ee', color: '#001018' }}
-              >
-                Download Key
-              </Button>
 
-              <Button
-                variant="outlined"
-                onClick={copyKey}
-                startIcon={<ContentCopy />}
-                disabled={!keyCode}
-                sx={{ borderColor: '#666', color: '#e0e0e0' }}
-              >
-                Copy Key
-              </Button>
+
+            <Box sx={{ display: 'flex', gap: 2, flexWrap: 'wrap' }}>
+
+
+              {/* Key Usage Limits Section */}
+              {/* <Box sx={{ mb: 4 }}> */}
+              {/* <Typography variant="h6" sx={{ mb: 2, color: '#e0e0e0' }}>
+                Key Usage Limits:
+              </Typography> */}
+
+
+
+              {/* Text Fields */}
+              <Grid container spacing={3}>
+
+                <Grid item xs={12} sm={6} md={3.5}>
+                  <span style={{ display: 'flex', gap: '12px', marginTop: '12px', alignItems: 'center' }}>
+                    <Button
+                      variant="contained"
+                      onClick={downloadKey}
+                      startIcon={<Download />}
+                      disabled={!keyCode}
+                      sx={{ backgroundColor: '#22d3ee', color: '#001018' }}
+                    >
+                      Download Key
+                    </Button>
+
+                    <Button
+                      variant="outlined"
+                      onClick={copyKey}
+                      startIcon={<ContentCopy />}
+                      disabled={!keyCode}
+                      sx={{ borderColor: '#666', color: '#e0e0e0' }}
+                    >
+                      Copy Key
+                    </Button>
+                  </span>
+
+                </Grid>
+
+                <Grid item xs={12} sm={6} md={2.5}>
+                  {/* Checkbox for No Limits */}
+                  <Box sx={{ display: 'flex', alignItems: 'center', mb: 3, gap: 1, mt: 2, }}>
+                    <CheckBox
+                      checked={KeyLimitsActivated}
+                      onChange={(e) => setKeyLimitsActivated(e.target.checked)}
+                      sx={{
+                        color: '#22d3ee',
+                        '&.Mui-checked': { color: '#22d3ee' }
+                      }}
+                    />
+                    <Typography variant="body1" sx={{ color: '#e0e0e0' }}>
+                      No Key Usage Limit
+                    </Typography>
+                  </Box>
+                </Grid>
+                <Grid item xs={12} sm={6} md={3}>
+                  <TextField
+                    fullWidth
+                    type="number"
+                    label="Key Uses (times it can be used to unscramble)"
+                    value={keyUses}
+                    disabled={KeyLimitsActivated}
+                    onChange={(e) => setKeyUses(parseInt(e.target.value) || 1000)}
+                    inputProps={{ min: 1, max: 1000 }}
+                    InputProps={{ sx: { backgroundColor: '#353535', color: 'white' } }}
+                    InputLabelProps={{ sx: { color: '#e0e0e0' } }}
+                  />
+                </Grid>
+                <Grid item xs={12} sm={6} md={3}>
+                  <TextField
+                    fullWidth
+                    type="number"
+                    label="Key Expiration (days)"
+                    value={keyExpiry}
+                    disabled={KeyLimitsActivated}
+                    onChange={(e) => setKeyExpiry(parseInt(e.target.value) || 100)}
+                    inputProps={{ min: 1, max: 365 }}
+                    InputProps={{ sx: { backgroundColor: '#353535', color: 'white' } }}
+                    InputLabelProps={{ sx: { color: '#e0e0e0' } }}
+                  />
+                </Grid>
+
+
+              </Grid>
+
+            
+              {/* </Box> */}
             </Box>
           </Box>
         </CardContent>

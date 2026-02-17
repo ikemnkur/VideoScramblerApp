@@ -16,11 +16,11 @@ export default defineConfig({
     react(),
     VitePWA({
       registerType: 'autoUpdate',             // keep SW up to date
-      includeAssets: ['favicon.svg','robots.txt','apple-touch-icon.png'],
+      includeAssets: ['favicon.svg', 'robots.txt', 'apple-touch-icon.png'],
       manifest: {
-        name: 'My Awesome App',
-        short_name: 'Awesome',
-        description: 'My Vite + React PWA',
+        name: 'Scramblurr App',
+        short_name: 'Scramblurr',
+        description: 'Content protection platform for photos, videos, and audio',
         start_url: '/',
         scope: '/',
         display: 'standalone',

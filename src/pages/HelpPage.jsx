@@ -528,6 +528,14 @@ const HelpPage = () => {
         open={openSupportModal}
         onClose={handleCloseSupportModal}
         aria-labelledby="support-modal-title"
+        sx={{ zIndex: 1300,
+          // p: { xs: 2, md: 4 }, 
+      // maxWidth: '1200px', 
+      mx: 'auto',
+      minHeight: '100vh',
+      // backgroundColor: '#0a0a0a', // Deep black background
+      color: '#ffffff' // White text
+         }} // Ensure it appears above other content
       >
         <Box
           sx={{
@@ -535,7 +543,7 @@ const HelpPage = () => {
             top: '50%',
             left: '50%',
             transform: 'translate(-50%, -50%)',
-            bgcolor: 'background.paper',
+            bgcolor: '#292929',
             boxShadow: 24,
             p: 4,
             width: { xs: '90%', sm: '500px' },
@@ -549,23 +557,48 @@ const HelpPage = () => {
             Submit Support Ticket
           </Typography>
           
-          <Select
-            fullWidth
-            value={supportProblemType}
-            onChange={(e) => setSupportProblemType(e.target.value)}
-            displayEmpty
-            sx={{ mb: 2 }}
-          >
-            <MenuItem value="" disabled>
-              Select Problem Type
-            </MenuItem>
-            <MenuItem value="account-issue">Account Issue</MenuItem>
-            <MenuItem value="billing-issue">Billing/Payment Issue</MenuItem>
-            <MenuItem value="report-scammer">Report Scammer/Fraud</MenuItem>
-            <MenuItem value="technical-issue">Technical Issue</MenuItem>
-            <MenuItem value="content-issue">Content Issue</MenuItem>
-            <MenuItem value="other">Other</MenuItem>
-          </Select>
+          <Typography variant="body2" sx={{ mb: 1, color: '#b0b0b0' }}>
+            Select Problem Type *
+          </Typography>
+          <Box sx={{ 
+            display: 'grid', 
+            gridTemplateColumns: { xs: '1fr', sm: '1fr 1fr' },
+            gap: 1.5,
+            mb: 3
+          }}>
+            {[
+              { value: 'account-issue', label: 'Account Issue', icon: <AccountCircle /> },
+              { value: 'billing-issue', label: 'Billing/Payment Issue', icon: <Payment /> },
+              { value: 'report-scammer', label: 'Report Scammer/Fraud', icon: <Warning /> },
+              { value: 'technical-issue', label: 'Technical Issue', icon: <Help /> },
+              { value: 'content-issue', label: 'Content Issue', icon: <InfoIcon /> },
+              { value: 'other', label: 'Other', icon: <Support /> }
+            ].map((option) => (
+              <Button
+                key={option.value}
+                variant={supportProblemType === option.value ? 'contained' : 'outlined'}
+                startIcon={option.icon}
+                onClick={() => setSupportProblemType(option.value)}
+                sx={{
+                  justifyContent: 'flex-start',
+                  textTransform: 'none',
+                  py: 1.5,
+                  px: 2,
+                  backgroundColor: supportProblemType === option.value ? '#00e676' : 'transparent',
+                  color: supportProblemType === option.value ? '#000000' : '#ffffff',
+                  borderColor: supportProblemType === option.value ? '#00e676' : '#555555',
+                  fontWeight: supportProblemType === option.value ? 'bold' : 'normal',
+                  '&:hover': {
+                    backgroundColor: supportProblemType === option.value ? '#00c853' : 'rgba(0, 230, 118, 0.1)',
+                    borderColor: '#00e676',
+                    color: supportProblemType === option.value ? '#000000' : '#00e676',
+                  }
+                }}
+              >
+                {option.label}
+              </Button>
+            ))}
+          </Box>
           
           <TextField
             label="Ticket Title"

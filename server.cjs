@@ -1651,6 +1651,196 @@ server.post(PROXY + '/api/auth/register', async (req, res) => {
   }
 });
 
+// Password Reset - Request reset code
+server.post(PROXY + '/api/auth/forgot-password', async (req, res) => {
+  try {
+    const { email } = req.body;
+
+    if (!email) {
+      return res.status(400).json({
+        success: false,
+        message: 'Email is required'
+      });
+    }
+
+    // Check if user exists
+    const [users] = await pool.execute(
+      'SELECT id, username, email FROM userData WHERE email = ?',
+      [email]
+    );
+
+    if (users.length === 0) {
+      // For security, don't reveal if email exists or not
+      return res.status(200).json({
+        success: true,
+        message: 'If an account exists with this email, a reset code has been sent.'
+      });
+    }
+
+    const user = users[0];
+
+    // Generate 6-digit reset code
+    const resetCode = Math.floor(100000 + Math.random() * 900000).toString();
+    const resetExpiry = new Date(Date.now() + 15 * 60 * 1000); // 15 minutes
+
+    // Store reset code in database
+    await pool.execute(
+      'UPDATE userData SET resetCode = ?, resetCodeExpiry = ? WHERE id = ?',
+      [resetCode, resetExpiry, user.id]
+    );
+
+    // Send email with reset code
+    try {
+      const mailOptions = {
+        from: process.env.EMAIL_FROM || '"KeyChing Support" <support@keyching.com>',
+        to: email,
+        subject: 'Password Reset Code',
+        html: `
+          <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #e0e0e0; border-radius: 5px;">
+            <h2 style="color: #333;">Password Reset Request</h2>
+            <p>Hello ${user.username},</p>
+            <p>You requested to reset your password. Use the code below to reset your password:</p>
+            <div style="background-color: #f5f5f5; padding: 15px; text-align: center; margin: 20px 0; border-radius: 5px;">
+              <h1 style="color: #1976d2; letter-spacing: 5px; margin: 0;">${resetCode}</h1>
+            </div>
+            <p>This code will expire in <strong>15 minutes</strong>.</p>
+            <p>If you didn't request this, please ignore this email.</p>
+            <p style="margin-top: 30px; padding-top: 15px; border-top: 1px solid #e0e0e0; font-size: 12px; color: #777;">
+              This is an automated message. Please do not reply to this email.
+            </p>
+          </div>
+        `
+      };
+
+      await transporter.sendMail(mailOptions);
+      console.log('Password reset code sent to:', email);
+    } catch (emailError) {
+      console.error('Error sending reset email:', emailError);
+      return res.status(500).json({
+        success: false,
+        message: 'Failed to send reset code. Please try again.'
+      });
+    }
+
+    res.status(200).json({
+      success: true,
+      message: 'Reset code sent to your email'
+    });
+
+  } catch (error) {
+    console.error('Forgot password error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Server error occurred'
+    });
+  }
+});
+
+// Password Reset - Verify code and reset password
+server.post(PROXY + '/api/auth/reset-password', async (req, res) => {
+  try {
+    const { email, resetCode, newPassword } = req.body;
+
+    if (!email || !resetCode || !newPassword) {
+      return res.status(400).json({
+        success: false,
+        message: 'Email, reset code, and new password are required'
+      });
+    }
+
+    // Validate password length
+    if (newPassword.length < 6) {
+      return res.status(400).json({
+        success: false,
+        message: 'Password must be at least 6 characters long'
+      });
+    }
+
+    // Find user with matching email and reset code
+    const [users] = await pool.execute(
+      'SELECT id, username, resetCode, resetCodeExpiry FROM userData WHERE email = ?',
+      [email]
+    );
+
+    if (users.length === 0) {
+      return res.status(400).json({
+        success: false,
+        message: 'Invalid email or reset code'
+      });
+    }
+
+    const user = users[0];
+
+    // Check if reset code matches
+    if (user.resetCode !== resetCode) {
+      return res.status(400).json({
+        success: false,
+        message: 'Invalid reset code'
+      });
+    }
+
+    // Check if reset code has expired
+    const now = new Date();
+    const expiry = new Date(user.resetCodeExpiry);
+    
+    if (now > expiry) {
+      return res.status(400).json({
+        success: false,
+        message: 'Reset code has expired. Please request a new one.'
+      });
+    }
+
+    // Hash new password
+    const saltRounds = 12;
+    const passwordHash = await bcrypt.hash(newPassword, saltRounds);
+
+    // Update password and clear reset code
+    await pool.execute(
+      'UPDATE userData SET passwordHash = ?, resetCode = NULL, resetCodeExpiry = NULL WHERE id = ?',
+      [passwordHash, user.id]
+    );
+
+    console.log('Password reset successful for user:', user.username);
+
+    // Send confirmation email
+    try {
+      const mailOptions = {
+        from: process.env.EMAIL_FROM || '"KeyChing Support" <support@keyching.com>',
+        to: email,
+        subject: 'Password Reset Successful',
+        html: `
+          <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #e0e0e0; border-radius: 5px;">
+            <h2 style="color: #333;">Password Reset Successful</h2>
+            <p>Hello ${user.username},</p>
+            <p>Your password has been successfully reset.</p>
+            <p>If you did not make this change, please contact support immediately.</p>
+            <p style="margin-top: 30px; padding-top: 15px; border-top: 1px solid #e0e0e0; font-size: 12px; color: #777;">
+              This is an automated message. Please do not reply to this email.
+            </p>
+          </div>
+        `
+      };
+
+      await transporter.sendMail(mailOptions);
+    } catch (emailError) {
+      console.error('Error sending confirmation email:', emailError);
+      // Don't fail the request if confirmation email fails
+    }
+
+    res.status(200).json({
+      success: true,
+      message: 'Password reset successful. You can now login with your new password.'
+    });
+
+  } catch (error) {
+    console.error('Reset password error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Server error occurred'
+    });
+  }
+});
+
 // Email verification 
 // email-service.js
 const nodemailer = require('nodemailer');
@@ -6448,6 +6638,51 @@ server.listen(PORT, async () => {
     process.exit(1);
   }
 });
+
+// Google TTS Proxy Endpoint (to bypass CORS)
+server.get(PROXY + '/api/tts/google', async (req, res) => {
+  try {
+    const { text, language = 'en' } = req.query;
+
+    if (!text) {
+      return res.status(400).json({
+        success: false,
+        message: 'Text parameter is required'
+      });
+    }
+
+    // Google Translate TTS endpoint
+    const url = `https://translate.google.com/translate_tts?ie=UTF-8&client=tw-ob&tl=${language}&q=${encodeURIComponent(text)}`;
+    
+    const response = await axios.get(url, {
+      responseType: 'arraybuffer',
+      headers: {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
+      }
+    });
+
+    if (response.status !== 200) {
+      throw new Error(`Google TTS request failed: ${response.status}`);
+    }
+
+    // Set appropriate headers for audio response
+    res.set({
+      'Content-Type': 'audio/mpeg',
+      'Content-Length': response.data.length,
+      'Access-Control-Allow-Origin': '*'
+    });
+
+    res.send(response.data);
+  } catch (error) {
+    console.error('Google TTS proxy error:', error.message);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to generate TTS audio',
+      error: error.message
+    });
+  }
+});
+
 // Graceful shutdown
 process.on('SIGTERM', async () => {
   console.log('🛑 Received SIGTERM, shutting down gracefully...');

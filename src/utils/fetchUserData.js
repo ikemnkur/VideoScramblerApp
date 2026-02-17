@@ -1,12 +1,16 @@
 // fetchUserData.js - Utility function to get user data from localStorage
 
 import api from '../api/client';
+import { useNavigate } from 'react-router-dom';
 
 /**
  * Fetch user data from localStorage
  * @returns {Object|null} User data object or null if not found
  */
 export async function fetchUserData() {
+
+  const navigate = useNavigate();
+
   try {
     let timeout = 1500; // 1.5 seconds
     setTimeout(async () => {
@@ -69,15 +73,18 @@ export async function fetchUserData() {
         // setBalance(0); // demo fallback with realistic amount
         // clear local storage
         // localStorage.clear();
-        // navigate('/info');
-        // setTimeout(() => { navigate('/login'); }, 15000); // Redirect to login after 15 seconds
+        alert('Session Expired. Unable to fetch user data. Please login again.');
+        navigate('/login');
+
+        setTimeout(() => { window.location.reload(); 
+            return null;
+        }, 1000); // Redirect to login after 1 second
+
         // return {
         //   success: false,
         //   message: 'Unable to fetch user data. Please login again.',
         //   error: err
         // };
-        return null;
-
       }
     }, timeout); 
 

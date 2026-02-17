@@ -5,10 +5,10 @@ import { Error as ErrorIcon, Refresh } from '@mui/icons-material';
 class ErrorBoundary extends React.Component {
   constructor(props) {
     super(props);
-    this.state = { 
-      hasError: false, 
-      error: null, 
-      errorInfo: null 
+    this.state = {
+      hasError: false,
+      error: null,
+      errorInfo: null
     };
   }
 
@@ -20,7 +20,7 @@ class ErrorBoundary extends React.Component {
   componentDidCatch(error, errorInfo) {
     // Log the error to console or error reporting service
     console.error('Error Boundary caught an error:', error, errorInfo);
-    
+
     this.setState({
       error: error,
       errorInfo: errorInfo
@@ -31,10 +31,10 @@ class ErrorBoundary extends React.Component {
   }
 
   handleReset = () => {
-    this.setState({ 
-      hasError: false, 
-      error: null, 
-      errorInfo: null 
+    this.setState({
+      hasError: false,
+      error: null,
+      errorInfo: null
     });
     // Optionally reload the page
     window.location.reload();
@@ -45,21 +45,21 @@ class ErrorBoundary extends React.Component {
       // Fallback UI
       return (
         <Container sx={{ py: 8 }}>
-          <Paper 
-            elevation={3} 
-            sx={{ 
-              p: 4, 
-              backgroundColor: '#424242', 
+          <Paper
+            elevation={3}
+            sx={{
+              p: 4,
+              backgroundColor: '#424242',
               color: 'white',
-              textAlign: 'center' 
+              textAlign: 'center'
             }}
           >
             <ErrorIcon sx={{ fontSize: 80, color: '#f44336', mb: 2 }} />
-            
+
             <Typography variant="h3" sx={{ mb: 2, fontWeight: 'bold' }}>
               Oops! Something went wrong
             </Typography>
-            
+
             <Typography variant="h6" sx={{ mb: 3, color: '#e0e0e0' }}>
               We apologize for the inconvenience. An unexpected error occurred.
             </Typography>
@@ -75,8 +75,8 @@ class ErrorBoundary extends React.Component {
                 variant="contained"
                 startIcon={<Refresh />}
                 onClick={this.handleReset}
-                sx={{ 
-                  backgroundColor: '#4caf50', 
+                sx={{
+                  backgroundColor: '#4caf50',
                   color: 'white',
                   fontWeight: 'bold',
                   px: 4,
@@ -85,12 +85,13 @@ class ErrorBoundary extends React.Component {
               >
                 Reload Page
               </Button>
-              
+
+           
               <Button
                 variant="outlined"
                 onClick={() => window.location.href = '/'}
-                sx={{ 
-                  borderColor: '#22d3ee', 
+                sx={{
+                  borderColor: '#22d3ee',
                   color: '#22d3ee',
                   px: 4,
                   py: 1.5
@@ -106,19 +107,19 @@ class ErrorBoundary extends React.Component {
                 <Typography variant="h6" sx={{ mb: 2, color: '#ff9800' }}>
                   Error Details (Development Mode)
                 </Typography>
-                <Paper 
-                  sx={{ 
-                    p: 2, 
-                    backgroundColor: '#1e1e1e', 
-                    maxHeight: '300px', 
-                    overflow: 'auto' 
+                <Paper
+                  sx={{
+                    p: 2,
+                    backgroundColor: '#1e1e1e',
+                    maxHeight: '300px',
+                    overflow: 'auto'
                   }}
                 >
-                  <Typography 
-                    variant="body2" 
-                    component="pre" 
-                    sx={{ 
-                      fontFamily: 'monospace', 
+                  <Typography
+                    variant="body2"
+                    component="pre"
+                    sx={{
+                      fontFamily: 'monospace',
                       fontSize: '0.75rem',
                       color: '#f44336',
                       whiteSpace: 'pre-wrap',

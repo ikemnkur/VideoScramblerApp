@@ -254,10 +254,85 @@ export async function checkTTSServerHealth() {
   }
 }
 
+/**
+ * Generate speech audio using Google Translate TTS API (via backend proxy)
+ * @param {string} text - Text to convert to speech
+ * @param {AudioContext} audioContext - Web Audio API context
+ * @param {object} options - TTS options
+ * @returns {Promise<AudioBuffer>} Audio buffer with generated speech
+ */
+export async function useGoogleTTS(text, audioContext, options = {}) {
+  try {
+    const {
+      language = 'en', // Language code (en, es, fr, etc.)
+      speed = 1.0       // Speech speed (not directly supported by Google TTS)
+    } = options;
+
+    // Use backend proxy to bypass CORS
+    const API_URL = import.meta.env.VITE_API_SERVER_URL || 'http://localhost:3001';
+    const url = `${API_URL}/api/tts/google?text=${encodeURIComponent(text)}&language=${language}`;
+    
+    const response = await fetch(url, {
+      method: 'GET'
+    });
+
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}));
+      throw new Error(errorData.message || `TTS request failed: ${response.status} ${response.statusText}`);
+    }
+
+    // Get audio data as ArrayBuffer
+    const arrayBuffer = await response.arrayBuffer();
+    
+    // Decode audio data to AudioBuffer
+    const audioBuffer = await audioContext.decodeAudioData(arrayBuffer);
+    
+    console.log('Google TTS audio generated:', {
+      duration: audioBuffer.duration,
+      sampleRate: audioBuffer.sampleRate,
+      channels: audioBuffer.numberOfChannels
+    });
+    
+    return audioBuffer;
+  } catch (error) {
+    console.error('Error generating Google TTS:', error.message);
+    throw error;
+  }
+}
+
+/**
+ * Generate watermark using Google TTS (fallback when TTS server is unavailable)
+ * @param {string} username - Username to embed in watermark
+ * @param {string} type - 'scrambler' or 'unscrambler'
+ * @param {AudioContext} audioContext - Web Audio API context
+ * @returns {Promise<AudioBuffer>} Watermark audio buffer
+ */
+export async function generateWatermarkWithGoogleTTS(username, type = 'unscrambler', audioContext) {
+  try {
+    let text = '';
+    
+    if (type === 'scrambler') {
+      text = `Protected audio by ${username} on scrambler dot com`;
+    } else if (type === 'unscrambler') {
+      text = `Unscrambled by user ${username} on scrambler dot com`;
+    }
+
+    const watermarkBuffer = await useGoogleTTS(text, audioContext);
+    return watermarkBuffer;
+  } catch (error) {
+    console.error('Error generating Google TTS watermark:', error);
+    throw error;
+  }
+}
+
+
+
 export default {
   generateWatermark,
   loadAudioFromUrl,
   prependWatermark,
   overlayWatermarkAtIntervals,
-  checkTTSServerHealth
+  checkTTSServerHealth,
+  useGoogleTTS,
+  generateWatermarkWithGoogleTTS
 };

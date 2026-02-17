@@ -38,8 +38,8 @@ const AccountPage = () => {
   const [saving, setSaving] = useState(false);
 
   const navigate = useNavigate();
-  const API_URL = import.meta.env.VITE_API_SERVER_URL || 'http://localhost:3001';  
-  
+  const API_URL = import.meta.env.VITE_API_SERVER_URL || 'http://localhost:3001';
+
   useEffect(() => {
     const loadUserProfile = async () => {
       try {
@@ -48,10 +48,10 @@ const AccountPage = () => {
 
         const response = await fetch(`${API_URL}/api/userData`);
         if (!response.ok) throw new Error('Failed to fetch');
-        
+
         const allUsers = await response.json();
         const currentUser = allUsers.find(user => user.username === username);
-        
+
         if (currentUser) {
           setUserData({
             id: currentUser.id,
@@ -72,18 +72,18 @@ const AccountPage = () => {
         setIsLoading(false);
       }
     };
-    
+
     loadUserProfile();
   }, []);
 
   if (isLoading) {
     return (
-      <Box sx={{ 
-        display: 'flex', 
-        justifyContent: 'center', 
+      <Box sx={{
+        display: 'flex',
+        justifyContent: 'center',
         alignItems: 'center',
         minHeight: '60vh',
-        backgroundColor: '#1a1a1a' 
+        backgroundColor: '#1a1a1a'
       }}>
         <CircularProgress sx={{ color: '#ffd700' }} />
       </Box>
@@ -148,7 +148,7 @@ const AccountPage = () => {
         }, file.type, 0.8); // Added quality parameter for better compression
       };
     };
-    
+
     // Read the file only once
     reader.readAsDataURL(file);
   };
@@ -242,19 +242,19 @@ const AccountPage = () => {
   };
 
   return (
-    <Box sx={{ 
-      maxWidth: 1200, 
-      mx: 'auto', 
+    <Box sx={{
+      maxWidth: 1200,
+      mx: 'auto',
       p: 2,
       backgroundColor: '#1a1a1a',
       minHeight: '100vh',
       color: '#fff'
     }}>
-      <Typography 
-        variant="h3" 
-        component="h1" 
-        sx={{ 
-          mb: 4, 
+      <Typography
+        variant="h3"
+        component="h1"
+        sx={{
+          mb: 4,
           textAlign: 'center',
           fontWeight: 700,
           color: '#ffd700'
@@ -265,16 +265,16 @@ const AccountPage = () => {
 
       <Grid container spacing={3}>
         <Grid item xs={12} md={6}>
-          <Paper sx={{ 
+          <Paper sx={{
             p: 3,
             backgroundColor: '#1a1a1a',
             border: '1px solid #333',
             borderRadius: 2,
             boxShadow: '0 4px 12px rgba(0, 0, 0, 0.3)'
           }}>
-            <Typography 
-              variant="h6" 
-              sx={{ 
+            <Typography
+              variant="h6"
+              sx={{
                 mb: 3,
                 fontWeight: 700,
                 color: '#ffd700'
@@ -283,20 +283,20 @@ const AccountPage = () => {
               Profile Information
             </Typography>
 
-{/* only show avatar for sellers */}
+            {/* only show avatar for sellers */}
             {JSON.parse(localStorage.getItem('userdata') || '{}').accountType === "seller" && (
               <>
                 <Avatar
                   src={userData.profilePicture || '/default-avatar.png'}
-                  sx={{ 
-                    width: 100, 
-                    height: 100, 
-                    mx: 'auto', 
+                  sx={{
+                    width: 100,
+                    height: 100,
+                    mx: 'auto',
                     mb: 3,
                     border: '3px solid #ffd700'
                   }}
                 />
-                <Box sx={{ textAlign: 'center', mb: 3 }}> 
+                <Box sx={{ textAlign: 'center', mb: 3 }}>
                   <Button
                     variant="contained"
                     component="label"
@@ -336,7 +336,7 @@ const AccountPage = () => {
                 '& .MuiInputLabel-root': { color: '#ccc' }
               }}
             />
-            
+
             <TextField
               fullWidth
               label="Last Name"
@@ -355,7 +355,7 @@ const AccountPage = () => {
               }}
             />
 
-            <TextField
+            {/* <TextField
               fullWidth
               label="Email"
               value={userData.email}
@@ -371,7 +371,7 @@ const AccountPage = () => {
                 },
                 '& .MuiInputLabel-root': { color: '#ccc' }
               }}
-            />
+            /> */}
 
             <TextField
               fullWidth
@@ -440,16 +440,16 @@ const AccountPage = () => {
         </Grid>
 
         <Grid item xs={12} md={6}>
-          <Paper sx={{ 
+          <Paper sx={{
             p: 3,
             backgroundColor: '#1a1a1a',
             border: '1px solid #333',
             borderRadius: 2,
             boxShadow: '0 4px 12px rgba(0, 0, 0, 0.3)'
           }}>
-            <Typography 
-              variant="h6" 
-              sx={{ 
+            <Typography
+              variant="h6"
+              sx={{
                 mb: 3,
                 fontWeight: 700,
                 color: '#ffd700'
@@ -469,16 +469,40 @@ const AccountPage = () => {
 
             <Box sx={{ mb: 3 }}>
               <Typography variant="body2" sx={{ color: '#ccc', mb: 0.5 }}>
+                Email
+              </Typography>
+              <Typography variant="h6" sx={{ color: '#fff' }}>
+                {userData.email}
+              </Typography>
+            </Box>
+
+            <Box sx={{ mb: 3 }}>
+              <Typography variant="body2" sx={{ color: '#ccc', mb: 0.5 }}>
                 Account Type
               </Typography>
-              <Typography 
-                variant="h6" 
-                sx={{ 
+              <Typography
+                variant="h6"
+                sx={{
                   color: userData.accountType === 'seller' ? '#4caf50' : '#2196f3',
                   textTransform: 'capitalize'
                 }}
               >
                 {userData.accountType}
+              </Typography>
+            </Box>
+
+            <Box sx={{ mb: 3 }}>
+              <Typography variant="body2" sx={{ color: '#ccc', mb: 0.5 }}>
+                Account Status
+              </Typography>
+              <Typography
+                variant="h6"
+                sx={{
+                  color: userData.isBanned === true ? '#f44336' : '#4caf50',
+                  textTransform: 'capitalize'
+                }}
+              >
+                {userData.isBanned === true ? 'Banned' : 'Active'}
               </Typography>
             </Box>
 
@@ -491,22 +515,66 @@ const AccountPage = () => {
               </Typography>
             </Box>
           </Paper>
+
+          
         </Grid>
       </Grid>
+
+{/* Delete Account */}
+          <Paper sx={{
+            mt: 3,
+            p: 3,
+            backgroundColor: '#1a1a1a',
+            border: '1px solid #333',
+            borderRadius: 2,
+            boxShadow: '0 4px 12px rgba(0, 0, 0, 0.3)'
+          }}>
+            <Box sx={{ mt: 4 }}>
+              <Typography
+                variant="h5"
+                sx={{
+                  mb: 2,
+                  fontWeight: 700,
+                  color: '#f44336',
+                  textAlign: 'center'
+                }}
+              >
+                Danger Zone
+              </Typography>
+              <Box sx={{ textAlign: 'center' }}>
+                <Button
+                  variant="contained"
+                  color="error"
+                  onClick={() => navigate('/delete-account')}
+                  sx={{
+                    fontWeight: 700,
+                    px: 4,
+                    py: 1.5,
+                    '&:hover': {
+                      backgroundColor: '#e53935'
+                    }
+                  }}
+                >
+                  Delete Account
+                </Button>
+              </Box>
+            </Box>
+
+          </Paper>
 
       {/* Device Fingerprint Section */}
       <Box sx={{ mt: 3 }}>
         {/* <FingerprintDisplay showDetails={true} compact={false} /> */}
       </Box>
 
-      <Snackbar 
-        open={openSnackbar} 
-        autoHideDuration={4000} 
+      <Snackbar
+        open={openSnackbar}
+        autoHideDuration={4000}
         onClose={() => setOpenSnackbar(false)}
       >
-        <Alert 
+        <Alert
           severity={snackbarMessage.startsWith('Error') ? 'error' : 'success'}
-          sx={{ 
+          sx={{
             backgroundColor: snackbarMessage.startsWith('Error') ? '#f44336' : '#4caf50',
             color: '#fff'
           }}

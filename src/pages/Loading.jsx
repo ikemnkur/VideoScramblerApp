@@ -73,7 +73,20 @@ export default function LoadingPage({ loading = false, error = null, retry = nul
                         <Link to="/" style={{ ...styles.button, ...styles.linkButton }}>
                             Home
                         </Link>
-                        {retry && (
+                        <button
+                            style={{ ...styles.button }}
+                            onClick={() => window.location.reload()}
+                            // sx={{
+                            //     borderColor: '#22d3ee',
+                            //     color: '#22d3ee',
+                            //     px: 4,
+                            //     py: 1.5
+                            // }}
+                        >
+                            Hard Reload
+                        </button>
+
+                        {/* {retry && ( */}
                             <button
                                 style={{ ...styles.button, marginLeft: 8 }}
                                 onClick={() => {
@@ -82,7 +95,7 @@ export default function LoadingPage({ loading = false, error = null, retry = nul
                             >
                                 Retry
                             </button>
-                        )}
+                        {/* )} */}
                     </div>
 
                     <p style={styles.small}>

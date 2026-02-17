@@ -8,6 +8,8 @@ import NavBar from './components/NavBar';
 import Wallet from './pages/Wallet';
 import VerifyAccount from './pages/VerifyAccount';
 import VerifyEmail from './pages/VerifyEmail';
+import ForgotPassword from './pages/ForgotPassword';
+import ResetPassword from './pages/ResetPassword';
 // import CreateKey from './pages/CreateKey';
 // import Unlock from './pages/Unlock';
 // import Earnings from './pages/Earnings';
@@ -78,6 +80,7 @@ import SubscriptionPlans from './pages/SubscriptionPlans';
 import SubscriptionSuccess from './pages/SubscriptionSuccess';
 import BonusCredits from './pages/BonusCredits';
 import PurchaseStripeSuccessful from './pages/PurchaseStripeSuccesful';
+import TestGoogleTTS from './pages/TestGoogleTTS';
 // import Intro from './pages/Intro';
 //
 
@@ -146,19 +149,19 @@ export default function App() {
 
     console.log("App.jsx - Fetching userdata.accountType on mount:", accountType);
 
-   
+
     loadUserData();
-    
-    if (accountType === "free") {
-      console.log("App.jsx - User is on free account");
-      if (JSON.parse(localStorage.getItem('userdata')).accountType !== "free") {
-        console.log("App.jsx - Detected account type change to free, reloading page...");
-        window.location.reload();
-      }
-    } else {
-      console.log("App.jsx - User is on paid account");
-      
-    }
+
+    // if (accountType === "free") {
+    //   console.log("App.jsx - User is on free account");
+    //   if (JSON.parse(localStorage.getItem('userdata')).accountType !== "free") {
+    //     console.log("App.jsx - Detected account type change to free, reloading page...");
+    //     window.location.reload();
+    //   }
+    // } else {
+    //   console.log("App.jsx - User is on paid account");
+
+    // }
 
 
     setTimeout(() => {
@@ -172,7 +175,7 @@ export default function App() {
     console.log("App.jsx - User Access:", userData);
     setDayPassExpiry(userData?.dayPassExpiry || "");
     setDayPassMode(userData?.dayPassMode || "free");
-    setAccountType(userData?.accountType || "free");
+    // setAccountType(userData?.accountType || "free");
     setSubscriptionExpiry(userData?.planExpiry || "");
     setAccountType(userData?.accountType || "free");
   }, [userData]);
@@ -182,7 +185,7 @@ export default function App() {
     // console.log("App.jsx - User Data:", userData);
     setDayPassExpiry(userData?.dayPassExpiry || "");
     setDayPassMode(userData?.dayPassMode || "free");
-    setAccountType(userData?.accountType || "free");
+    // setAccountType(userData?.accountType || "free");
     setSubscriptionExpiry(userData?.planExpiry || "");
     setAccountType(userData?.accountType || "free");
   }, [userData]);
@@ -221,10 +224,13 @@ export default function App() {
 
                 {/* Public Routes */}
 
-                <>
-                  <Route path="/login" element={<Auth isLogin={true} />} />
-                  <Route path="/register" element={<Auth isLogin={false} />} />
-                </>
+
+                <Route path="/login" element={<Auth isLogin={true} />} />
+                <Route path="/register" element={<Auth isLogin={false} />} />
+                <Route path="/forgot-password" element={<ForgotPassword />} />
+                <Route path="/reset-password" element={<ResetPassword />} />
+                
+                <Route path="/test-google-tts" element={<TestGoogleTTS />} />
 
                 <Route path="/help" element={<HelpPage />} />
                 <Route path="/info" element={<Info />} />
