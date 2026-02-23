@@ -49,6 +49,10 @@ import AudioScramblerPro from './pages/AudioScramblerPro';
 import AudioUnscrambler from './pages/AudioUnscrambler';
 import AudioUnscramblerPro from './pages/AudioUnscramblerPro';
 import AudioTagging from './pages/AudioTagging';
+import AudioWatermarkEncoder from './pages/AudioWatermarkEncoder';
+import AudioWatermarkDetector from './pages/AudioWatermarkDetector';
+import AudioWatermarkDetectorGoertzel from './pages/AudioWatermarkDetectorGoertzel';
+import TestSpellOutUsername from './pages/TestSpellOutUsername';
 
 
 import PhotoScramblerPro from './pages/PhotoScramblerPro';
@@ -324,6 +328,12 @@ export default function App() {
                     <Route path="/audio-unscrambler" element={<AudioUnscrambler />} />
 
                     <Route path="/audio-tagging" element={<AudioTagging />} />
+                    
+                    {/* Audio Watermarking */}
+                    <Route path="/audio-watermark-encoder" element={<AudioWatermarkEncoder />} />
+                    <Route path="/audio-watermark-detector" element={<AudioWatermarkDetector />} />
+                    <Route path="/audio-watermark-detector-goertzel" element={<AudioWatermarkDetectorGoertzel />} />
+                    <Route path="/test-spell-username" element={<TestSpellOutUsername />} />
                   </>
                 ) : null}
 

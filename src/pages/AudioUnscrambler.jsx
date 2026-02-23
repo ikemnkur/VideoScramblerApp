@@ -34,10 +34,8 @@ import CreditConfirmationModal from '../components/CreditConfirmationModal';
 import { refundCredits } from '../utils/creditUtils';
 import api from '../api/client';
 import {
-  generateWatermark,
-  loadAudioFromUrl,
+  generateSpelledWatermark,
   overlayWatermarkAtIntervals,
-  checkTTSServerHealth
 } from '../utils/ttsWatermarkService';
 
 export default function AudioUnscrambler() {
@@ -89,23 +87,10 @@ export default function AudioUnscrambler() {
   // const actionCost = 3;
   const [actionCost, setActionCost] = useState(3);
   const [scrambleLevel, setScrambleLevel] = useState(1);
-  const [ttsAvailable, setTtsAvailable] = useState(false);
 
   const [userData] = useState(JSON.parse(localStorage.getItem("userdata")));
 
   const API_URL = import.meta.env.VITE_API_SERVER_URL || 'http://localhost:3001';
-
-  // =============================
-  // CHECK TTS SERVER ON MOUNT
-  // =============================
-  useEffect(() => {
-    checkTTSServerHealth().then(available => {
-      setTtsAvailable(available);
-      if (!available) {
-        console.warn('TTS server not available - watermarks will be skipped');
-      }
-    });
-  }, []);
 
   // =============================
   // FETCH USER CREDITS
@@ -817,10 +802,10 @@ let calculatedCost = Math.ceil((sampleRate / 24000) * duration + (numberOfChanne
     setActionCost(finalCost);
 
     // Show credit confirmation modal before scrambling
-    if (!audioBuffer) {
-      error("Please load an audio file first!");
-      return;
-    }
+    // if (!audioBuffer) {
+    //   error("Please load an audio file first!");
+    //   return;
+    // }
 
     setScrambleLevel(2 + audioDuration / segmentSize);
     setShowCreditModal(true);
@@ -924,29 +909,47 @@ let calculatedCost = Math.ceil((sampleRate / 24000) * duration + (numberOfChanne
         );
       }
 
-      // Generate and apply TTS watermark at intervals (non-blocking)
-      if (ttsAvailable && userData?.username) {
+      // Generate and apply custom TTS watermark using spelled-out username
+      if (userData?.username || userData?.id) {
         try {
-          info('Generating watermark tags...');
-          const watermarkText = `unscrambled by user ${userData.username} on scrambler dot com`;
-          const watermarkUrl = await generateWatermark(userData.username, 'unscrambler', {
-            voice: 'en-US-GuyNeural',
-            rate: '+15%',
-            pitch: '+0Hz'
-          });
-          const watermarkBuffer = await loadAudioFromUrl(watermarkUrl, audioContext);
+          info('Generating ownership watermark...');
+          const watermarkId = userData.username || userData.id;
 
-          // Overlay watermark at intervals throughout the audio
-          recoveredBuffer = overlayWatermarkAtIntervals(recoveredBuffer, watermarkBuffer, audioContext, {
-            intervalSeconds: null, // Auto-calculate based on duration
-            volume: 0.5, // 50% volume for watermark
-            fadeMs: 250 // 250ms fade in/out
-          });
+          // Build the spelled-out watermark AudioBuffer using the custom TTS service
+          const watermarkBuffer = await generateSpelledWatermark(
+            watermarkId,
+            'unscrambler',
+            audioContext,
+            {
+              lettersPath: '/audio-alphabet',
+              numbersPath: '/audio-numbers',
+              symbolsPath: '/audio-symbols',
+              watermarksPath: '/watermarks',
+              silenceBetween: 0.15,
+            }
+          );
 
-          console.log('Watermark overlays applied successfully');
+          // Interval = watermark duration + 2× watermark duration (play, wait 2×, play again)
+          const intervalSeconds = watermarkBuffer.duration * 3;
+
+          recoveredBuffer = overlayWatermarkAtIntervals(
+            recoveredBuffer,
+            watermarkBuffer,
+            audioContext,
+            {
+              intervalSeconds, // starts at t=0, repeats every 3× watermark duration
+              volume: 0.45,    // audible but not obtrusive
+              fadeMs: 200,
+            }
+          );
+
+          console.log('Ownership watermark applied:', {
+            user: watermarkId,
+            wmDuration: watermarkBuffer.duration.toFixed(2) + 's',
+            repeatInterval: intervalSeconds.toFixed(2) + 's',
+          });
         } catch (err) {
-          console.error('Watermark application failed:', err);
-          // Continue without watermark
+          console.error('Watermark application failed (continuing without):', err);
         }
       }
 

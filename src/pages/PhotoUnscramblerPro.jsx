@@ -38,6 +38,169 @@ import api from '../api/client';
 const API_URL = import.meta.env.VITE_API_SERVER_URL || 'http://localhost:3001';
 const Flask_API_URL = import.meta.env.VITE_API_PY_SERVER_URL || 'http://localhost:5000';
 
+// ============================================================
+// FINGERPRINT TRANSFORM UTILITIES
+// Ported from imageHiddenWatermark.html
+// Each user gets a deterministic-but-unique transform derived
+// from their userId, making every distributed copy traceable.
+// ============================================================
+
+/** Mulberry32 seeded PRNG — fast, good distribution */
+function mulberry32(seed) {
+    let t = seed >>> 0;
+    return function () {
+        t += 0x6D2B79F5;
+        let x = Math.imul(t ^ (t >>> 15), 1 | t);
+        x ^= x + Math.imul(x ^ (x >>> 7), 61 | x);
+        return ((x ^ (x >>> 14)) >>> 0) / 4294967296;
+    };
+}
+
+/** Mix an integer into a 32-bit seed */
+function seedFromInt(n) {
+    let x = (Number(n) >>> 0);
+    x ^= x << 13; x >>>= 0;
+    x ^= x >>> 17; x >>>= 0;
+    x ^= x << 5; x >>>= 0;
+    return x >>> 0;
+}
+
+/**
+ * Derive a stable 32-bit numeric tracking ID from the user's 10-char ID string.
+ * Same userId always produces the same transform parameters.
+ */
+function userIdToTrackingNumber(userId) {
+    let hash = 0;
+    for (let i = 0; i < userId.length; i++) {
+        hash = (Math.imul(hash, 31) + userId.charCodeAt(i)) >>> 0;
+    }
+    return hash;
+}
+
+/** Generate deterministic transform parameters from tracking number B */
+function paramsFromB(B) {
+    const seed = seedFromInt(B);
+    const rnd = mulberry32(seed);
+
+    const angleDeg = (rnd() * 20) - 10;          // ±10°
+    const angle = angleDeg * Math.PI / 180;
+    const zoom = 1.05 + rnd() * 0.15;         // 1.05–1.20×
+    const shiftX = (rnd() * 2 - 1) * 30;        // ±30px
+    const shiftY = (rnd() * 2 - 1) * 30;
+    const cropTop = 16 + Math.floor(rnd() * 49);
+    const cropRight = 16 + Math.floor(rnd() * 49);
+    const cropBottom = 16 + Math.floor(rnd() * 49);
+    const cropLeft = 16 + Math.floor(rnd() * 49);
+
+    return { B, angle, angleDeg, zoom, shiftX, shiftY, cropTop, cropRight, cropBottom, cropLeft };
+}
+
+/** Bilinear interpolation on an ImageData */
+function sampleBilinear(src, x, y) {
+    const w = src.width, h = src.height;
+    if (x < 0 || y < 0 || x > w - 1 || y > h - 1) return [0, 0, 0, 255];
+    const x0 = Math.floor(x), y0 = Math.floor(y);
+    const x1 = Math.min(x0 + 1, w - 1), y1 = Math.min(y0 + 1, h - 1);
+    const dx = x - x0, dy = y - y0;
+    const idx = (xx, yy) => (yy * w + xx) * 4;
+    const p00 = idx(x0, y0), p10 = idx(x1, y0), p01 = idx(x0, y1), p11 = idx(x1, y1);
+    const d = src.data;
+    const out = [0, 0, 0, 255];
+    for (let c = 0; c < 3; c++) {
+        const v0 = d[p00 + c] * (1 - dx) + d[p10 + c] * dx;
+        const v1 = d[p01 + c] * (1 - dx) + d[p11 + c] * dx;
+        out[c] = v0 * (1 - dy) + v1 * dy;
+    }
+    return out;
+}
+
+/**
+ * Apply rotation + zoom + shift + crop + rescale to an ImageData.
+ * applyInverse=false → encode (A→C), applyInverse=true → decode (C→A).
+ */
+function warpImage(srcImgData, params, applyInverse = false) {
+    const w = srcImgData.width, h = srcImgData.height;
+    const cx = (w - 1) / 2, cy = (h - 1) / 2;
+
+    // Step 1: rotate + zoom + shift
+    const temp = new ImageData(w, h);
+    const ang = applyInverse ? -params.angle : params.angle;
+    const ca = Math.cos(ang), sa = Math.sin(ang);
+    const zoom = params.zoom || 1.0;
+    const sx = applyInverse ? -params.shiftX : params.shiftX;
+    const sy = applyInverse ? -params.shiftY : params.shiftY;
+
+    for (let y = 0; y < h; y++) {
+        for (let x = 0; x < w; x++) {
+            const i = (y * w + x) * 4;
+            const px = x - cx, py = y - cy;
+            const rx = px * ca - py * sa;
+            const ry = px * sa + py * ca;
+            const zx = applyInverse ? rx * zoom : rx / zoom;
+            const zy = applyInverse ? ry * zoom : ry / zoom;
+            const p = sampleBilinear(srcImgData, zx - sx + cx, zy - sy + cy);
+            temp.data[i] = p[0]; temp.data[i + 1] = p[1]; temp.data[i + 2] = p[2]; temp.data[i + 3] = 255;
+        }
+    }
+
+    // Step 2: crop (values are non-zero but currently mirroring the HTML which uses 0 for crop)
+    const cropT = 0, cropR = 0, cropB2 = 0, cropL = 0;
+    const cW = w - cropL - cropR, cH = h - cropT - cropB2;
+    const cropped = new ImageData(cW, cH);
+    for (let y = 0; y < cH; y++) {
+        for (let x = 0; x < cW; x++) {
+            const si = ((y + cropT) * w + (x + cropL)) * 4;
+            const di = (y * cW + x) * 4;
+            cropped.data[di] = temp.data[si];
+            cropped.data[di + 1] = temp.data[si + 1];
+            cropped.data[di + 2] = temp.data[si + 2];
+            cropped.data[di + 3] = 255;
+        }
+    }
+
+    // Step 3: rescale back to original dimensions
+    const out = new ImageData(w, h);
+    const scX = cW / w, scY = cH / h;
+    for (let y = 0; y < h; y++) {
+        for (let x = 0; x < w; x++) {
+            const i = (y * w + x) * 4;
+            const p = sampleBilinear(cropped, x * scX, y * scY);
+            out.data[i] = p[0]; out.data[i + 1] = p[1]; out.data[i + 2] = p[2]; out.data[i + 3] = 255;
+        }
+    }
+    return out;
+}
+
+/**
+ * Load an image Blob, apply the user-specific fingerprint warp,
+ * and return { dataUrl, params } for display + download.
+ */
+async function applyFingerprintTransform(imageBlob, userId) {
+    const blobUrl = URL.createObjectURL(imageBlob);
+    try {
+        const img = new Image();
+        img.decoding = 'async';
+        img.src = blobUrl;
+        await img.decode();
+
+        const canvas = document.createElement('canvas');
+        canvas.width = img.naturalWidth;
+        canvas.height = img.naturalHeight;
+        const ctx = canvas.getContext('2d');
+        ctx.drawImage(img, 0, 0);
+
+        const imgData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+        const B = userIdToTrackingNumber(userId);
+        const params = paramsFromB(B);
+        const warped = warpImage(imgData, params, false);
+
+        ctx.putImageData(warped, 0, 0);
+        return { dataUrl: canvas.toDataURL('image/png'), params };
+    } finally {
+        URL.revokeObjectURL(blobUrl);
+    }
+}
+
 export default function PhotoUnscramblerPro() {
     const { success, error } = useToast();
 
@@ -70,6 +233,9 @@ export default function PhotoUnscramblerPro() {
     // const actionCost = 10; // Cost to scramble a photo (less than video)
     const [actionCost, setActionCost] = useState(15); // Cost to unscramble a photo (pro version)
     const [scrambleLevel, setScrambleLevel] = useState(1); // Level of scrambling (for credit calculation)
+
+    const [fingerprintedUrl, setFingerprintedUrl] = useState(null);
+    const [fingerprintParams, setFingerprintParams] = useState(null);
 
     const [creatorInfo, setCreatorInfo] = useState({
         username: 'Anonymous',
@@ -475,40 +641,42 @@ export default function PhotoUnscramblerPro() {
             if (!response.ok) throw new Error('Failed to load unscrambled image');
 
             const blob = await response.blob();
-            const url = URL.createObjectURL(blob);
 
-            if (unscrambledDisplayRef.current) {
-                unscrambledDisplayRef.current.src = url;
-            }
+            // Apply user-specific fingerprint transform so every distributed
+            // copy carries a unique, invisible tracking signature.
+            const userId = userData?.id || 'UNKNOWN';
+            const { dataUrl, params } = await applyFingerprintTransform(blob, userId);
+
+            setFingerprintedUrl(dataUrl);
+            setFingerprintParams(params);
+
+            console.log('Fingerprint applied:', {
+                userId,
+                trackingNumber: params.B,
+                angleDeg: params.angleDeg.toFixed(2),
+                zoom: params.zoom.toFixed(3),
+                shiftX: params.shiftX.toFixed(1),
+                shiftY: params.shiftY.toFixed(1),
+            });
         } catch (err) {
-            error("Failed to load unscrambled image: " + err.message);
+            error('Failed to apply fingerprint transform: ' + err.message);
         }
     };
 
-    const downloadUnscrambledImage = async () => {
-        if (!unscrambledFilename) {
-            error("Please unscramble an image first");
+    const downloadUnscrambledImage = () => {
+        if (!fingerprintedUrl) {
+            error('Please unscramble an image first');
             return;
         }
 
-        try {
-            const response = await fetch(`${Flask_API_URL}/download/${unscrambledFilename}`);
-            if (!response.ok) throw new Error('Download failed');
-
-            const blob = await response.blob();
-            const url = URL.createObjectURL(blob);
-            const a = document.createElement('a');
-            a.href = url;
-            a.download = unscrambledFilename;
-            document.body.appendChild(a);
-            a.click();
-            document.body.removeChild(a);
-            URL.revokeObjectURL(url);
-
-            success("Unscrambled image downloaded!");
-        } catch (err) {
-            error("Download failed: " + err.message);
-        }
+        // Download the fingerprinted copy — the version unique to this user
+        const a = document.createElement('a');
+        a.href = fingerprintedUrl;
+        a.download = `unscrambled_${selectedFile?.name?.replace(/\.[^/.]+$/, '') || 'image'}_fp.png`;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        success('Fingerprinted image downloaded!');
     };
 
 
@@ -746,7 +914,7 @@ export default function PhotoUnscramblerPro() {
                             {keyValid && decodedKey && (
                                 <Chip
                                     icon={<CheckCircle />}
-                                    label={`Valid Key: ${decodedKey.algorithm.toUpperCase()} Algorithm`}
+                                    label={`Valid Key`}
                                     color="success"
                                     sx={{ fontWeight: 'bold' }}
                                 />
@@ -761,22 +929,29 @@ export default function PhotoUnscramblerPro() {
                                 <Typography variant="body2" sx={{ fontWeight: 'bold', mb: 1 }}>
                                     Key Information:
                                 </Typography>
-                                <Typography variant="body2">
-                                    • Algorithm: <strong>{decodedKey.algorithm.toUpperCase()}</strong>
+                                {/* <Typography variant="body2">
+                                    • Algorithm: <strong>{decodedKey.algorithm}</strong>
                                 </Typography>
                                 <Typography variant="body2">
                                     • Seed: <strong>{decodedKey.seed}</strong>
-                                </Typography>
+                                </Typography> */}
                                 {decodedKey.rows && (
                                     <Typography variant="body2">
                                         • Grid: <strong>{decodedKey.rows} × {decodedKey.cols}</strong>
                                     </Typography>
                                 )}
-                                <Typography variant="body2">
+                                {/* <Typography variant="body2">
                                     • Scrambling: <strong>{decodedKey.percentage}%</strong>
-                                </Typography>
+                                </Typography> */}
                                 <Typography variant="body2" sx={{ mt: 1, fontSize: '0.75rem', opacity: 0.8 }}>
                                     Created: {new Date(decodedKey.timestamp).toLocaleString()}
+                                </Typography>
+                                <Typography variant="body2" sx={{ mt: 1, fontSize: '0.75rem', opacity: 0.8 }}>
+                                    Expires: {new Date(decodedKey.timestamp + 7 * 24 * 60 * 60 * 1000).toLocaleString()}
+                                </Typography>
+                                {/* for testing purposes */}
+                                <Typography variant="body2" sx={{ mt: 1, fontSize: '0.75rem', opacity: 0.8 }}>
+                                    Unscrambles: {Math.floor(Math.random() * 1000)}
                                 </Typography>
                             </Alert>
                         )}
@@ -820,7 +995,7 @@ export default function PhotoUnscramblerPro() {
                                 variant="contained"
                                 onClick={downloadUnscrambledImage}
                                 startIcon={<Download />}
-                                disabled={!unscrambledFilename}
+                                disabled={!fingerprintedUrl}
                                 sx={{ backgroundColor: '#9c27b0', color: 'white' }}
                             >
                                 Download Unscrambled Image
@@ -890,7 +1065,7 @@ export default function PhotoUnscramblerPro() {
                             {/* Unscrambled Image */}
                             <Grid item xs={12} md={6}>
                                 <Typography variant="h6" sx={{ mb: 1, color: '#e0e0e0' }}>
-                                    Unscrambled Image (Output)
+                                    Unscrambled Image (Fingerprinted)
                                 </Typography>
                                 <Box sx={{
                                     minHeight: '200px',
@@ -902,16 +1077,21 @@ export default function PhotoUnscramblerPro() {
                                     justifyContent: 'center',
                                     overflow: 'hidden'
                                 }}>
-                                    {unscrambledFilename ? (
+                                    {fingerprintedUrl ? (
                                         <img
-                                            ref={unscrambledDisplayRef}
-                                            alt="Unscrambled"
+                                            src={fingerprintedUrl}
+                                            alt="Fingerprinted Unscrambled"
                                             style={{
                                                 maxWidth: '100%',
                                                 maxHeight: '400px',
                                                 borderRadius: '8px'
                                             }}
                                         />
+                                    ) : unscrambledFilename ? (
+                                        // Fingerprint transform still processing
+                                        <Typography variant="body2" sx={{ color: '#aaa' }}>
+                                            ⏳ Applying fingerprint transform...
+                                        </Typography>
                                     ) : (
                                         <Typography variant="body2" sx={{ color: '#666' }}>
                                             Unscrambled image will appear here
@@ -920,6 +1100,25 @@ export default function PhotoUnscramblerPro() {
                                 </Box>
                             </Grid>
                         </Grid>
+
+                        {/* Fingerprint info */}
+                        {fingerprintParams && (
+                            <Alert severity="info" sx={{ mt: 2, backgroundColor: '#0d2b45', color: '#7dd3fc' }}>
+                                <Typography variant="body2" sx={{ fontWeight: 'bold', mb: 0.5 }}>
+                                    🔏 Distribution Fingerprint Applied
+                                </Typography>
+                                <Typography variant="body2" sx={{ fontSize: '0.78rem', fontFamily: 'monospace' }}>
+                                    Tracking ID: <strong>{fingerprintParams.B}</strong> &nbsp;|&nbsp;
+                                    Rotation: <strong>{fingerprintParams.angleDeg.toFixed(2)}°</strong> &nbsp;|&nbsp;
+                                    Zoom: <strong>{fingerprintParams.zoom.toFixed(3)}×</strong> &nbsp;|&nbsp;
+                                    Shift: <strong>({fingerprintParams.shiftX.toFixed(1)}, {fingerprintParams.shiftY.toFixed(1)})px</strong>
+                                </Typography>
+                                <Typography variant="body2" sx={{ fontSize: '0.72rem', mt: 0.5, opacity: 0.75 }}>
+                                    This copy is uniquely transformed for user <strong>{userData?.username}</strong>.
+                                    The parameters are derived from their user ID and can be used to identify the source of any leaked image.
+                                </Typography>
+                            </Alert>
+                        )}
                     </Box>
                 </CardContent>
             </Card>

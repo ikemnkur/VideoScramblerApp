@@ -455,6 +455,9 @@ const Auth = ({ isLogin, onLoginSuccess }) => {
                         if (e.target.value.length <= 24) {
                           setUsername(e.target.value);
                         }
+                        if(e.target.value.includes(' ') || e.target.value.includes('@') || e.target.value.includes('.') || e.target.value.includes('/') ) {
+                          alert('Username cannot contain spaces or special characters');
+                        }
                       }}
                       required
                       inputProps={{ maxLength: 24 }}
