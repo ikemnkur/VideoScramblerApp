@@ -253,14 +253,18 @@ const Auth = ({ isLogin, onLoginSuccess }) => {
 
       if (!registerResponse.ok) {
         const errorData = await registerResponse.json();
-        throw new Error(errorData.message || 'Registration failed');
+        alert('Registration failed: ' + (errorData.message || 'Registration failed'));
+        window.location.reload();
+        // throw new Error(errorData.message || 'Registration failed');
       }
 
       const registerData = await registerResponse.json();
       console.log('✅ Registration response from server:', registerData);
 
       if (!registerData.success) {
-        throw new Error(registerData.message || 'Registration failed');
+        alert('Registration failed: ' + registerData.message );
+        window.location.reload();
+        // throw new Error(registerData.message || 'Registration failed');
       }
 
       // Store user data and token from server response
