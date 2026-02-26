@@ -42,6 +42,8 @@ const Auth = ({ isLogin, onLoginSuccess }) => {
   const [birthday, setBirthday] = useState('');
   const [captchaPassed, setCaptchaPassed] = useState(false);
   const [captchaFailed, setCaptchaFailed] = useState(false);
+  const [authError, setAuthError] = useState('');
+  const [loginStep, setLoginStep] = useState(1); // 1: credentials, 2: CAPTCHA
   const [blockTime, setBlockTime] = useState(null);
   const [remainingTime, setRemainingTime] = useState(null);
   const [showCaptcha, setShowCaptcha] = useState(false);
@@ -206,6 +208,7 @@ const Auth = ({ isLogin, onLoginSuccess }) => {
 
 
       console.log('✅ Login successful for:', user.username);
+      setLoginStep(2); // Move to CAPTCHA step after successful login
 
       // Clear failed CAPTCHA attempts on success
       localStorage.removeItem('failedCaptcha');
@@ -253,18 +256,20 @@ const Auth = ({ isLogin, onLoginSuccess }) => {
 
       if (!registerResponse.ok) {
         const errorData = await registerResponse.json();
-        alert('Registration failed: ' + (errorData.message || 'Registration failed'));
-        window.location.reload();
-        // throw new Error(errorData.message || 'Registration failed');
+        setAuthError(errorData.message || 'Registration failed. Please try again.');
+        setShowCaptcha(false);
+        setCaptchaPassed(false);
+        return;
       }
 
       const registerData = await registerResponse.json();
       console.log('✅ Registration response from server:', registerData);
 
       if (!registerData.success) {
-        alert('Registration failed: ' + registerData.message );
-        window.location.reload();
-        // throw new Error(registerData.message || 'Registration failed');
+        setAuthError(registerData.message || 'Registration failed. Please try again.');
+        setShowCaptcha(false);
+        setCaptchaPassed(false);
+        return;
       }
 
       // Store user data and token from server response
@@ -276,6 +281,7 @@ const Auth = ({ isLogin, onLoginSuccess }) => {
       localStorage.setItem('unlockedKeys', JSON.stringify([])); // Initialize unlocked keys storage
 
       console.log('✅ Registration successful for:', user.username);
+      setLoginStep(2); // Move to CAPTCHA step after successful registration
 
       // Submit device fingerprint to backend after registration
       console.log('🔐 Submitting device fingerprint...');
@@ -442,9 +448,17 @@ const Auth = ({ isLogin, onLoginSuccess }) => {
         />
         <CardContent>
 
-          {!showCaptcha && (
-            <>
-              <form onSubmit={handleSubmit}>
+          {authError && (
+            <Box sx={{ mb: 2, p: 1.5, bgcolor: 'error.dark', borderRadius: 1 }}>
+              <Typography variant="body2" color="white">
+                ⚠️ {authError}
+              </Typography>
+            </Box>
+          )}
+          {loginStep === 1 && ( //enter credentials step
+            
+          <>
+            <form onSubmit={handleSubmit}>
                 {!isLogin && (
                   <div>
 
@@ -576,9 +590,11 @@ const Auth = ({ isLogin, onLoginSuccess }) => {
                 )}
               </Box>
             </>
+            // <Box sx={{ mb: 2 }}>
+            //   <CaptchaComponent onVerify={() => setCaptchaPassed(true)} />
+            // </Box>
           )}
-
-          {/* Show CAPTCHA only after submit is clicked and showCaptcha is true */}
+          {/* Show CAPTCHA below the form after submit is clicked */}
           {showCaptcha && !captchaPassed && (
 
             <>
