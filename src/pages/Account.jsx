@@ -516,51 +516,112 @@ const AccountPage = () => {
             </Box>
           </Paper>
 
-          
+
         </Grid>
       </Grid>
 
-{/* Delete Account */}
-          <Paper sx={{
-            mt: 3,
-            p: 3,
-            backgroundColor: '#1a1a1a',
-            border: '1px solid #333',
-            borderRadius: 2,
-            boxShadow: '0 4px 12px rgba(0, 0, 0, 0.3)'
-          }}>
-            <Box sx={{ mt: 4 }}>
-              <Typography
-                variant="h5"
+      <>
+        {/* Verify Account */}
+        <Paper sx={{
+          mt: 3,
+          p: 3,
+          backgroundColor: '#1a1a1a',
+          border: '1px solid #333',
+          borderRadius: 2,
+          boxShadow: '0 4px 12px rgba(0, 0, 0, 0.3)'
+        }}>
+          <Box sx={{ mt: 4 }}>
+            <Typography
+              variant="h5"
+              sx={{
+                mb: 2,
+                fontWeight: 700,
+                color: '#36f44f',
+                textAlign: 'center'
+              }}
+            >
+              Verify
+            </Typography>
+            <Box sx={{ textAlign: 'center', gap: 2, display: 'flex', justifyContent: 'center' }}>
+              <Button
+                variant="contained"
+                color="success"
+                onClick={() => navigate('/verify-account')}
                 sx={{
-                  mb: 2,
                   fontWeight: 700,
-                  color: '#f44336',
-                  textAlign: 'center'
+                  px: 4,
+                  py: 1.5,
+                  '&:hover': {
+                    backgroundColor: '#e5b035'
+                  }
                 }}
               >
-                Danger Zone
-              </Typography>
-              <Box sx={{ textAlign: 'center' }}>
+                Verify Account
+              </Button>
+
                 <Button
                   variant="contained"
-                  color="error"
-                  onClick={() => navigate('/delete-account')}
+                  color="info"
+                  onClick={() => navigate('/verify-email')}
                   sx={{
                     fontWeight: 700,
                     px: 4,
                     py: 1.5,
                     '&:hover': {
-                      backgroundColor: '#e53935'
+                      backgroundColor: '#61e535'
                     }
                   }}
                 >
-                  Delete Account
+                  Email Address
                 </Button>
-              </Box>
+            
             </Box>
+          </Box>
+        </Paper>
 
-          </Paper>
+      </>
+
+      {/* Delete Account */}
+      <Paper sx={{
+        mt: 3,
+        p: 3,
+        backgroundColor: '#1a1a1a',
+        border: '1px solid #333',
+        borderRadius: 2,
+        boxShadow: '0 4px 12px rgba(0, 0, 0, 0.3)'
+      }}>
+        <Box sx={{ mt: 4 }}>
+          <Typography
+            variant="h5"
+            sx={{
+              mb: 2,
+              fontWeight: 700,
+              color: '#f44336',
+              textAlign: 'center'
+            }}
+          >
+            Danger Zone
+          </Typography>
+          <Box sx={{ textAlign: 'center' }}>
+            <Button
+              variant="contained"
+              color="error"
+              onClick={() => navigate('/delete-account')}
+              sx={{
+                fontWeight: 700,
+                px: 4,
+                py: 1.5,
+                '&:hover': {
+                  backgroundColor: '#e53935'
+                }
+              }}
+            >
+              Delete Account
+            </Button>
+          </Box>
+        </Box>
+
+      </Paper>
 
       {/* Device Fingerprint Section */}
       <Box sx={{ mt: 3 }}>

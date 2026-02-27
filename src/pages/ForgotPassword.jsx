@@ -25,13 +25,11 @@ const ForgotPassword = () => {
   const navigate = useNavigate();
 
   const validateEmail = (email) => {
-    return email.includes('@') && 
-           email.includes('.') && 
-           email.indexOf('.') > email.indexOf('@') && 
-           !email.startsWith('@') && 
-           !email.endsWith('@') && 
-           !email.startsWith('.') && 
-           !email.endsWith('.');
+    const atIndex = email.indexOf('@');
+    return atIndex > 0 &&                          // '@' exists and isn't the first char
+           email.lastIndexOf('.') > atIndex &&     // a dot exists somewhere after '@'
+           !email.endsWith('.') &&                 // doesn't end with a dot
+           !email.endsWith('@');                   // doesn't end with '@'
   };
 
   const handleSubmit = async (e) => {

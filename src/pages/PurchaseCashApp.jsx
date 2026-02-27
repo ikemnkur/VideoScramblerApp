@@ -332,6 +332,25 @@ export default function Purchase() {
     }));
   };
 
+  const validateEmail = (email) => {
+    // Standard email validation that allows dots in the local part (e.g., user.name@domain.com)
+    const atIndex = email.indexOf('@');
+    
+    // Must have exactly one @, not at start or end
+    if (atIndex === -1 || atIndex === 0 || email.endsWith('@')) return false;
+    
+    const localPart = email.substring(0, atIndex);
+    const domain = email.substring(atIndex + 1);
+    
+    // Local part: not empty, doesn't start/end with dot
+    if (!localPart || localPart.startsWith('.') || localPart.endsWith('.')) return false;
+    
+    // Domain: must have at least one dot, doesn't start/end with dot
+    if (!domain.includes('.') || domain.startsWith('.') || domain.endsWith('.')) return false;
+    
+    return true;
+  };
+
   const handleOrderSubmit = async (e) => {
     e.preventDefault();
 
@@ -345,8 +364,7 @@ export default function Purchase() {
     }
 
     // Validate email format
-    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    if (!emailRegex.test(userDetails.email)) {
+    if (!validateEmail(userDetails.email)) {
       setErrorMessage('Please enter a valid email address.');
       return;
     }

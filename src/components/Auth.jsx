@@ -354,6 +354,33 @@ const Auth = ({ isLogin, onLoginSuccess }) => {
     }
   }, []);
 
+  // const validateEmail = (email) => {
+  //   // Standard email validation that allows dots in the local part (e.g., user.name@domain.com)
+  //   const atIndex = email.indexOf('@');
+    
+  //   // Must have exactly one @, not at start or end
+  //   if (atIndex === -1 || atIndex === 0 || email.endsWith('@')) return false;
+    
+  //   const localPart = email.substring(0, atIndex);
+  //   const domain = email.substring(atIndex + 1);
+    
+  //   // Local part: not empty, doesn't start/end with dot
+  //   if (!localPart || localPart.startsWith('.') || localPart.endsWith('.')) return false;
+    
+  //   // Domain: must have at least one dot, doesn't start/end with dot
+  //   if (!domain.includes('.') || domain.startsWith('.') || domain.endsWith('.')) return false;
+    
+  //   return true;
+  // };
+
+  const validateEmail = (email) => {
+    const atIndex = email.indexOf('@');
+    return atIndex > 0 &&                          // '@' exists and isn't the first char
+           email.lastIndexOf('.') > atIndex &&     // a dot exists somewhere after '@'
+           !email.endsWith('.') &&                 // doesn't end with a dot
+           !email.endsWith('@');                   // doesn't end with '@'
+  };
+  
   // Function to handle form submission
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -361,7 +388,7 @@ const Auth = ({ isLogin, onLoginSuccess }) => {
     // If CAPTCHA has not been shown yet
     if (!showCaptcha) {
       // Check if required fields are filled
-      if (email.includes('@') === false || email.includes('.') === false || email.indexOf('.') < email.indexOf('@') || email.startsWith('@') || email.endsWith('@') || email.startsWith('.') || email.endsWith('.')) {
+      if (!validateEmail(email)) {
         alert('Please enter a valid email address.');
         return;
       }
