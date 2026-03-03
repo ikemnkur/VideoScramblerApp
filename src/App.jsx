@@ -50,7 +50,7 @@ import AudioUnscrambler from './pages/AudioUnscrambler';
 import AudioUnscramblerPro from './pages/AudioUnscramblerPro';
 import AudioTagging from './pages/AudioTagging';
 import AudioWatermarkEncoder from './pages/AudioWatermarkEncoder';
-import AudioWatermarkDetector from './pages/AudioWatermarkDetector';
+// import AudioWatermarkDetector from './pages/AudioWatermarkDetector';
 import AudioWatermarkDetectorGoertzel from './pages/AudioWatermarkDetectorGoertzel';
 import TestSpellOutUsername from './pages/TestSpellOutUsername';
 
@@ -331,8 +331,8 @@ export default function App() {
                     
                     {/* Audio Watermarking */}
                     <Route path="/audio-watermark-encoder" element={<AudioWatermarkEncoder />} />
-                    <Route path="/audio-watermark-detector" element={<AudioWatermarkDetector />} />
-                    <Route path="/audio-watermark-detector-goertzel" element={<AudioWatermarkDetectorGoertzel />} />
+                    {/* <Route path="/audio-watermark-detector" element={<AudioWatermarkDetector />} /> */}
+                    <Route path="/audio-watermark-detector" element={<AudioWatermarkDetectorGoertzel />} />
                     <Route path="/test-spell-username" element={<TestSpellOutUsername />} />
                   </>
                 ) : null}

@@ -69,7 +69,7 @@ const AutoLogoutHandler = () => {
 
     // function onLogout(){
     const onLogout = () => {
-        // display logout message
+        // display logout message and redirect to login page after 1 second
         // alert("You have been logged out due to inactivity.");
         setSnackbarMessage("You have been logged out due to inactivity.");
         setOpenSnackbar(true);
@@ -77,6 +77,7 @@ const AutoLogoutHandler = () => {
             setOpenSnackbar(false);
             // clear token and redirect to login
             localStorage.removeItem('token');
+            localStorage.setItem('reloaded_', 'false');
             navigate('/login');
         }, 1000);
     }

@@ -298,6 +298,28 @@ export default function PhotoScramblerPro() {
 
 
     // =============================
+    // PNG CONVERSION HELPER
+    // =============================
+    const convertToPng = (file) => new Promise((resolve, reject) => {
+        const img = new Image();
+        const objectUrl = URL.createObjectURL(file);
+        img.onload = () => {
+            const canvas = document.createElement('canvas');
+            canvas.width = img.naturalWidth;
+            canvas.height = img.naturalHeight;
+            canvas.getContext('2d').drawImage(img, 0, 0);
+            URL.revokeObjectURL(objectUrl);
+            canvas.toBlob((blob) => {
+                if (!blob) return reject(new Error('PNG conversion failed'));
+                const pngName = file.name.replace(/\.[^/.]+$/, '') + '.png';
+                resolve(new File([blob], pngName, { type: 'image/png' }));
+            }, 'image/png');
+        };
+        img.onerror = () => { URL.revokeObjectURL(objectUrl); reject(new Error('Failed to load image for conversion')); };
+        img.src = objectUrl;
+    });
+
+    // =============================
     // FILE HANDLING
     // =============================
     const handleFileSelect = (event) => {
@@ -421,9 +443,10 @@ export default function PhotoScramblerPro() {
                     break;
             }
 
-            // Create FormData with file and parameters
+            // Convert to PNG before sending, then build FormData
+            const pngFile = await convertToPng(selectedFile);
             const formData = new FormData();
-            formData.append('file', selectedFile);
+            formData.append('file', pngFile);
             formData.append('params', JSON.stringify(params));
 
 
@@ -627,7 +650,7 @@ export default function PhotoScramblerPro() {
             <Box sx={{ mb: 4, textAlign: 'center' }}>
                 <Typography variant="h3" color="primary.main" sx={{ mb: 2, fontWeight: 'bold', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 1 }}>
                     <AutoAwesome />
-                    🚀 Pro Photo Scrambler
+                    🚀 Photo Scrambler Pro
                 </Typography>
                 <Typography variant="h6" color="text.secondary" sx={{ mb: 2 }}>
                     Advanced server-side scrambling with multiple algorithms

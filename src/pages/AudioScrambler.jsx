@@ -67,8 +67,8 @@ export default function AudioScrambler() {
   const [scramblingParameters, setScramblingParameters] = useState(null);
   const [loadedKeyData, setLoadedKeyData] = useState(null);
 
-  const [shuffleSeed, setShuffleSeed] = useState('12345');
-  const [noiseSeed, setNoiseSeed] = useState('54321');
+  const [shuffleSeed, setShuffleSeed] = useState(Math.floor(Math.random() * 100000).toString());
+  const [noiseSeed, setNoiseSeed] = useState(Math.floor(Math.random() * 100000).toString());
   const [segmentSize, setSegmentSize] = useState('2');
   const [padding, setPadding] = useState('0.5');
   const [noiseLevel, setNoiseLevel] = useState('0.3');
@@ -649,7 +649,7 @@ export default function AudioScrambler() {
           level: noiseLevel_,
           multiFrequency: true
         },
-        user: {
+        creator: {
           username: userData.username || 'Anonymous',
           userId: userData.userId || 'Unknown',
           timestamp: new Date().toISOString()

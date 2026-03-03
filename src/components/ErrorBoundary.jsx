@@ -1,4 +1,5 @@
 import React from 'react';
+import { useEffect } from 'react';
 import { Container, Typography, Button, Box, Paper, Alert } from '@mui/material';
 import { Error as ErrorIcon, Refresh } from '@mui/icons-material';
 
@@ -40,9 +41,38 @@ class ErrorBoundary extends React.Component {
     window.location.reload();
   };
 
+
+  hasError() {
+    useEffect(() => {
+      // Reset error state when the component mounts
+
+      if ((localStorage.getItem('reloaded_') === 'false')) {
+        localStorage.setItem('reloaded_', 'true');
+        window.location.reload();
+      }
+      if ((localStorage.getItem('reloaded_') === null)) {
+        localStorage.setItem('reloaded_', 'false');
+      }
+
+      // return () => {
+      //   this.setState({
+      //     hasError: false,
+      //     error: null,
+      //     errorInfo: null
+      //   });
+      // };
+    }, []);
+  }
+
+
   render() {
+
+
+
     if (this.state.hasError) {
       // Fallback UI
+
+
       return (
         <Container sx={{ py: 8 }}>
           <Paper
@@ -86,7 +116,7 @@ class ErrorBoundary extends React.Component {
                 Reload Page
               </Button>
 
-           
+
               <Button
                 variant="outlined"
                 onClick={() => window.location.href = '/'}

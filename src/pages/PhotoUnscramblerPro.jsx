@@ -220,8 +220,11 @@ export default function PhotoUnscramblerPro() {
     const [unscrambledFilename, setUnscrambledFilename] = useState('');
     const [keyCode, setKeyCode] = useState('');
     const [decodedKey, setDecodedKey] = useState(null);
+    const [referencedKeyData, setReferencedKeyData] = useState(null); // Store key data from loaded key file for analytics reference
     const [keyValid, setKeyValid] = useState(false);
     const [previewUrl, setPreviewUrl] = useState('');
+
+    const watermark_idNumber = Math.floor(Math.random() * 1e4); // Random ID for this session's watermark
 
     const [imageFile, setImageFile] = useState(null);
 
@@ -508,6 +511,7 @@ export default function PhotoUnscramblerPro() {
             success("Key decoded successfully!");
 
             console.log("Decoded key:", keyData);
+            setReferencedKeyData(keyData); // Store the key data for analytics reference
         } catch (err) {
             console.error("Key decode error:", err);
             error("Invalid key format. Please check your key and try again.");
@@ -617,6 +621,32 @@ export default function PhotoUnscramblerPro() {
                 success("Image unscrambled successfully!");
 
                 // SHOW MESSAGE DIALOG SAYTHING THAT THE USER HAS SPENT CREDITS TO CHECK THE IMAGE
+
+                // log succesful media unscramble event to analytics
+                api.post('/api/analytics/unscramble-event', {
+                    username: userData.username,
+                    userId: userData.id,
+                    creator: referencedKeyData?.creator || 'unknown',
+                    scrambleType: 'photo',
+                    scrambleLevel: scrambleLevel,
+                    timestamp: new Date().toISOString(),
+                    actionCost: actionCost,
+                    keyId: referencedKeyData?.keyId || 'unknown',
+                    unscrambleKey: referencedKeyData ? JSON.stringify(referencedKeyData) : null,
+                    mediaDetails: {
+                        name: selectedFile?.name || 'unknown',
+                        size: selectedFile?.size || 0,
+                        dimensions: referencedKeyData?.metadata?.dimensions || { width: 0, height: 0 },
+                        width: imageRef.current?.naturalWidth || 0,
+                        height: imageRef.current?.naturalHeight || 0
+                    },
+                    watermarkParams: {
+                        watermark_idNumber: watermark_idNumber,
+                    }
+                }).catch(err => {
+                    console.error('Failed to log analytics event:', err);
+
+                });
 
 
             } catch (error) {
@@ -789,7 +819,7 @@ export default function PhotoUnscramblerPro() {
             <Box sx={{ mb: 4, textAlign: 'center' }}>
                 <Typography variant="h3" color="primary.main" sx={{ mb: 2, fontWeight: 'bold', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 1 }}>
                     {/* <LockOpen /> */}
-                    🔓 Pro Photo Unscrambler
+                    🔓 Photo Unscrambler Pro
                 </Typography>
                 <Typography variant="h6" color="text.secondary" sx={{ mb: 2 }}>
                     Restore scrambled images using your unscramble key

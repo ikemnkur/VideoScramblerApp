@@ -264,20 +264,20 @@ export default function PhotoScrambler() {
 
     // Try different grid sizes (prefer powers of 2 and common factors)
     const candidateSizes = [4, 6, 8, 10, 12, 16, 20];
-    
+
     for (const rows of candidateSizes) {
       for (const cols of candidateSizes) {
         const tileHeight = height / rows;
         const tileWidth = width / cols;
         const tileRatio = tileWidth / tileHeight;
-        
+
         // How close is the tile ratio to 1:1 (square)?
         const diff = Math.abs(tileRatio - 1);
-        
+
         // Also prefer larger tiles (fewer, bigger tiles)
         const avgTileSize = (tileWidth + tileHeight) / 2;
         const penalty = avgTileSize < 20 ? 0.5 : 0; // Penalize tiny tiles
-        
+
         if (diff + penalty < bestDiff) {
           bestDiff = diff + penalty;
           bestRows = rows;
@@ -295,7 +295,7 @@ export default function PhotoScrambler() {
       setGrid({ n: result.rows, m: result.cols });
       setScrambleLevel(Math.max(result.rows, result.cols));
       setSelectedLevel('custom');
-      
+
       const image = imageRef.current;
       const tileW = Math.floor(image.naturalWidth / result.cols);
       const tileH = Math.floor(image.naturalHeight / result.rows);
@@ -670,7 +670,10 @@ export default function PhotoScrambler() {
 
           // Show success message
           success(`Image scrambled successfully! ${actualCostSpent} credits used.`);
+
+    
         }, 100);
+
       } catch (err) {
         console.error('Scrambling error:', err);
         error('Failed to scramble image: ' + err.message);
@@ -1099,7 +1102,7 @@ export default function PhotoScrambler() {
               variant="contained"
               // onClick={onGenerate}
               onClick={confirmSpendingCredits}
-            
+
               startIcon={<Shuffle />}
               disabled={!imageLoaded}
               sx={{

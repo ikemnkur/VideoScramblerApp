@@ -15,7 +15,7 @@ const token = localStorage.getItem('token');
     localStorage.removeItem('token');
     localStorage.removeItem('userdata');
     localStorage.removeItem('accountType');
-    localStorage.removeItem('unlockedKeys'); // Clear unlocked keys on logout
+    localStorage.setItem('reloaded_', 'false'); 
     // navigate('/login'); // Redirect to login page
     window.location.href = '/login'; // Reload to update NavBar
   }

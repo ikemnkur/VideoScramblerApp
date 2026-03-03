@@ -58,12 +58,14 @@ export default function VideoUnscramblerPro() {
   const [selectedFile, setSelectedFile] = useState(null);
   const [videoLoaded, setVideoLoaded] = useState(false);
   const [keyCode, setKeyCode] = useState('');
+  const [referencedKeyData, setreferencedKeyData] = useState(null); // Store key data from loaded key file for analytics reference
   const [decodedParams, setDecodedParams] = useState(null);
   // const [unscrambledFilename, setScrambledFilename] = useState('');
   const [unscrambledFilename, setUnscrambledFilename] = useState('');
   const [isProcessing, setIsProcessing] = useState(false);
   const [unscrambledReady, setUnscrambledReady] = useState(false);
   const [scrambleLevel, setScrambleLevel] = useState(1); // Level of scrambling (for credit calculation)
+  const watermark_idNumber = useRef(Math.ceil(2**16 * Math.random())); // Random ID for watermark (for analytics)
 
   const [userData, setUserData] = useState(JSON.parse(localStorage.getItem("userdata")));
   const [allowUnscrambling, setAllowUnscrambling] = useState(false);
@@ -124,6 +126,7 @@ export default function VideoUnscramblerPro() {
       }
 
       setDecodedKey(keyData);
+      setreferencedKeyData(keyData); // Store the key data for analytics reference
 
 
       // setCreatorInfo({
@@ -385,6 +388,33 @@ export default function VideoUnscramblerPro() {
         loadUnscrambledVideo();
 
         success("Video unscrambled successfully!");
+
+        // log succesful media unscramble event to analytics
+        api.post('/api/analytics/unscramble-event', {
+          username: userData.username,
+          userId: userData.id,
+           creator: referencedKeyData?.creator || 'unknown',
+        scrambleType: 'video',
+        scrambleLevel: scrambleLevel,
+        timestamp: new Date().toISOString(),
+        actionCost: actionCost,
+        keyId: referencedKeyData?.keyId || 'unknown',
+        unscrambleKey: referencedKeyData ? JSON.stringify(referencedKeyData) : null,
+          mediaDetails: {
+            name: selectedFile?.name || 'unknown',
+            size: selectedFile?.size || 0,
+            // dimensions: keyData.metadata?.dimensions || { width: 0, height: 0 },
+            duration: keyData.metadata?.duration || 0,
+            width: videoRef.current?.videoWidth || 0,
+            height: videoRef.current?.videoHeight || 0
+          },
+          watermarkParams: {
+            watermark_idNumber: watermark_idNumber,
+          }
+        }).catch(err => {
+          console.error('Failed to log analytics event:', err);
+
+        });
 
       } catch (e) {
         error("Unscrambling failed: " + e.message);

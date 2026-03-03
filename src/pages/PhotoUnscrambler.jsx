@@ -86,6 +86,7 @@ export default function PhotoUnscrambler() {
   const [actionCost, setActionCost] = useState(5); // Cost per unscramble action
   const [scrambleLevel, setScrambleLevel] = useState(6); // Grid size for credit calculation
 
+  const [referencedKeyData, setReferencedKeyData] = useState(null); // Store key data from loaded key file for analytics reference
 
   // ========== UTILITY FUNCTIONS ==========
 
@@ -227,6 +228,8 @@ export default function PhotoUnscrambler() {
         error('Use the ' + keyData.version + ' ' + keyData.type + ' scrambler to unscramble this file.');
         alert('The loaded key file will not work with this scrambler version, you must use the ' + keyData.version + ' ' + keyData.type + ' scrambler to unscramble this file.');
       }
+
+      setReferencedKeyData(keyData); // Store the key data for analytics reference
     } catch (err) {
       console.error("Error loading key:", err);
       error('Invalid or corrupted key file. Please check the file format.');
@@ -532,19 +535,25 @@ export default function PhotoUnscrambler() {
     api.post('/api/analytics/unscramble-event', {
       username: userData.username,
       userId: userData.id,
-      creator: decodedParams?.creator || 'unknown',
+      creator: referencedKeyData?.creator || 'unknown',
       scrambleType: 'photo',
       scrambleLevel: scrambleLevel,
       timestamp: new Date().toISOString(),
       actionCost: actionCost,
-      keyId: decodedParams?.keyId || 'unknown',
-      unscrambleKey: decodedParams ? JSON.stringify(decodedParams) : null,
+      keyId: referencedKeyData?.keyId || 'unknown',
+      unscrambleKey: referencedKeyData ? JSON.stringify(referencedKeyData) : null,
       mediaDetails: {
         name: selectedFile?.name || 'unknown',
         size: selectedFile?.size || 0,
         width: scrambledImageRef.current?.naturalWidth || 0,
         height: scrambledImageRef.current?.naturalHeight || 0
+      },
+      watermarkParams: {
+        // freq1, freq2, freq3, pulseRate1: 0.125, pulseRate2: 0.25, pulseRate3: 0.5
+        id:Math.ceil(1000 * Math.random())
+          // Placeholder for actual watermark parameters if needed
       }
+      
     }).catch(err => {
       console.error('Failed to log analytics event:', err); 
 
@@ -592,7 +601,7 @@ export default function PhotoUnscrambler() {
       <Box sx={{ mb: 4, textAlign: 'center' }}>
         <Typography variant="h3" color="primary.main" sx={{ mb: 2, fontWeight: 'bold', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 1 }}>
           <ImageIcon />
-          🖼️ Photo Unscrambler
+          🖼️ Photo Unscrambler Lite
         </Typography>
         <Typography variant="h6" color="text.secondary" sx={{ mb: 2 }}>
           Upload a scrambled photo, enter the key code, and restore the original image.

@@ -85,6 +85,7 @@ export default function VideoUnscrambler() {
   const [userCredits, setUserCredits] = useState(0); // Mock credits, replace with actual user data
   const [actionCost, setActionCost] = useState(15);
   const [scrambleLevel, setScrambleLevel] = useState(1);
+  const [referencedKeyData, setReferencedKeyData] = useState(null); // Store key data from loaded key file for analytics reference
 
   // Rectangles for unscrambling
   const [rectsDest, setRectsDest] = useState([]);
@@ -217,6 +218,7 @@ export default function VideoUnscrambler() {
         const keyData = decryptKeyData(text);
         // Set the decoded parameters directly
         setDecodedParams(keyData);
+        setreferencedKeyData(keyData); // Store the key data for analytics reference
         console.log("Decoded Parameters from key file:", keyData);
         setKeyCode(text); // Store the encrypted key in the text box
         success('🔑 Key file loaded and decoded successfully!');
@@ -275,6 +277,8 @@ export default function VideoUnscrambler() {
 
       setDecodedParams(keyData);
       localStorage.setItem('decodedParams', keyCode);
+      setReferencedKeyData(keyData); // Store the key data for analytics reference
+
       success('Key code decoded successfully!');
       console.log("Decoded Parameters from key code entry:", keyData);
     } catch (e) {
@@ -346,6 +350,35 @@ export default function VideoUnscrambler() {
 
       unscrambleCanvasRef.current.height = video.videoHeight;
       unscrambleCanvasRef.current.width = video.videoWidth;
+
+      success('Video unscrambled successfully!');
+
+
+      // log succesful media unscramble event to analytics
+      api.post('/api/analytics/unscramble-event', {
+        username: userData.username,
+        userId: userData.id,
+        creator: referencedKeyData?.creator || 'unknown',
+        scrambleType: 'video',
+        scrambleLevel: scrambleLevel,
+        timestamp: new Date().toISOString(),
+        actionCost: actionCost,
+        keyId: referencedKeyData?.keyId || 'unknown',
+        unscrambleKey: referencedKeyData ? JSON.stringify(referencedKeyData) : null,
+        mediaDetails: {
+          name: selectedFile?.name || 'unknown',
+          size: selectedFile?.size || 0,
+          dimensions: referencedKeyData?.metadata?.dimensions || { width: 0, height: 0 },
+          width: shufVideoRef.current?.videoWidth || 0,
+          height: shufVideoRef.current?.videoHeight || 0
+        },
+        watermarkParams: {
+          watermark_idNumber: watermark_idNumber,
+        }
+      }).catch(err => {
+        console.error('Failed to log analytics event:', err);
+
+      });
 
       // if (!permDestToSrc0 || permDestToSrc0.length !== n * m) {
       // fecth from localStorage as fallback
@@ -646,7 +679,7 @@ export default function VideoUnscrambler() {
       <Box sx={{ mb: 4, textAlign: 'center' }}>
         <Typography variant="h3" color="primary.main" sx={{ mb: 2, fontWeight: 'bold', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 1 }}>
           {/* <LockOpen /> */}
-          🔓 Video Unscrambler
+          🔓 Video Unscrambler Lite
         </Typography>
         <Typography variant="h6" color="text.secondary" sx={{ mb: 2 }}>
           Restore scrambled videos using your unscramble key

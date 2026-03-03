@@ -64,6 +64,7 @@ export default function VideoUnscramblerPro() {
   const [isProcessing, setIsProcessing] = useState(false);
   const [unscrambledReady, setUnscrambledReady] = useState(false);
   const [scrambleLevel, setScrambleLevel] = useState(1); // Level of scrambling (for credit calculation)
+  const watermark_idNumber = useRef(Math.ceil(2**16 * Math.random())); // Random ID for watermark (for analytics)
 
   const [userData, setUserData] = useState(JSON.parse(localStorage.getItem("userdata")));
   const [allowUnscrambling, setAllowUnscrambling] = useState(false);
@@ -88,7 +89,7 @@ export default function VideoUnscramblerPro() {
       height: 1080
     },
     duration: 120,
-   
+
   });
 
 
@@ -124,6 +125,8 @@ export default function VideoUnscramblerPro() {
       }
 
       setDecodedKey(keyData);
+      setreferencedKeyData(keyData); // Store the key data for analytics reference
+      setDecodedParams(keyData);
       setKeyValid(true);
       success("Key decoded successfully!");
 
@@ -162,7 +165,7 @@ export default function VideoUnscramblerPro() {
           fileType: keyData.metadata?.fileType || '',
           dimensions: keyData.metadata?.dimensions || { width: 0, height: 0 },
           duration: keyData.metadata?.duration || 0,
-          fps: keyData.metadata?.fps || 0 
+          fps: keyData.metadata?.fps || 0
         });
 
         setKeyCode(text); // Store the encrypted key in the text box
@@ -306,7 +309,7 @@ export default function VideoUnscramblerPro() {
         output: `unscrambled_${selectedFile.name}`
       }));
 
-        const params = {
+      const params = {
         // ...decodedParams,
         input: selectedFile.name,
         output: `unscrambled_${selectedFile.name}`,
@@ -319,20 +322,20 @@ export default function VideoUnscramblerPro() {
         max_hue_shift: decodedParams.maxHueShift,
         max_intensity_shift: decodedParams.maxIntensityShift,
 
-    
+
         creator: {
           username: decodedParams.creator.username || 'Anonymous',
           userId: decodedParams.creator.userId || 'Unknown',
           timestamp: decodedParams.creator.timestamp || new Date().toISOString()
         },
-        
+
         metadata: decodedParams.metadata || {},
 
         user_id: userData.id,
         username: userData.username,
         type: "video",
         version: "premium",
-       
+
       };
 
 
@@ -383,6 +386,33 @@ export default function VideoUnscramblerPro() {
         loadUnscrambledVideo();
 
         success("Video unscrambled successfully!");
+
+        // log succesful media unscramble event to analytics
+        api.post('/api/analytics/unscramble-event', {
+          username: userData.username,
+          userId: userData.id,
+           creator: referencedKeyData?.creator || 'unknown',
+        scrambleType: 'video',
+        scrambleLevel: scrambleLevel,
+        timestamp: new Date().toISOString(),
+        actionCost: actionCost,
+        keyId: referencedKeyData?.keyId || 'unknown',
+        unscrambleKey: referencedKeyData ? JSON.stringify(referencedKeyData) : null,
+          mediaDetails: {
+            name: selectedFile?.name || 'unknown',
+            size: selectedFile?.size || 0,
+            // dimensions: keyData.metadata?.dimensions || { width: 0, height: 0 },
+            duration: decodedParams.metadata?.duration || 0,
+            width: videoRef.current?.videoWidth || 0,
+            height: videoRef.current?.videoHeight || 0
+          },
+          watermarkParams: {
+            watermark_idNumber: watermark_idNumber,
+          }
+        }).catch(err => {
+          console.error('Failed to log analytics event:', err);
+
+        });
 
       } catch (e) {
         error("Unscrambling failed: " + e.message);
@@ -465,7 +495,7 @@ export default function VideoUnscramblerPro() {
 
     // Now you have access to the actual cost that was calculated and spent
     setActionCost(localStorage.getItem('lastActionCost') || actionCost);
-    
+
     // Use setTimeout to ensure state update completes before scrambling
     setTimeout(() => {
       unscrambleVideo();

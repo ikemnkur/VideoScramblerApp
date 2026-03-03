@@ -313,7 +313,7 @@ export default function MainPage() {
                                     }
                                 }}
                                 onClick={() => handleModeChange('free')}>
-                                Free
+                                Lite
                             </Button>
                             <Button
                                 variant={serviceMode === 'basic' ? 'contained' : 'outlined'}
@@ -384,7 +384,7 @@ export default function MainPage() {
                                     onClick={() => navigate("/photo-scrambler")}>
                                     <CardContent sx={{ p: 2 }}>
                                         <Typography variant="h6" sx={{ color: '#2e7d32ff', mb: 1, fontWeight: 'bold' }}>
-                                            🔐📸 Scramble Photo
+                                            🔐📸 Scramble Photo Lite
                                         </Typography>
                                         <Typography variant="body2" sx={{ color: '#ccc', lineHeight: 1.4 }}>
                                             Protect your images by scrambling them with watermarks and metadata headers for secure sharing.
@@ -393,7 +393,7 @@ export default function MainPage() {
                                 </Card>
                             )}
 
-                             {/* Free Unscramble Photo Service */}
+                            {/* Free Unscramble Photo Service */}
                             {(hasAccessToTier('free') && serviceMode === 'free') && (
                                 <Card sx={{
                                     backgroundColor: '#2a2a2a',
@@ -410,7 +410,7 @@ export default function MainPage() {
                                     onClick={() => navigate("/photo-unscrambler")}>
                                     <CardContent sx={{ p: 2 }}>
                                         <Typography variant="h6" sx={{ color: '#ff9800', mb: 1, fontWeight: 'bold' }}>
-                                            🖼️ Unscramble Photo
+                                            🖼️ Unscramble Photo Lite
                                         </Typography>
                                         <Typography variant="body2" sx={{ color: '#ccc', lineHeight: 1.4 }}>
                                             Restore scrambled images using unscramble keys. View protected photos in their original form.
@@ -419,16 +419,16 @@ export default function MainPage() {
                                 </Card>
                             )}
 
-                          
+
 
                             {(hasAccessToTier('free') && serviceMode === 'free') && (
                                 <Divider sx={{ my: 0, borderColor: '#444', gridColumn: '1 / -1' }} />
                             )}
 
-                          
-                           
 
-                              {/* Free Scramble Video Service */}
+
+
+                            {/* Free Scramble Video Service */}
                             {(hasAccessToTier('free') && serviceMode === 'free') && (
                                 <Card sx={{
                                     backgroundColor: '#2a2a2a',
@@ -445,16 +445,16 @@ export default function MainPage() {
                                     onClick={() => navigate("/video-scrambler")}>
                                     <CardContent sx={{ p: 2 }}>
                                         <Typography variant="h6" sx={{ color: '#2e7d32', mb: 1, fontWeight: 'bold' }}>
-                                            🔐🎬 Scramble Video
+                                            🔐🎬 Scramble Video Lite
                                         </Typography>
                                         <Typography variant="body2" sx={{ color: '#ccc', lineHeight: 1.4 }}>
-                                            Upload and scramble videos into unrecognizable tiles. Generate keys to monetize access to your content.
+                                            Upload and scramble videos into unrecognizable tiles. Generate keys to monetize access to your content. Fast Processing.
                                         </Typography>
                                     </CardContent>
                                 </Card>
                             )}
 
-                              {/* Free Unscramble Video Service */}
+                            {/* Free Unscramble Video Service */}
                             {(hasAccessToTier('free') && serviceMode === 'free') && (
                                 <Card sx={{
                                     backgroundColor: '#2a2a2a',
@@ -471,10 +471,10 @@ export default function MainPage() {
                                     onClick={() => navigate("/video-unscrambler")}>
                                     <CardContent sx={{ p: 2 }}>
                                         <Typography variant="h6" sx={{ color: '#ff9900ff', mb: 1, fontWeight: 'bold' }}>
-                                            🎬 Unscramble Video
+                                            🎬 Unscramble Video Lite
                                         </Typography>
                                         <Typography variant="body2" sx={{ color: '#ccc', lineHeight: 1.4 }}>
-                                            Use your keys to unscramble videos back to their original form. Restore scrambled content.
+                                            Use your keys to unscramble videos back to their original form. Restore scrambled content. Fast Processing.
                                         </Typography>
                                     </CardContent>
                                 </Card>
@@ -500,10 +500,10 @@ export default function MainPage() {
                                     onClick={() => navigate("/video-scrambler-basic")}>
                                     <CardContent sx={{ p: 2 }}>
                                         <Typography variant="h6" sx={{ color: '#2e7d32', mb: 1, fontWeight: 'bold' }}>
-                                            🔐🎬 Scramble Video+
+                                            🔐🎬 Scramble Video
                                         </Typography>
                                         <Typography variant="body2" sx={{ color: '#ccc', lineHeight: 1.4 }}>
-                                            Upload and scramble videos into unrecognizable tiles. Generate keys to monetize access to your content.
+                                            Upload and scramble videos into unrecognizable tiles. Generate keys to monetize access to your content. Slower but Higher Quality output.
                                         </Typography>
                                     </CardContent>
                                 </Card>
@@ -526,10 +526,10 @@ export default function MainPage() {
                                     onClick={() => navigate("/video-unscrambler-basic")}>
                                     <CardContent sx={{ p: 2 }}>
                                         <Typography variant="h6" sx={{ color: '#ff9900ff', mb: 1, fontWeight: 'bold' }}>
-                                            🎬 Unscramble Video+
+                                            🎬 Unscramble Video
                                         </Typography>
                                         <Typography variant="body2" sx={{ color: '#ccc', lineHeight: 1.4 }}>
-                                            Use your keys to unscramble videos back to their original form. Restore scrambled content.
+                                            Use your keys to unscramble videos back to their original form. Restore scrambled content. Slower but Higher Quality output.
                                         </Typography>
                                     </CardContent>
                                 </Card>
@@ -556,7 +556,7 @@ export default function MainPage() {
                                     onClick={() => navigate("/photo-scrambler-basic")}>
                                     <CardContent sx={{ p: 2 }}>
                                         <Typography variant="h6" sx={{ color: '#2e7d32ff', mb: 1, fontWeight: 'bold' }}>
-                                            🔐📸 Scramble Photo+
+                                            🔐📸 Scramble Photo
                                         </Typography>
                                         <Typography variant="body2" sx={{ color: '#ccc', lineHeight: 1.4 }}>
                                             Protect your images by scrambling them with watermarks and metadata headers for secure sharing.
@@ -582,7 +582,7 @@ export default function MainPage() {
                                     onClick={() => navigate("/photo-unscrambler-basic")}>
                                     <CardContent sx={{ p: 2 }}>
                                         <Typography variant="h6" sx={{ color: '#ff9800', mb: 1, fontWeight: 'bold' }}>
-                                            🖼️ Unscramble Photo+
+                                            🖼️ Unscramble Photo
                                         </Typography>
                                         <Typography variant="body2" sx={{ color: '#ccc', lineHeight: 1.4 }}>
                                             Restore scrambled images using unscramble keys. View protected photos in their original form.
@@ -650,7 +650,7 @@ export default function MainPage() {
                             {/*------------------------- standard Services-------------------------- */}
 
                             {/*  Scramble Photo Service */}
-                            {/* {hasAccessToTier('standard') && serviceMode === 'standard' && (
+                            {hasAccessToTier('standard') && serviceMode === 'standard' && (
                                 <Card sx={{
                                     backgroundColor: '#2a2a2a',
                                     border: '1px solid #2e7d32',
@@ -673,11 +673,11 @@ export default function MainPage() {
                                         </Typography>
                                     </CardContent>
                                 </Card>
-                            )} */}
+                            )}
 
 
                             {/* Pro Unscramble Photo Service */}
-                            {/* {hasAccessToTier('standard') && serviceMode === 'standard' && (
+                            {hasAccessToTier('standard') && serviceMode === 'standard' && (
 
                                 <Card sx={{
                                     backgroundColor: '#2a2a2a',
@@ -701,11 +701,11 @@ export default function MainPage() {
                                         </Typography>
                                     </CardContent>
                                 </Card>
-                            )} */}
+                            )}
 
-                            {/* {(hasAccessToTier('standard') && serviceMode === 'standard') && (
+                            {(hasAccessToTier('standard') && serviceMode === 'standard') && (
                                 <Divider sx={{ my: 0, borderColor: '#444', gridColumn: '1 / -1' }} />
-                            )} */}
+                            )}
 
 
                             {/* Pro Scramble Video Service */}
@@ -782,7 +782,7 @@ export default function MainPage() {
                                     onClick={() => navigate("/audio-scrambler-pro")}>
                                     <CardContent sx={{ p: 2 }}>
                                         <Typography variant="h6" sx={{ color: '#2e7d32ff', mb: 1, fontWeight: 'bold' }}>
-                                            🔐🎵 Scramble Audio+ 
+                                            🔐🎵 Scramble Audio+
                                         </Typography>
                                         <Typography variant="body2" sx={{ color: '#ccc', lineHeight: 1.4 }}>
                                             Protect your audio/music by scrambling them with reversible noise for secure sharing.
@@ -808,7 +808,7 @@ export default function MainPage() {
                                     onClick={() => navigate("/audio-unscrambler-pro")}>
                                     <CardContent sx={{ p: 2 }}>
                                         <Typography variant="h6" sx={{ color: '#ff9800', mb: 1, fontWeight: 'bold' }}>
-                                            🎵 Unscramble Audio+ 
+                                            🎵 Unscramble Audio+
                                         </Typography>
                                         <Typography variant="body2" sx={{ color: '#ccc', lineHeight: 1.4 }}>
                                             Unlock newly released audio/music by unscrambling them with special algorithms.

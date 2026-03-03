@@ -72,7 +72,6 @@ export default function AudioUnscrambler() {
   const [decodedParams, setDecodedParams] = useState(null);
   const [loadedKeyData, setLoadedKeyData] = useState(null);
   const [keyCode, setKeyCode] = useState('');
-  const [referencedKeyData, setReferencedKeyData] = useState(null);
 
   const [shuffleSeed, setShuffleSeed] = useState('12345');
   const [noiseSeed, setNoiseSeed] = useState('54321');
@@ -221,11 +220,9 @@ export default function AudioUnscrambler() {
       const encrypted = atob(encodedData);
       const encryptionKey = "AudioProtectionKey2025";
       const jsonStr = xorEncrypt(encrypted, encryptionKey);
-      const parsedKeyData = JSON.parse(jsonStr);
       console.log("Decrypted key data:", jsonStr);
-      setReferencedKeyData(parsedKeyData);
 
-      return parsedKeyData;
+      return JSON.parse(jsonStr);
     } catch (err) {
       console.error('Decryption error:', err);
       throw new Error('Invalid or corrupted key file');
@@ -727,101 +724,6 @@ export default function AudioUnscrambler() {
     }
   };
 
-  // =============================
-  // WATERMARK HELPERS (ported from AudioWatermarkEncoder)
-  // =============================
-  const generateWatermarkFreqs = () => {
-    const pickFreq = (existing = []) => {
-      let freq, attempts = 0;
-      do {
-        freq = Math.floor(Math.random() * (60 - 30 + 1)) + 30;
-        attempts++;
-        if (attempts > 500) break;
-      } while (existing.some(f => Math.abs(f - freq) < 5));
-      return freq;
-    };
-    const freq1 = pickFreq();
-    const freq2 = pickFreq([freq1]);
-    const freq3 = pickFreq([freq1, freq2]);
-
-   
-
-     // log succesful media unscramble event to analytics
-    api.post('/api/analytics/unscramble-event', {
-      username: userData.username,
-      userId: userData.id,
-      // example key data for testing:
-      // {"timestamp":"2026-03-03T04:43:44.174Z","audio":{"duration":19.173875,"sampleRate":48000,"channels":2},"shuffle":{"enabled":true,"seed":272911907,"segmentSize":2,"padding":0.5,"shuffleOrder":[4,3,2,9,1,5,7,0,6,8]},"noise":{"enabled":true,"seed":603784047,"level":0.1,"multiFrequency":true},"creator":{"username":"ikemnkur","userId":"Unknown","timestamp":"2026-03-03T04:43:44.174Z"},"metadata":{"filename":"sample-15s.wav","size":3382316,"fileType":"audio/wav","duration":19.173875,"sampleRate":48000,"channels":2},"type":"audio","version":"basic"}
-      creator: referencedKeyData?.creator || 'unknown',
-      scrambleType: 'audio',
-      scrambleLevel: scrambleLevel,
-      timestamp: new Date().toISOString(),
-      actionCost: actionCost,
-      keyId: referencedKeyData?.keyId || 'unknown',
-      unscrambleKey: referencedKeyData ,
-      mediaDetails: {
-        name: selectedFile?.name || 'unknown',
-        size: selectedFile?.size || 0,
-        duration: audioDuration,
-        sampleRate: sampleRate,
-        channels: numberOfChannels,
-      },
-      watermarkParams: {
-        freq1: freq1, freq2: freq2, freq3: freq3,
-        pulseRate1: 0.125,
-        pulseRate2: 0.25,
-        pulseRate3: 0.5
-      } 
-    }).catch(err => {
-      console.error('Failed to log analytics event:', err); 
-
-    });
-
-
-    return {
-      freq1, freq2, freq3,
-      pulseRate1: 0.125,
-      pulseRate2: 0.25,
-      pulseRate3: 0.5
-    };
-  };
-
-  const createPulsingTone = (frequency, pulseRate, duration) => {
-    const sampleRate = audioContext.sampleRate;
-    const length = Math.floor(sampleRate * duration);
-    const buffer = audioContext.createBuffer(2, length, sampleRate);
-    for (let channel = 0; channel < 2; channel++) {
-      const data = buffer.getChannelData(channel);
-      for (let i = 0; i < length; i++) {
-        const t = i / sampleRate;
-        const sine = Math.sin(2 * Math.PI * frequency * t);
-        const envelope = (Math.sin(2 * Math.PI * pulseRate * t) + 1) / 2;
-        data[i] = sine * envelope * 0.02; // -34 dB — inaudible
-      }
-    }
-    return buffer;
-  };
-
-  const mixWithWatermark = (originalBuffer, wm) => {
-    const { numberOfChannels, length, sampleRate } = originalBuffer;
-    const duration = originalBuffer.duration;
-    const tone1 = createPulsingTone(wm.freq1, wm.pulseRate1, duration);
-    const tone2 = createPulsingTone(wm.freq2, wm.pulseRate2, duration);
-    const tone3 = createPulsingTone(wm.freq3, wm.pulseRate3, duration);
-    const out = audioContext.createBuffer(numberOfChannels, length, sampleRate);
-    for (let ch = 0; ch < numberOfChannels; ch++) {
-      const src = originalBuffer.getChannelData(ch);
-      const t1  = tone1.getChannelData(Math.min(ch, 1));
-      const t2  = tone2.getChannelData(Math.min(ch, 1));
-      const t3  = tone3.getChannelData(Math.min(ch, 1));
-      const dst = out.getChannelData(ch);
-      for (let i = 0; i < length; i++) {
-        dst[i] = Math.max(-1, Math.min(1, src[i] + t1[i] + t2[i] + t3[i]));
-      }
-    }
-    return out;
-  };
-
   const handleUnscrambleAudio = async () => {
     if (!scrambledAudioBuffer) {
       error('Please load scrambled audio!');
@@ -863,20 +765,38 @@ export default function AudioUnscrambler() {
 
       setRecoveredAudioBuffer(recoveredBuffer);
 
-      // Apply inaudible frequency watermark
-      const wm = generateWatermarkFreqs();
-      const watermarkAudioBuffer = mixWithWatermark(recoveredBuffer, wm);
-      console.log('Watermark applied:', wm.freq1, wm.freq2, wm.freq3, 'Hz');
+      // Apply steganography watermark
+      let steganoAudioBuffer = await applySteganography(recoveredBuffer);
 
-      setStegoAudioBuffer(watermarkAudioBuffer);
+      // If steganography failed, use the recovered buffer
+      if (!steganoAudioBuffer) {
+        steganoAudioBuffer = recoveredBuffer;
+        console.warn('Steganography failed, using recovered buffer without watermark');
+        let link2AudioFile = download_url
 
-      const url = bufferToWavUrl(watermarkAudioBuffer, loadedKeyData.audio.channels, loadedKeyData.audio.sampleRate);
+        console.log("Link to audio file with watermarking:", link2AudioFile);
+
+        if (unscrambledAudioPlayerRef.current) {
+          unscrambledAudioPlayerRef.current.src = link2AudioFile;
+        }
+
+        // convert link2AudioFile to audio buffer
+        const audioResponse = await fetch(link2AudioFile);
+        const audioArrayBuffer = await audioResponse.arrayBuffer();
+        const watermarkedAudioBuffer = await audioContext.decodeAudioData(audioArrayBuffer);
+
+        setStegoAudioBuffer(watermarkedAudioBuffer);
+
+        return;
+      }
+
+      setStegoAudioBuffer(steganoAudioBuffer);
+
+      const url = bufferToWavUrl(steganoAudioBuffer, loadedKeyData.audio.channels, loadedKeyData.audio.sampleRate);
 
       if (unscrambledAudioPlayerRef.current) {
         unscrambledAudioPlayerRef.current.src = url;
       }
-
-
 
       setIsProcessing(false);
       success('✅ Audio unscrambled!');
@@ -965,7 +885,100 @@ export default function AudioUnscrambler() {
     }
   }, [recoveredAudioBuffer]);
 
- 
+  // Todo:
+  // upload file to back end to add stegano watermark with user info and timestamp, then download the watermarked file for unscrambling
+
+  async function applySteganography(steganoAudioBuffer) {
+    if (!steganoAudioBuffer) return null;
+
+    const userInfo = {
+      username: userData.username,
+      time: new Date().toISOString(),
+      userid: userData.id
+    };
+
+    const steganoData = JSON.stringify(userInfo);
+
+    // convert audio buffer to wav blob to upload to backend
+    const wavUrl = bufferToWavUrl(steganoAudioBuffer, loadedKeyData.audio.channels, loadedKeyData.audio.sampleRate);
+    const blobResponse = await fetch(wavUrl);
+    const blob = await blobResponse.blob();
+    const file = new File([blob], 'recovered-audio.wav', { type: 'audio/wav' });
+
+    try {
+      console.log("Stegano Data, Hiding:", steganoData);
+
+      // Create FormData with file and parameters
+      const formData = new FormData();
+      formData.append('file', file);
+      formData.append('params', steganoData);
+
+      // Add JWT token for authentication
+      const token = localStorage.getItem('token');
+      const headers = {};
+      if (token) {
+        headers['Authorization'] = `Bearer ${token}`;
+      }
+
+      // Call steganography endpoint
+      const response = await fetch(`${API_URL}/api/audio-stegano-embed`, {
+        method: 'POST',
+        headers: headers,
+        body: formData
+      });
+
+      const data = await response.json();
+
+      console.log("Watermark steg. response:", data);
+
+      if (!response.ok || !data.success) {
+        error("Steganography failed: " + (data.message || "Unknown error"));
+        setIsProcessing(false);
+        return null;
+      }
+
+      success("Audio watermarked successfully!");
+
+      let link2AudioFile = Flask_API_URL +"/"+ data.download_url
+      setDownloadUrl(link2AudioFile);
+
+      console.log("Link to watermarked audio file:", link2AudioFile);
+      // convert the returned URL to an audio buffer
+      const audioResponse = await fetch(link2AudioFile);
+      const audioArrayBuffer = await audioResponse.arrayBuffer();
+      const watermarkedAudioBuffer = await audioContext.decodeAudioData(audioArrayBuffer);
+
+      setStegoAudioBuffer(watermarkedAudioBuffer);
+
+      // Return the watermarked audio buffer or original if backend doesn't return one
+      setTimeout(() => {
+        return stegoAudioBuffer;
+      }, 1000);
+
+    } catch (err) {
+      console.error('Steganography error:', err);
+      error('Error applying steganography: ' + (err.message || 'Unknown error'));
+      setIsProcessing(false);
+
+      // Refund credits if applicable
+      try {
+        const refundResponse = await api.post(`${API_URL}/api/refund-credits`, {
+          userId: userData.id,
+          username: userData.username,
+          email: userData.email,
+          credits: actionCost,
+          action: 'unscramble_audio_pro',
+          reason: 'Steganography failed'
+        });
+        console.log("Refund response:", refundResponse.data);
+      } catch (refundError) {
+        console.error("Refund failed:", refundError);
+      }
+
+      return null;
+    }
+  }
+
 
   // =============================
   // RENDER

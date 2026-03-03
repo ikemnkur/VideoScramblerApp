@@ -526,7 +526,7 @@ export default function Wallet() {
                                   fontWeight: 'bold'
                                 }}
                               >
-                                Free Plan - $0/month (ADs)
+                                Free Plan (Lite) - $0/month (ADs)
                               </Button>
 
                               <Paper elevation={0} sx={{ mt: 1, p: 1, backgroundColor: 'transparent' }}>

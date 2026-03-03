@@ -70,6 +70,7 @@ export function AuthProvider({ children }) {
         } finally {
             localStorage.removeItem('token');
             localStorage.removeItem('user');
+            localStorage.setItem('reloaded_', 'false');
             setUser(null);
             setIsAuthenticated(false);
         }

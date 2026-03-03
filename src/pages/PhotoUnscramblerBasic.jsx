@@ -83,6 +83,7 @@ export default function PhotoUnscrambler() {
   const [userCredits, setUserCredits] = useState(0); // Mock credits, replace with actual user data
   const [actionCost, setActionCost] = useState(5); // Cost per unscramble action
   const [scrambleLevel, setScrambleLevel] = useState(6); // Grid size for credit calculation
+  const [referencedKeyData, setReferencedKeyData] = useState(null); // Store key data from loaded key file for analytics reference
 
 
   // ========== UTILITY FUNCTIONS ==========
@@ -188,97 +189,13 @@ export default function PhotoUnscrambler() {
     return new ImageData(out, w, h);
   }
 
-  // Parse JSON parameters with noise support
-  // example: 
-  let exampleParams = {
-    "scramble": {
-      "version": 2,
-      "seed": 3268196138,
-      "n": 8,
-      "m": 8,
-      "perm1based": [
-        11,
-        63,
-        30,
-        46,
-        52,
-        58,
-        33,
-        8,
-        38,
-        28,
-        61,
-        49,
-        22,
-        5,
-        4,
-        7,
-        10,
-        64,
-        55,
-        14,
-        12,
-        18,
-        41,
-        35,
-        59,
-        20,
-        29,
-        51,
-        44,
-        48,
-        31,
-        54,
-        53,
-        56,
-        34,
-        13,
-        60,
-        16,
-        36,
-        19,
-        21,
-        6,
-        62,
-        43,
-        47,
-        1,
-        9,
-        15,
-        3,
-        26,
-        57,
-        45,
-        25,
-        23,
-        17,
-        37,
-        32,
-        50,
-        24,
-        27,
-        2,
-        40,
-        42,
-        39
-      ],
-      "semantics": "Index = destination cell (1-based), value = source cell index (1-based)"
-    },
-    "noise": {
-      "seed": 2004541210,
-      "intensity": 56,
-      "mode": "add_mod256_tile",
-      "prng": "mulberry32"
-    },
-    "metadata": {
-      "username": "ikemnkur",
-      "userId": "Unknown",
-      "timestamp": "2025-12-28T20:50:29.936Z"
-    }
-  }
+ 
 
   const jsonToParams = (obj) => {
     // Handle nested structure (with "scramble" key) or flat structure
+
+    console.log("Parsing parameters from JSON:", obj);
+
     const scrambleData = obj.scramble || obj;
     const noiseData = obj.noise || null;
     const metadata = obj.metadata || null;
@@ -385,7 +302,8 @@ export default function PhotoUnscrambler() {
     try {
       const json = fromBase64(keyCode);
       setDecodedParams(json);
-      localStorage.setItem("keyData", keyData)
+      // localStorage.setItem("keyData", json)
+      // console.log("Decoded key data:", json);
       success('Key code decoded successfully!');
     } catch (e) {
       error('Invalid key code: ' + e.message);
@@ -405,6 +323,7 @@ export default function PhotoUnscrambler() {
         const keyData = decryptKeyData(text);
         // Set the decoded parameters directly
         setDecodedParams(keyData);
+        setReferencedKeyData(keyData); // Store the key data for analytics reference
         setKeyCode(text); // Store the encrypted key in the text box
         success('🔑 Key file loaded and decoded successfully!');
       } catch (decryptErr) {
@@ -416,21 +335,23 @@ export default function PhotoUnscrambler() {
           setDecodedParams(keyData);
           setKeyCode(text.trim());
           console.log("Decoded key data from base64:", keyData);
-          localStorage.setItem("keyData", keyData)
+          setReferencedKeyData(keyData); // Store the key data for analytics reference
+          // localStorage.setItem("keyData", JSON.stringify(keyData));
           success('🔑 Key file loaded and decoded successfully!');
         } catch (base64Err) {
           // Try direct JSON parse
           const keyData = JSON.parse(text);
           setDecodedParams(keyData);
-          localStorage.setItem("keyData", keyData)
+          setReferencedKeyData(keyData); // Store the key data for analytics reference
+          // localStorage.setItem("keyData", JSON.stringify(keyData));
           setKeyCode(btoa(text)); // Convert to base64 for consistency
           success('🔑 Key file loaded and decoded successfully!');
         }
       }
 
       setTimeout(() => {
-          const decoded = fromBase64(text.trim());
-          const keyData = JSON.parse(decoded);
+        const decoded = fromBase64(text.trim());
+        const keyData = JSON.parse(decoded);
         if (keyData.type !== "photo") {
           error('The loaded key file is not a valid photo scramble key.');
         } else if (keyData.version !== "basic") {
@@ -485,8 +406,9 @@ export default function PhotoUnscrambler() {
 
     // Now you have access to the actual cost that was calculated and spent
     console.log('Credits spent:', actualCostSpent);
+    localStorage.setItem("actualCostSpent", actualCostSpent);
 
-    // setActionCost(actualCostSpent);
+    setActionCost(actualCostSpent);
     // alert("Applying Decoded Params:", decodedParams)
 
     setTimeout(() => {
@@ -502,7 +424,7 @@ export default function PhotoUnscrambler() {
       userId: userData.id,
       username: userData.username,
       email: userData.email,
-      credits: actionCost,
+      credits: localStorage.getItem("actualCostSpent") || actionCost, // Refund the actual cost spent if available, otherwise use the default action cost
       currentCredits: userCredits,
       password: localStorage.getItem('hashedPassword'),
       params: decodedParams
@@ -522,58 +444,17 @@ export default function PhotoUnscrambler() {
 
     setShowCreditModal(true);
 
-    // const LQ = 2;
-    // const SDcharge = 3;
-    // const HDcharge = 5;
-    // const FHDCharge = 10;
 
-    // let fileDetails = {
-    //   type: 'image',
-    //   size: selectedFile?.size || 0,
-    //   name: selectedFile?.name || '',
-    //   horizontal: scrambledImageRef.current?.naturalWidth || 0,
-    //   vertical: scrambledImageRef.current?.naturalHeight || 0
-    // };
-
-    // // Calculate cost based on photo resolution from fileDetails
-    // const width = fileDetails.horizontal;
-    // const height = fileDetails.vertical;
-
-    // console.log('Photo Dimensions:', width, 'x', height);
-    // console.log('Photo Size:', fileDetails.size, 'bytes');
-
-    // let resolutionCost = LQ;
-    // if (width >= 1920 && height >= 1080) {
-    //   resolutionCost = FHDCharge;
-    // } else if (width >= 1280 && height >= 720) {
-    //   resolutionCost = HDcharge;
-    // } else if (width >= 854 && height >= 480) {
-    //   resolutionCost = SDcharge;
-    // } else {
-    //   resolutionCost = LQ;
-    // }
-
-    // let calculatedCost = Math.ceil(Math.sqrt(resolutionCost + 1) * (1 + fileDetails.size / (1000 * 1000 * 0.5))); // scale by size in MB over 0.5MB
-
-    setActionCost(localStorage.getItem('lastActionCost') || 5); // Default to 5 credits if not set
+    setActionCost(localStorage.getItem('lastActionCost')); // Default to 5 credits if not set
   };
 
   const applyParameters = () => {
 
-    // if (!allowScrambling) {
-    //   error('You need to confirm credit usage before applying parameters.');
-    //   return;
-    // }
-
-
     try {
-      if (!decodedParams) {
-        throw new Error('No decoded parameters available');
-      }
 
       // Parse the JSON string if decodedParams is a string
       const parsedParams = typeof decodedParams === 'string' ? JSON.parse(decodedParams) : decodedParams;
-      
+
       // Use jsonToParams to properly extract and validate parameters
       const params = jsonToParams(parsedParams);
       const { n, m, permDestToSrc0, noise, metadata } = params;
@@ -585,6 +466,34 @@ export default function PhotoUnscrambler() {
 
       const noiseInfo = noise ? `, noise intensity: ${noise.intensity}` : '';
       success(`Parameters applied: ${n}×${m} grid${noiseInfo}`);
+
+      // log succesful media unscramble event to analytics
+      api.post('/api/analytics/unscramble-event', {
+        username: userData.username,
+        userId: userData.id,
+        creator: referencedKeyData?.creator || 'unknown',
+        scrambleType: 'photo',
+        scrambleLevel: scrambleLevel,
+        timestamp: new Date().toISOString(),
+        actionCost: actionCost,
+        keyId: referencedKeyData?.keyId || 'unknown',
+        unscrambleKey: referencedKeyData ? JSON.stringify(referencedKeyData) : null,
+        mediaDetails: {
+          name: selectedFile?.name || 'unknown',
+          size: selectedFile?.size || 0,
+          // dimensions: keyData.metadata?.dimensions || { width: 0, height: 0 },
+          width: scrambledImageRef.current?.naturalWidth || 0,
+          height: scrambledImageRef.current?.naturalHeight || 0
+        },
+        watermarkParams: {
+          watermark_x: localStorage.getItem('watermarkParams') ? JSON.parse(localStorage.getItem('watermarkParams')).x : 0,
+          watermark_y: localStorage.getItem('watermarkParams') ? JSON.parse(localStorage.getItem('watermarkParams')).y : 0,
+          watermark_rotation: localStorage.getItem('watermarkParams') ? JSON.parse(localStorage.getItem('watermarkParams')).rotation : 0,
+        }
+      }).catch(err => {
+        console.error('Failed to log analytics event:', err);
+
+      });
 
       // Build rectangles and draw preview
       if (imageLoaded) {
@@ -664,10 +573,26 @@ export default function PhotoUnscrambler() {
 
     // Add transparent watermark overlay to indicate unscrambled
     ctx.fillStyle = 'rgba(255, 255, 255, 0.25)';
-    ctx.font = '20px Arial';
+    ctx.font = '12px Arial';
     // ctx.fillText('🔓 Unscrambled Video ', 10, canvas.height - 40);
-    ctx.fillText(`Unscrambled by: ${userData.username}`, 64, targetCanvas.height / 2 + 15);
 
+    // apply random rotation and position to the watermark text for uniqueness
+    ctx.save();
+    const angle = (Math.random() - 0.5) * 0.2; // Rotate between -10 and +10 degrees
+    ctx.translate(targetCanvas.width / 2, targetCanvas.height / 2);
+    ctx.rotate(angle);
+    ctx.fillText(`Unscrambled by: ${userData.username}`, 64 + targetCanvas.width * Math.random() * 0.5, targetCanvas.height / 4 + targetCanvas.height * Math.random() * 0.5 + 15);
+    ctx.restore();
+
+    // export watemark params:
+    const watermarkParams = {
+      x: 64 + targetCanvas.width * Math.random() * 0.5,
+      y: targetCanvas.height / 4 + targetCanvas.height * Math.random() * 0.5 + 15,
+      rotation: angle
+    };
+
+    // Store watermark params in localStorage for analytics logging
+    localStorage.setItem("watermarkParams", JSON.stringify(watermarkParams));
 
   }, [srcToDest, rectsSrcFromShuffled, rectsDest, unscrambleParams]);
 
@@ -786,7 +711,7 @@ export default function PhotoUnscrambler() {
       {/* Header */}
       <Box sx={{ mb: 4, textAlign: 'center' }}>
         <Typography variant="h3" color="primary.main" sx={{ mb: 2, fontWeight: 'bold', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 1 }}>
-          <ImageIcon />
+          {/* <ImageIcon /> */}
           🖼️ Photo Unscrambler
         </Typography>
         <Typography variant="h6" color="text.secondary" sx={{ mb: 2 }}>

@@ -777,7 +777,7 @@ export default function VideoScrambler() {
       <Box sx={{ mb: 4, textAlign: 'center' }}>
         <Typography variant="h3" color="primary.main" sx={{ mb: 2, fontWeight: 'bold', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 1 }}>
           <AutoAwesome />
-          🎞️ Scramblurr
+          🎞️ Video Scrambler Lite
         </Typography>
         <Typography variant="h6" color="text.secondary" sx={{ mb: 2 }}>
           Scramble your videos with tile-based encryption

@@ -593,7 +593,7 @@ export default function PhotoScrambler() {
       <Box sx={{ mb: 4, textAlign: 'center' }}>
         <Typography variant="h3" color="primary.main" sx={{ mb: 2, fontWeight: 'bold', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 1 }}>
           {/* <PhotoCamera /> */}
-          🖼️ Photo Scrambler
+          🖼️ Photo Scrambler Lite
         </Typography>
         <Typography variant="h6" color="text.secondary" sx={{ mb: 2 }}>
           Upload an image, choose scramble level, and download your unscramble key.

@@ -106,7 +106,7 @@ export default function VideoUnscramblerBasic() {
 
   useEffect(() => {
     const fetchUserCredits = async () => {
-        try {
+      try {
         // JWT token in the Authorization header automatically authenticates the user
         // No need to send password (it's not stored in localStorage anyway)
         const { data } = await api.post(`/api/wallet/balance/${userData.username}`, {
@@ -250,14 +250,14 @@ export default function VideoUnscramblerBasic() {
           success('🔑 Key file loaded and decoded successfully!');
         }
       }
-      
-       const decoded = fromBase64(text.trim());
+
+      const decoded = fromBase64(text.trim());
       const keyData = JSON.parse(decoded);
       if (keyData.type !== "video") {
         error('The loaded key file is not a valid video scramble key.');
       } else if (keyData.version !== "Basic") {
         error('Use the ' + keyData.version + ' ' + keyData.type + ' scrambler to unscramble this file.');
-        alert('The loaded key file will not work with this scrambler version, you must use the ' + keyData.version + ' ' + keyData  .type + ' scrambler to unscramble this file.');
+        alert('The loaded key file will not work with this scrambler version, you must use the ' + keyData.version + ' ' + keyData.type + ' scrambler to unscramble this file.');
       }
     } catch (err) {
       console.error("Error loading key:", err);
@@ -344,26 +344,11 @@ export default function VideoUnscramblerBasic() {
 
       const canvas = unscrambleCanvasRef.current;
 
-      const tagOffset = 32; 
+      const tagOffset = 32;
 
       // Adjust canvas size
       canvas.width = Math.floor(video.videoWidth / unscrambleParams.m) * unscrambleParams.m;
       canvas.height = Math.floor(video.videoHeight / unscrambleParams.n) * unscrambleParams.n - tagOffset; //the tag is along the bottom and is 32 px
-
-
-
-
-
-      // // if (!permDestToSrc0 || permDestToSrc0.length !== n * m) {
-      // // fecth from localStorage as fallback
-      // const storedSrcToDest = JSON.parse(localStorage.getItem('srcToDest'));
-      // if (storedSrcToDest && storedSrcToDest.length === n * m) {
-      //   setSrcToDest(storedSrcToDest);
-      //   console.log("Using stored srcToDest from localStorage:", storedSrcToDest);
-      // } else {
-      //   throw new Error(`Permutation length doesn't match ${n}*${m}`);
-      // }
-      // // }
 
       console.log("SrcToDest: ", srcToDest);
 
@@ -415,7 +400,7 @@ export default function VideoUnscramblerBasic() {
       const sR = rectsSrcFromShuffled[shuffledDestIdx];
       const dR = rectsDest[origIdx];
       if (!sR || !dR) continue;
-      
+
       // Only draw if the source rectangle doesn't extend into the watermark area
       if (sR.y + sR.h <= videoHeightWithoutWatermark) {
         ctx.drawImage(video, sR.x, sR.y, sR.w, sR.h, dR.x, dR.y, dR.w, dR.h);
@@ -450,7 +435,7 @@ export default function VideoUnscramblerBasic() {
 
     // Show progress modal
     setShowProgressModal(true);
-  setProgressMessage('Preparing unscrambled frames...');
+    setProgressMessage('Preparing unscrambled frames...');
     setProgressPercent(0);
     setProgressType('info');
     setIsProcessing(true);
@@ -628,6 +613,36 @@ export default function VideoUnscramblerBasic() {
         setShowProgressModal(false);
         setIsProcessing(false);
       }, 2000);
+
+      // log succesful media unscramble event to analytics
+      api.post('/api/analytics/unscramble-event', {
+        username: userData.username,
+        userId: userData.id,
+         creator: referencedKeyData?.creator || 'unknown',
+        scrambleType: 'video',
+        scrambleLevel: scrambleLevel,
+        timestamp: new Date().toISOString(),
+        actionCost: actionCost,
+        keyId: referencedKeyData?.keyId || 'unknown',
+        unscrambleKey: referencedKeyData ? JSON.stringify(referencedKeyData) : null,
+        mediaDetails: {
+          name: selectedFile?.name || 'unknown',
+          size: selectedFile?.size || 0,
+          // dimensions: keyData.metadata?.dimensions || { width: 0, height: 0 },
+          duration: shufVideoRef.current?.duration || 0,
+          width: shufVideoRef.current?.videoWidth || 0,
+          height: shufVideoRef.current?.videoHeight || 0
+        },
+        watermarkParams: {
+          watermark_idNumber: watermark_idNumber,
+          watermark_x: localStorage.getItem('watermarkParams') ? JSON.parse(localStorage.getItem('watermarkParams')).x : 0,
+          watermark_y: localStorage.getItem('watermarkParams') ? JSON.parse(localStorage.getItem('watermarkParams')).y : 0,
+          watermark_rotation: localStorage.getItem('watermarkParams') ? JSON.parse(localStorage.getItem('watermarkParams')).rotation : 0,
+        }
+      }).catch(err => {
+        console.error('Failed to log analytics event:', err);
+
+      });
 
     } catch (err) {
       console.error("Recording error:", err);
@@ -1249,7 +1264,7 @@ export default function VideoUnscramblerBasic() {
       {/* Progress Modal */}
       <Modal
         open={showProgressModal}
-        onClose={() => {}}
+        onClose={() => { }}
         aria-labelledby="progress-modal-title"
       >
         <Box sx={{
