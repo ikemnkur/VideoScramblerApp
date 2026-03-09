@@ -233,15 +233,16 @@ const Info = () => {
   };
 
   // Display popup ad modal using useEffect
-  useEffect(() => {
-    const openTimer = setTimeout(() => {
-      handleOpenPopupAdModal();
-    }, 10000);
+  // todo: enable in process, currently disabled for testing
+  // useEffect(() => {
+  //   const openTimer = setTimeout(() => {
+  //     handleOpenPopupAdModal();
+  //   }, 10000);
 
-    return () => {
-      clearTimeout(openTimer);
-    };
-  }, []);
+  //   return () => {
+  //     clearTimeout(openTimer);
+  //   };
+  // }, []);
 
   // Initialize fly game when modal opens
   useEffect(() => {
