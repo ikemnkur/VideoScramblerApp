@@ -136,7 +136,7 @@ export default function VideoScrambler() {
       n: Number(n),
       m: Number(m),
       perm1based: oneBased(perm),
-      semantics: "Index = destination cell (1-based), value = source cell index (1-based)",
+      // semantics: "Index = destination cell (1-based), value = source cell index (1-based)",
       //
       creator: {
         username: userData.username || 'Anonymous',

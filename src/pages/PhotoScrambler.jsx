@@ -187,17 +187,22 @@ export default function PhotoScrambler() {
   function oneBased(a) { return a.map((x) => x + 1); }
   function paramsToJSON(seed, n, m, perm, username, userId, timestamp) {
     return {
-      version: 2,
+      // version: 2,
       seed: Number(seed),
       n: Number(n),
       m: Number(m),
       perm1based: oneBased(perm),
-      semantics: "Index = destination cell (1-based), value = source cell index (1-based)",
+      // semantics: "Index = destination cell (1-based), value = source cell index (1-based)",
       username: username,
       userId: userId,
       timestamp: timestamp,
       type: "photo",
       version: "free",
+      creator: {
+        username: userData.username || 'Anonymous',
+        userId: userData.userId || 'Unknown',
+        timestamp: new Date().toISOString()
+      },
 
 
     };
