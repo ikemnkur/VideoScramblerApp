@@ -285,8 +285,8 @@ export default function PhotoUnscrambler() {
       type: 'image',
       size: selectedFile?.size || 0,
       name: selectedFile?.name || '',
-      horizontal: imageRef.current?.naturalWidth || 0,
-      vertical: imageRef.current?.naturalHeight || 0
+      horizontal: scrambledImageRef.current?.naturalWidth || 0,
+      vertical: scrambledImageRef.current?.naturalHeight || 0
     };
 
     // Calculate cost based on photo resolution from fileDetails

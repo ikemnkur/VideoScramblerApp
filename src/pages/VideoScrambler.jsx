@@ -137,13 +137,24 @@ export default function VideoScrambler() {
       m: Number(m),
       perm1based: oneBased(perm),
       semantics: "Index = destination cell (1-based), value = source cell index (1-based)",
-      user: {
-        username: userData?.username || 'Anonymous',
-        userId: userData?.userId || 'Unknown',
+      //
+      creator: {
+        username: userData.username || 'Anonymous',
+        userId: userData.userId || 'Unknown',
+        timestamp: new Date().toISOString()
       },
       timestamp: new Date().toISOString(),
       type: "video",
-      version: "free"
+      version: "free",
+
+
+
+
+      // watermarkParams: {
+      //   watermark_idNumber: watermark_idNumber,
+      // }
+
+      // watermark_idNumber: Math.floor(Math.random() * 1e9)
     };
   }
 
@@ -254,10 +265,10 @@ export default function VideoScrambler() {
 
     // Add watermark overlay text on the black bar
     ctx.fillStyle = 'rgba(255, 255, 255, 0.5)';
-    ctx.font = 'bold 24px Arial';
+    ctx.font = 'bold 16px Arial';
     // ctx.fillText('🔓 Scrambled Video', 10, canvas.height - 40);
     ctx.fillText(`Scrambled by: ${userData.username}`, 10, canvas.height);
-    ctx.fillText(`VideoScrambler🔓`, canvas.width - 220, canvas.height);
+    ctx.fillText(`Scramblurr🔓`, canvas.width - 220, canvas.height);
 
   }, [grid, permDestToSrc0]);
 
@@ -266,9 +277,9 @@ export default function VideoScrambler() {
   // EFFECTS
   // =============================
   useEffect(() => {
-    if (selectedLevel === "low") setGrid({ n: 5, m: 5 });
-    else if (selectedLevel === "med") setGrid({ n: 7, m: 7 });
-    else if (selectedLevel === "high") setGrid({ n: 9, m: 9 });
+    if (selectedLevel === "low") setGrid({ n: 6, m: 6 });
+    else if (selectedLevel === "med") setGrid({ n: 8, m: 8 });
+    else if (selectedLevel === "high") setGrid({ n: 10, m: 10 });
   }, [selectedLevel]);
 
   const updateRects = useCallback(() => {
@@ -848,7 +859,7 @@ export default function VideoScrambler() {
                     '&:hover': { borderColor: '#22d3ee' }
                   }}
                 >
-                  Low (5×5)
+                  Low (6x6)
                 </Button>
               </Grid>
               <Grid item xs={12} md={4}>
@@ -863,7 +874,7 @@ export default function VideoScrambler() {
                     '&:hover': { borderColor: '#22d3ee' }
                   }}
                 >
-                  Medium (7×7)
+                  Medium (8×8)
                 </Button>
               </Grid>
               <Grid item xs={12} md={4}>
@@ -878,7 +889,7 @@ export default function VideoScrambler() {
                     '&:hover': { borderColor: '#22d3ee' }
                   }}
                 >
-                  High (9×9)
+                  High (10×10)
                 </Button>
               </Grid>
             </Grid>

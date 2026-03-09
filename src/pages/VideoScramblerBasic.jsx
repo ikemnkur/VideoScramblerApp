@@ -266,9 +266,9 @@ export default function VideoScramblerBasic() {
   // EFFECTS
   // =============================
   useEffect(() => {
-    if (selectedLevel === "low") setGrid({ n: 5, m: 5 });
-    else if (selectedLevel === "med") setGrid({ n: 7, m: 7 });
-    else if (selectedLevel === "high") setGrid({ n: 9, m: 9 });
+    if (selectedLevel === "low") setGrid({ n: 6, m: 6 });
+    else if (selectedLevel === "med") setGrid({ n: 8, m: 8 });
+    else if (selectedLevel === "high") setGrid({ n: 10, m: 10 });
   }, [selectedLevel]);
 
   const updateRects = useCallback(() => {
@@ -873,7 +873,7 @@ export default function VideoScramblerBasic() {
                     '&:hover': { borderColor: '#22d3ee' }
                   }}
                 >
-                  Low (5×5)
+                  Low (6x6)
                 </Button>
               </Grid>
               <Grid item xs={12} md={4}>
@@ -888,7 +888,7 @@ export default function VideoScramblerBasic() {
                     '&:hover': { borderColor: '#22d3ee' }
                   }}
                 >
-                  Medium (7×7)
+                  Medium (8x8)
                 </Button>
               </Grid>
               <Grid item xs={12} md={4}>
@@ -903,7 +903,7 @@ export default function VideoScramblerBasic() {
                     '&:hover': { borderColor: '#22d3ee' }
                   }}
                 >
-                  High (9×9)
+                  High (10x10)
                 </Button>
               </Grid>
             </Grid>
@@ -1080,8 +1080,8 @@ export default function VideoScramblerBasic() {
       {/* Help Section */}
       <Paper elevation={1} sx={{ p: 2, backgroundColor: '#e3f2fd' }}>
         <Typography variant="body2" color="black">
-          🔑 <strong>Pro Tip:</strong> Higher scrambling levels (7×7) provide better security but take longer to process.
-          Medium (5×5) offers a good balance between security and performance for most use cases.
+          🔑 <strong>Pro Tip:</strong> Higher scrambling levels (10×10) provide better security but take longer to process.
+          Medium (8x8) offers a good balance between security and performance for most use cases.
         </Typography>
       </Paper>
 

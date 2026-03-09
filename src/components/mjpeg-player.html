@@ -1,0 +1,208 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>MJPEG Desktop Player</title>
+    <style>
+        body { font-family: sans-serif; background: #1a1a1a; color: white; display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100vh; margin: 0; }
+        #drop-zone { width: 80%; height: 200px; border: 3px dashed #444; border-radius: 20px; display: flex; align-items: center; justify-content: center; transition: 0.3s; }
+        #drop-zone.hover { border-color: #007bff; background: #222; }
+        canvas { max-width: 90%; max-height: 60vh; margin-top: 20px; background: #000; display: none; border: 1px solid #333; }
+        .controls { margin-top: 15px; display: none; width: 80%; gap: 10px; align-items: center; }
+        .settings { margin-top: 12px; display: none; width: 80%; gap: 12px; align-items: center; flex-wrap: wrap; }
+        .setting-group { display: flex; align-items: center; gap: 8px; }
+        .setting-group.disabled { opacity: 0.45; }
+        .setting-group label { font-size: 14px; }
+        select, input[type="number"] { padding: 6px 8px; border-radius: 4px; border: 1px solid #555; background: #2a2a2a; color: white; }
+        input[type="number"] { width: 88px; }
+        input[type="range"] { flex-grow: 1; cursor: pointer; }
+        button { padding: 8px 16px; cursor: pointer; background: #007bff; color: white; border: none; border-radius: 4px; }
+    </style>
+</head>
+<body>
+
+    <div id="drop-zone">Drag and Drop your .mjpeg file here</div>
+    <canvas id="player"></canvas>
+
+    <div class="settings" id="settings">
+        <div class="setting-group">
+            <label for="playback-mode">Mode</label>
+            <select id="playback-mode">
+                <option value="fps">FPS</option>
+                <option value="speed">Play Speed</option>
+            </select>
+        </div>
+
+        <div class="setting-group" id="fps-group">
+            <label for="fps-input">FPS</label>
+            <input type="number" id="fps-input" min="1" max="240" step="1" value="30">
+        </div>
+
+        <div class="setting-group disabled" id="speed-group">
+            <label for="speed-select">Play Speed</label>
+            <select id="speed-select" disabled>
+                <option value="1">1x</option>
+                <option value="0.75">0.75x</option>
+                <option value="0.5">0.5x</option>
+                <option value="0.25">0.25x</option>
+                <option value="2">2x</option>
+                <option value="1.5">1.5x</option>
+                <option value="1.25">1.25x</option>
+            </select>
+        </div>
+    </div>
+    
+    <div class="controls" id="controls">
+        <button id="play-btn">Pause</button>
+        <input type="range" id="seek-bar" value="0" min="0">
+        <span id="frame-count">0/0</span>
+    </div>
+
+    <script>
+        const dropZone = document.getElementById('drop-zone');
+        const canvas = document.getElementById('player');
+        const ctx = canvas.getContext('2d');
+        const controls = document.getElementById('controls');
+        const settings = document.getElementById('settings');
+        const playBtn = document.getElementById('play-btn');
+        const seekBar = document.getElementById('seek-bar');
+        const frameCounter = document.getElementById('frame-count');
+        const playbackMode = document.getElementById('playback-mode');
+        const fpsInput = document.getElementById('fps-input');
+        const speedSelect = document.getElementById('speed-select');
+        const fpsGroup = document.getElementById('fps-group');
+        const speedGroup = document.getElementById('speed-group');
+
+        let frames = [];
+        let currentFrame = 0;
+        let isPlaying = false;
+        let playInterval;
+        const baseFps = 30;
+
+        function getEffectiveFps() {
+            if (playbackMode.value === 'fps') {
+                const manualFps = Number(fpsInput.value);
+                return Number.isFinite(manualFps) && manualFps > 0 ? manualFps : baseFps;
+            }
+
+            const speed = Number(speedSelect.value) || 1;
+            return baseFps * speed;
+        }
+
+        function applyModeState() {
+            const isFpsMode = playbackMode.value === 'fps';
+            fpsInput.disabled = !isFpsMode;
+            speedSelect.disabled = isFpsMode;
+            fpsGroup.classList.toggle('disabled', !isFpsMode);
+            speedGroup.classList.toggle('disabled', isFpsMode);
+
+            if (isPlaying) {
+                restartPlayback();
+            }
+        }
+
+        function restartPlayback() {
+            clearInterval(playInterval);
+            playInterval = setInterval(() => {
+                if (currentFrame < frames.length - 1) {
+                    renderFrame(currentFrame + 1);
+                } else {
+                    pausePlayback();
+                }
+            }, 1000 / getEffectiveFps());
+        }
+
+        // Handle Drag and Drop
+        dropZone.addEventListener('dragover', (e) => { e.preventDefault(); dropZone.classList.add('hover'); });
+        dropZone.addEventListener('dragleave', () => dropZone.classList.remove('hover'));
+        dropZone.addEventListener('drop', (e) => {
+            e.preventDefault();
+            dropZone.classList.remove('hover');
+            const file = e.dataTransfer.files[0];
+            if (file) parseMJPEG(file);
+        });
+
+        async function parseMJPEG(file) {
+            const buffer = await file.arrayBuffer();
+            const bytes = new Uint8Array(buffer);
+            frames = [];
+            
+            // Find JPEG Start of Image (0xFF 0xD8) markers
+            for (let i = 0; i < bytes.length - 1; i++) {
+                if (bytes[i] === 0xFF && bytes[i+1] === 0xD8) {
+                    let start = i;
+                    // Find End of Image (0xFF 0xD9)
+                    for (let j = i + 1; j < bytes.length - 1; j++) {
+                        if (bytes[j] === 0xFF && bytes[j+1] === 0xD9) {
+                            const blob = new Blob([bytes.slice(start, j + 2)], {type: 'image/jpeg'});
+                            frames.push(URL.createObjectURL(blob));
+                            i = j; // Skip to end of this frame
+                            break;
+                        }
+                    }
+                }
+            }
+
+            if (frames.length > 0) {
+                initPlayer();
+            } else {
+                alert("No JPEG frames found in file.");
+            }
+        }
+
+        function initPlayer() {
+            canvas.style.display = 'block';
+            settings.style.display = 'flex';
+            controls.style.display = 'flex';
+            seekBar.max = frames.length - 1;
+            renderFrame(0);
+            startPlayback();
+        }
+
+        function renderFrame(index) {
+            const img = new Image();
+            img.onload = () => {
+                canvas.width = img.width;
+                canvas.height = img.height;
+                ctx.drawImage(img, 0, 0);
+            };
+            img.src = frames[index];
+            currentFrame = index;
+            seekBar.value = index;
+            frameCounter.innerText = `${index + 1} / ${frames.length}`;
+        }
+
+        function startPlayback() {
+            isPlaying = true;
+            playBtn.innerText = "Pause";
+            restartPlayback();
+        }
+
+        function pausePlayback() {
+            isPlaying = false;
+            playBtn.innerText = "Play";
+            clearInterval(playInterval);
+        }
+
+        playBtn.onclick = () => isPlaying ? pausePlayback() : startPlayback();
+        seekBar.oninput = () => {
+            pausePlayback();
+            renderFrame(parseInt(seekBar.value));
+        };
+
+        playbackMode.onchange = applyModeState;
+        fpsInput.oninput = () => {
+            if (playbackMode.value === 'fps' && isPlaying) {
+                restartPlayback();
+            }
+        };
+        speedSelect.onchange = () => {
+            if (playbackMode.value === 'speed' && isPlaying) {
+                restartPlayback();
+            }
+        };
+
+        applyModeState();
+    </script>
+</body>
+</html>

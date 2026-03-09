@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, use } from 'react'
 import React from 'react';
 import { CssBaseline, ThemeProvider } from '@mui/material';
 import theme from './theme';
@@ -137,6 +137,17 @@ export default function App() {
     return hierarchy[serviceMode] >= hierarchy[requiredTier];
   };
 
+
+  useEffect(() => {
+    if ((localStorage.getItem('reloaded_') === 'false')) {
+      localStorage.setItem('reloaded_', 'true');
+      window.location.reload();
+    }
+    if ((localStorage.getItem('reloaded_') === null)) {
+      localStorage.setItem('reloaded_', 'false');
+    }
+  }, []);
+
   // Fetch fresh user data on mount
   useEffect(() => {
     if (window.location.pathname === "/login" || window.location.pathname === "/register" || window.location.pathname === "/verify-account" || window.location.pathname === "/help" || window.location.pathname === "/info") {
@@ -150,6 +161,7 @@ export default function App() {
         setUserData(freshUserData);
       }
     };
+
 
     console.log("App.jsx - Fetching userdata.accountType on mount:", accountType);
 
@@ -233,7 +245,7 @@ export default function App() {
                 <Route path="/register" element={<Auth isLogin={false} />} />
                 <Route path="/forgot-password" element={<ForgotPassword />} />
                 <Route path="/reset-password" element={<ResetPassword />} />
-                
+
                 <Route path="/test-google-tts" element={<TestGoogleTTS />} />
 
                 <Route path="/help" element={<HelpPage />} />
@@ -328,7 +340,7 @@ export default function App() {
                     <Route path="/audio-unscrambler" element={<AudioUnscrambler />} />
 
                     <Route path="/audio-tagging" element={<AudioTagging />} />
-                    
+
                     {/* Audio Watermarking */}
                     <Route path="/audio-watermark-encoder" element={<AudioWatermarkEncoder />} />
                     {/* <Route path="/audio-watermark-detector" element={<AudioWatermarkDetector />} /> */}

@@ -196,6 +196,7 @@ export default function PhotoUnscrambler() {
 
     console.log("Parsing parameters from JSON:", obj);
 
+
     const scrambleData = obj.scramble || obj;
     const noiseData = obj.noise || null;
     const metadata = obj.metadata || null;
@@ -456,8 +457,10 @@ export default function PhotoUnscrambler() {
       const parsedParams = typeof decodedParams === 'string' ? JSON.parse(decodedParams) : decodedParams;
 
       // Use jsonToParams to properly extract and validate parameters
-      const params = jsonToParams(parsedParams);
-      const { n, m, permDestToSrc0, noise, metadata } = params;
+      // const params = jsonToParams(parsedParams);
+
+      const {  noise, metadata } = referencedKeyData;
+       const { n, m, permDestToSrc0} = referencedKeyData.scramble ? jsonToParams(referencedKeyData) : jsonToParams(parsedParams);
 
       setActionCost(n * m >= 100 ? 15 : n * m >= 64 ? 10 : 5); // Adjust cost based on grid size
 

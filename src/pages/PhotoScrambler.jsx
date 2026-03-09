@@ -397,25 +397,16 @@ export default function PhotoScrambler() {
   }, [userData]);
 
   const confirmSpendingCredits = () => {
+    if (!imageFile) {
+      error("Please select an image file first");
+      return;
+    }
+    if (!imageLoaded) {
+      error("Please wait for the image to load");
+      return;
+    }
 
-
-    // Show credit confirmation modal before scrambling
-    // setShowCreditModal(true);
-    const onGenerate = useCallback(() => {
-      if (!imageFile) {
-        error("Please select an image file first");
-        return;
-      }
-      if (!imageLoaded) {
-        error("Please wait for the image to load");
-        return;
-      }
-
-      // Show credit confirmation modal before scrambling
-      setShowCreditModal(true);
-    }, [imageFile, imageLoaded, error]);
-    
-    onGenerate();
+    setShowCreditModal(true);
   };
 
   const handleCreditConfirm = useCallback((actualCostSpent) => {

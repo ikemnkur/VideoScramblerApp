@@ -420,30 +420,90 @@ export default function VideoUnscrambler() {
   const drawUnscrambledFrame = useCallback((targetCanvas = null) => {
     const video = shufVideoRef.current;
     const canvas = targetCanvas || unscrambleCanvasRef.current;
+
     if (!video || !canvas || !video.videoWidth || !srcToDest.length) return;
 
-    canvas.width = Math.floor(video.videoWidth / unscrambleParams.m) * unscrambleParams.m;
-    canvas.height = Math.floor(video.videoHeight / unscrambleParams.n) * unscrambleParams.n;
+    // Watermark bar height to exclude from unscrambling process
+    const watermarkHeight = 32;
+    
+    // Calculate the cropped video dimensions (excluding bottom watermark bar)
+    const croppedVideoWidth = video.videoWidth;
+    const croppedVideoHeight = video.videoHeight - watermarkHeight;
+
+    // Set canvas dimensions based on the cropped video area (without the watermark)
+    canvas.width = Math.floor(croppedVideoWidth / unscrambleParams.m) * unscrambleParams.m;
+    canvas.height = Math.floor(croppedVideoHeight / unscrambleParams.n) * unscrambleParams.n;
 
     const ctx = canvas.getContext('2d');
     ctx.clearRect(0, 0, canvas.width, canvas.height);
     const N = unscrambleParams.n * unscrambleParams.m;
 
+    // Unscramble only the video content, excluding the bottom watermark bar
     for (let origIdx = 0; origIdx < N; origIdx++) {
       const shuffledDestIdx = srcToDest[origIdx];
       const sR = rectsSrcFromShuffled[shuffledDestIdx];
       const dR = rectsDest[origIdx];
       if (!sR || !dR) continue;
-      ctx.drawImage(video, sR.x, sR.y, sR.w, sR.h, dR.x, dR.y, dR.w, dR.h);
+      
+      // Adjust source rectangle to be proportional to cropped height
+      const adjustedSR = {
+        x: sR.x,
+        y: (sR.y / video.videoHeight) * croppedVideoHeight,
+        w: sR.w,
+        h: (sR.h / video.videoHeight) * croppedVideoHeight
+      };
+      
+      // Adjust destination rectangle to match canvas size
+      const adjustedDR = {
+        x: (dR.x / video.videoWidth) * canvas.width,
+        y: (dR.y / video.videoHeight) * canvas.height,
+        w: (dR.w / video.videoWidth) * canvas.width,
+        h: (dR.h / video.videoHeight) * canvas.height
+      };
+      
+      // Only draw if the source rectangle doesn't overlap with the watermark area
+      if (adjustedSR.y + adjustedSR.h <= croppedVideoHeight) {
+        ctx.drawImage(
+          video, 
+          adjustedSR.x, adjustedSR.y, adjustedSR.w, adjustedSR.h,
+          adjustedDR.x, adjustedDR.y, adjustedDR.w, adjustedDR.h
+        );
+      } else {
+        // If the source rectangle overlaps with the watermark area, we need to crop it to avoid drawing over the watermark
+        const overlapHeight = (adjustedSR.y + adjustedSR.h) - croppedVideoHeight;
+        ctx.drawImage(
+          video,
+          adjustedSR.x,
+          adjustedSR.y,
+          adjustedSR.w,
+          adjustedSR.h - overlapHeight,
+          adjustedDR.x,
+          adjustedDR.y,
+          adjustedDR.w,
+          adjustedDR.h - overlapHeight
+        );
+      }
     }
 
-    // Add transparent watermark overlay to indicate unscrambled
+    // Add the new creator attribution watermark bar at the bottom of the unscrambled video
+    const voffset = 32;
+
+    // Add black rectangle bar at bottom
+    ctx.fillStyle = 'rgba(0, 0, 0, 0.25)';
+    ctx.fillRect(0, canvas.height - voffset, canvas.width, voffset);
+
+    // Add watermark overlay text on the black bar
+    ctx.fillStyle = 'rgba(255, 255, 255, 0.5)';
+    ctx.font = 'bold 16px Arial';
+    ctx.fillText(`Scrambled by: ${referencedKeyData?.creator || 'Unknown'}`, 10, canvas.height - 10);
+    ctx.fillText(`Scramblurr🔓`, canvas.width - 220, canvas.height - 10);
+
+    // Adding transparent watermark overlay to indicate the user who unscrambled the video
     ctx.fillStyle = 'rgba(255, 255, 255, 0.5)';
     ctx.font = '25px Arial';
-
     ctx.fillText(`🔓 Unscrambled by: ${userData.username}`, canvas.width / 2 - 150 + randomXY.x, canvas.height / 2 + Math.ceil(0.5 * randomXY.y));
 
-  }, [srcToDest, rectsSrcFromShuffled, rectsDest, unscrambleParams, randomXY]);
+  }, [srcToDest, rectsSrcFromShuffled, rectsDest, unscrambleParams, randomXY, referencedKeyData, userData]);
 
 
 
