@@ -64,7 +64,8 @@ export async function fetchUserData() {
         console.error('Error loading wallet balance:', e);
 
         alert('Session Expired. Unable to fetch user data. Please login again.');
-        setTimeout(() => { window.location.reload(); 
+        setTimeout(() => { 
+            window.location.href = '/login';
             return null;
         }, 1000); // Redirect to login after 1 second
       }
