@@ -498,7 +498,8 @@ export default function VideoScrambler() {
       userId: userData.id,
       username: userData.username,
       email: userData.email,
-      credits: actionCost,
+      // credits: actionCost,
+      credits: getActualCost(), // Refund the actual cost that was spent
       currentCredits: userCredits,
       password: localStorage.getItem('hashedPassword'),
       params: params
@@ -510,6 +511,14 @@ export default function VideoScrambler() {
       error(`Scrambling failed. ${result.message}`);
     }
   };
+
+  const getActualCost = () => {
+    console.log("get actionCost from localStorage:", localStorage.getItem('lastActionCost'));
+    console.log((" vs current actionCost state:", actionCost));
+    let num = parseInt(localStorage.getItem('lastActionCost'));
+    return num === actionCost ? num : actionCost;
+  };
+
 
 
   // =============================

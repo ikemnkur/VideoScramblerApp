@@ -51,12 +51,6 @@ const DetailsModal = ({ transaction, open, handleClose }) => {
     }
   };
 
-  const goToSeller = (username) => {
-    if (username && username !== "System") {
-      navigate(`/seller/${username}`);
-    }
-  };
-
   return (
     <Modal
       open={open}
@@ -103,7 +97,7 @@ const DetailsModal = ({ transaction, open, handleClose }) => {
         <Box sx={{ display: "flex", flexDirection: "column", gap: 2 }}>
           <Box sx={{ display: "flex", justifyContent: "space-between" }}>
             <Typography sx={{ color: "#b0b0b0" }}>
-              Transaction ID: ..................
+              Transaction ID:
             </Typography>
             <Typography sx={{ color: "#e0e0e0", fontFamily: "monospace" }}>
               #{transaction.id}
@@ -145,50 +139,14 @@ const DetailsModal = ({ transaction, open, handleClose }) => {
                   transaction.transaction_type === "Key Purchase"
                     ? "#ffd700"
                     : transaction.transaction_type === "Credit Purchase"
-                    ? "#2e7d32"
-                    : "#f44336",
+                      ? "#2e7d32"
+                      : "#f44336",
                 color: "#000",
                 fontWeight: 600,
               }}
             />
           </Box>
 
-          {transaction.sellerUsername && (
-            <Box
-              sx={{
-                display: "flex",
-                justifyContent: "space-between",
-                alignItems: "center",
-              }}
-            >
-              <Typography sx={{ color: "#b0b0b0" }}>Seller:</Typography>
-              <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
-                <Typography sx={{ color: "#e0e0e0" }}>
-                  {transaction.sellerUsername}
-                </Typography>
-                <Button
-                  onClick={() => goToSeller(transaction.sellerUsername)}
-                  variant="outlined"
-                  size="small"
-                  startIcon={<Visibility />}
-                  sx={{
-                    borderColor: "#ffd700",
-                    color: "#ffd700",
-                    "&:hover": {
-                      backgroundColor: "#ffd700",
-                      color: "#000",
-                    },
-                    textTransform: "none",
-                    minWidth: 0,
-                    px: 1,
-                    py: 0.5,
-                  }}
-                >
-                  View
-                </Button>
-              </Box>
-            </Box>
-          )}
 
           {transaction.payment_method && (
             <Box sx={{ display: "flex", justifyContent: "space-between" }}>
@@ -207,6 +165,13 @@ const DetailsModal = ({ transaction, open, handleClose }) => {
           </Box>
 
           <Box sx={{ display: "flex", justifyContent: "space-between" }}>
+            <Typography sx={{ color: "#b0b0b0" }}>Item:</Typography>
+            <Typography sx={{ color: "#e0e0e0" }}>
+              {transaction.key_title}
+            </Typography>
+          </Box>
+
+          <Box sx={{ display: "flex", justifyContent: "space-between" }}>
             <Typography sx={{ color: "#b0b0b0" }}>Status:</Typography>
             <Chip
               label={transaction.status}
@@ -216,8 +181,8 @@ const DetailsModal = ({ transaction, open, handleClose }) => {
                   transaction.status === "Completed"
                     ? "#2e7d32"
                     : transaction.status === "Processing"
-                    ? "#ff9800"
-                    : "#f44336",
+                      ? "#ff9800"
+                      : "#f44336",
                 color: "#fff",
               }}
             />
@@ -264,7 +229,7 @@ const BuyerTransactions = () => {
       try {
         // Get current user from localStorage
         const userData = JSON.parse(
-          localStorage.getItem("userdata")  
+          localStorage.getItem("userdata")
         );
         const username = userData.username || "seller_123";
         const token = localStorage.getItem('token');
@@ -274,16 +239,49 @@ const BuyerTransactions = () => {
           throw new Error('No authentication token found. Please login again.');
         }
 
+        // Load cached transaction data to avoid re-fetching everything
+        const cachedDataString = localStorage.getItem("combinedTransactionData");
+        let cachedData = [];
+        let lastTransactionDate = null;
+
+        if (cachedDataString) {
+          try {
+            cachedData = JSON.parse(cachedDataString);
+
+            // Find the most recent transaction date from cache
+            if (cachedData.length > 0) {
+              const dates = cachedData.map(item => {
+                const dateValue = item.created_at || item.date;
+                return new Date(dateValue).getTime();
+              });
+
+              const mostRecentTimestamp = Math.max(...dates);
+              lastTransactionDate = new Date(mostRecentTimestamp).toISOString();
+              console.log("Last cached transaction date:", lastTransactionDate);
+            }
+          } catch (err) {
+            console.error("Failed to parse cached data:", err);
+            cachedData = [];
+          }
+        }
+
+        // Build query params for incremental fetch (only get transactions since last cached date)
+        const queryParams = lastTransactionDate
+          ? `?since=${encodeURIComponent(lastTransactionDate)}`
+          : '';
+
+        console.log(lastTransactionDate ? "Fetching incremental updates since last transaction" : "Fetching all transactions (no cache)");
+
         // Fetch data with JWT authentication
         // Axios automatically includes the Authorization header via interceptor in api/client.js
         // But we can also pass it explicitly for clarity
         const actionsResponse = await axios.get(
-          `${API_URL}/api/actions/${username}`,
+          `${API_URL}/api/actions/${username}${queryParams}`,
           { headers: { Authorization: `Bearer ${token}` } }
         );
 
         const creditsResponse = await axios.get(
-          `${API_URL}/api/buyCredits/${username}`,
+          `${API_URL}/api/buyCredits/${username}${queryParams}`,
           { headers: { Authorization: `Bearer ${token}` } }
         );
 
@@ -300,19 +298,37 @@ const BuyerTransactions = () => {
           (credit) => credit.username === username
         );
 
-        // Combine both datasets for processing
-        const combinedData = [...userActions, ...userCredits];
-        console.log("Fetched combined transaction data:", combinedData);
+        // Combine newly fetched data
+        const newData = [...userActions, ...userCredits];
+        console.log("Fetched new transaction data:", newData.length, "transactions");
+
+        // Merge new data with cached data and remove duplicates by id
+        const allData = [...newData, ...cachedData];
+        const uniqueData = Array.from(
+          new Map(allData.map(item => [item.id, item])).values()
+        );
+
+        console.log("Total transactions after merge:", uniqueData.length);
+        console.log("Cache saved:", cachedData.length > 0 ? `${cachedData.length} cached, ${newData.length} new` : "First load");
+
+        // Store the combined data in cache to save bandwidth
+        localStorage.setItem("combinedTransactionData", JSON.stringify(uniqueData));
+
+        const combinedData = uniqueData;
+
 
         // Sort by date descending by default
         combinedData.sort((a, b) => new Date(b.date) - new Date(a.date));
 
         // Transform actions to transaction format
-        const actionsTransactions = userActions.map((action) => {
-          const transactionType = action.action_description?.includes("pass") 
-            ? "Pass Purchase" 
+        // const actionsTransactions = userActions.map((action) => {
+        const actionsTransactions = combinedData.map((action) => {
+
+          if (!action.action_description) return null; // Skip if description is missing
+          const transactionType = action.action_description?.includes("pass")
+            ? "Pass Purchase"
             : "Scrambling Media Purchase";
-          
+
           return {
             id: `action_${action.id}`,
             transaction_type: transactionType,
@@ -329,23 +345,35 @@ const BuyerTransactions = () => {
         });
 
         // Transform credit purchases to transaction format
-        const creditTransactions = userCredits.map((credit) => ({
-          id: `credit_${credit.id}`,
-          transaction_type: "Credit Purchase",
-          credits: credit.credits,
-          amount_usd: credit.amount, // Keep original amount precision
-          title: credit.package +" via " + credit.paymentMethod,
-          buyer_username: credit.username,
-          status: credit.status,
-          created_at: new Date(credit.date).toISOString(),
-          message: `Credit Purchase: ${credit.credits} credits via ${credit.currency}`,
-          payout_method: credit.currency,
-          commission_rate: null,
-          paymentMethod: credit.paymentMethod,
-        }));
+        const creditTransactions = combinedData.map((credit) => {
 
-        // Combine all transactions
-        const allTransactions = [...actionsTransactions, ...creditTransactions];
+          if (!credit.transactionHash) return null; // Skip if description is missing
+
+          return {
+            id: `credit_${credit.id}`,
+            transaction_type: "Credit Purchase",
+            credits: credit.credits,
+            amount_usd: credit.amount, // Keep original amount precision
+            title: credit.package + " via " + credit.paymentMethod,
+            buyer_username: credit.username,
+            status: credit.status,
+            created_at: new Date(credit.date).toISOString(),
+            message: `Credit Purchase: ${credit.credits} credits via ${credit.currency}`,
+            payout_method: credit.currency,
+            commission_rate: null,
+            paymentMethod: credit.paymentMethod,
+          };
+        });
+
+        // print size of each transaction type for debugging
+        console.log("Actions transactions:", actionsTransactions.filter(t => t !== null).length);
+        console.log("Credit transactions:", creditTransactions.filter(t => t !== null).length);
+
+        // Combine all transactions and filter out any null values
+        const allTransactions = [
+          ...actionsTransactions.filter(t => t !== null), 
+          ...creditTransactions.filter(t => t !== null)
+        ];
 
         // Sort by date descending
         allTransactions.sort(
@@ -355,9 +383,10 @@ const BuyerTransactions = () => {
         setTransactions(allTransactions);
         setFilteredTransactions(allTransactions);
         setLoading(false);
+
       } catch (err) {
         console.error("Failed to fetch transaction history:", err);
-        
+
         // Handle authentication errors specifically
         if (err.response?.status === 401 || err.response?.status === 403) {
           setError(
@@ -459,7 +488,8 @@ const BuyerTransactions = () => {
     const rows = transactionsToDisplay.map((t) => [
       new Date(t.created_at).toLocaleDateString(),
       t.transaction_type,
-      t.title || t.paymentMethod || "N/A",
+      t.
+        t.title || t.paymentMethod || "N/A",
       t.sellerUsername || "System",
       t.credits || 0,
       t.status,
@@ -656,9 +686,8 @@ const BuyerTransactions = () => {
               </Select>
 
               <Chip
-                label={`${transactionsToDisplay.length} transaction${
-                  transactionsToDisplay.length === 1 ? "" : "s"
-                }`}
+                label={`${transactionsToDisplay.length} transaction${transactionsToDisplay.length === 1 ? "" : "s"
+                  }`}
                 variant="outlined"
                 sx={{
                   marginRight: "1%",
@@ -759,6 +788,7 @@ const BuyerTransactions = () => {
                   </TableCell>
                 </TableRow>
               )}
+
               {!loading && transactionsToDisplay.length === 0 && (
                 <TableRow>
                   <TableCell
@@ -774,6 +804,7 @@ const BuyerTransactions = () => {
                   </TableCell>
                 </TableRow>
               )}
+
               {transactionsToDisplay.map((t) => {
                 // normalize common fields coming from different APIs / transformations
                 const title =
@@ -783,6 +814,7 @@ const BuyerTransactions = () => {
                   t.item ||
                   t.name ||
                   null;
+
                 const seller =
                   t.sellerUsername ||
                   t.seller_username ||
@@ -822,46 +854,19 @@ const BuyerTransactions = () => {
                       <Box>
                         {/* Desktop view - show item and seller */}
                         <Box sx={{ display: { xs: "none", sm: "block" } }}>
-                          
-                           <Typography
-                              variant="body2"
-                              sx={{
-                                fontWeight: "bold",
-                                fontSize: "0.75rem",
-                                color: "#ffd700",
-                              }}
-                            >
-                              {title}
-                            </Typography>
 
-                          {/* {title && (
-                            <Typography
-                              variant="body2"
-                              sx={{
-                                fontWeight: "bold",
-                                fontSize: "0.75rem",
-                                color: "#ffd700",
-                              }}
-                            >
-                              {title}
-                            </Typography>
-                          )}
-                          {seller && (
-                            <Typography
-                              variant="body2"
-                              sx={{ fontSize: "0.75rem", color: "#b0b0b0" }}
-                            >
-                              by {seller}
-                            </Typography>
-                          )}
-                          {paymentMethod && (
-                            <Typography
-                              variant="body2"
-                              sx={{ fontSize: "0.75rem", color: "#b0b0b0" }}
-                            >
-                              via {paymentMethod}
-                            </Typography>
-                          )} */}
+                          <Typography
+                            variant="body2"
+                            sx={{
+                              fontWeight: "bold",
+                              fontSize: "0.75rem",
+                              color: "#ffd700",
+                            }}
+                          >
+                            {title}
+                          </Typography>
+
+
                         </Box>
 
                         {/* Mobile view - compact format */}
@@ -903,8 +908,8 @@ const BuyerTransactions = () => {
                             t.transaction_type === "Key Purchase"
                               ? "#ffd700"
                               : t.transaction_type === "Credit Purchase"
-                              ? "#2e7d32"
-                              : "#f44336",
+                                ? "#2e7d32"
+                                : "#f44336",
                           color: "#000",
                           fontWeight: 600,
                           "& .MuiChip-label": {
@@ -955,8 +960,8 @@ const BuyerTransactions = () => {
                             t.status === "Completed"
                               ? "#2e7d32"
                               : t.status === "Processing"
-                              ? "#ff9800"
-                              : "#f44336",
+                                ? "#ff9800"
+                                : "#f44336",
                           color: "#fff",
                           fontWeight: 600,
                         }}

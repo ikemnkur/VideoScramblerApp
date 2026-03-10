@@ -521,7 +521,8 @@ export default function PhotoUnscrambler() {
       userId: userData.id,
       username: userData.username,
       email: userData.email,
-      credits: localStorage.getItem('lastActionCost') || actionCost,
+      // credits: localStorage.getItem('lastActionCost') || actionCost,
+       credits: getActualCost(), // Refund the actual cost that was spent
       currentCredits: userCredits,
       password: localStorage.getItem('hashedPassword'),
       params: decodedParams
@@ -533,6 +534,15 @@ export default function PhotoUnscrambler() {
       error(`Scrambling failed. ${result.message}`);
     }
   };
+
+
+   const getActualCost = () => {
+    console.log("get actionCost from localStorage:", localStorage.getItem('lastActionCost'));
+    console.log((" vs current actionCost state:", actionCost));
+    let num = parseInt(localStorage.getItem('lastActionCost'));
+    return num === actionCost ? num : actionCost;
+  };
+
 
 
   const confirmSpendingCredits = () => {

@@ -1,7 +1,6 @@
 // fetchUserData.js - Utility function to get user data from localStorage
 
 import api from '../api/client';
-import { useNavigate } from 'react-router-dom';
 
 /**
  * Fetch user data from localStorage
@@ -9,17 +8,10 @@ import { useNavigate } from 'react-router-dom';
  */
 export async function fetchUserData() {
 
-  const navigate = useNavigate();
-
   try {
     let timeout = 1500; // 1.5 seconds
     setTimeout(async () => {
       try {
-
-
-        // fetch data if no data fetched before or last fetch was over 1.5 minutes ago
-        // let lastDataFetchTooOld = !localStorage.getItem('lastDataFetch') ||
-        //     (Date.now() - parseInt(localStorage.getItem('lastDataFetch') || "0", 10) > 1.5 * 60 * 1000);
 
         let userDataStr = localStorage.getItem('userdata');
         let userData = userDataStr ? JSON.parse(userDataStr) : null;
@@ -70,21 +62,11 @@ export async function fetchUserData() {
 
       } catch (e) {
         console.error('Error loading wallet balance:', e);
-        // setBalance(0); // demo fallback with realistic amount
-        // clear local storage
-        // localStorage.clear();
-        alert('Session Expired. Unable to fetch user data. Please login again.');
-        navigate('/login');
 
+        alert('Session Expired. Unable to fetch user data. Please login again.');
         setTimeout(() => { window.location.reload(); 
             return null;
         }, 1000); // Redirect to login after 1 second
-
-        // return {
-        //   success: false,
-        //   message: 'Unable to fetch user data. Please login again.',
-        //   error: err
-        // };
       }
     }, timeout); 
 

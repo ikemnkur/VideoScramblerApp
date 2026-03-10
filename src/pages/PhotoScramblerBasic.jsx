@@ -671,7 +671,7 @@ export default function PhotoScrambler() {
           // Show success message
           success(`Image scrambled successfully! ${actualCostSpent} credits used.`);
 
-    
+
         }, 100);
 
       } catch (err) {
@@ -840,26 +840,20 @@ export default function PhotoScrambler() {
   }, [base64Key, error, success]);
 
 
+  
   const handleRefundCredits = async (actionCost) => {
     // Generate noise seed
-    // const nSeed = genRandomSeed();
-    // setNoiseSeed(nSeed);
 
     const result = await refundCredits({
       userId: userData.id,
       username: userData.username,
       email: userData.email,
-      credits: actionCost,
+      // credits: actionCost,
+      credits: getActualCost(),
       currentCredits: userCredits,
       password: localStorage.getItem('hashedPassword'),
-      action: 'scramble_photo_pro',
-      // params: {
-      //     scrambleLevel: scrambleLevel,
-      //     grid: { rows, cols },
-      //     seed: seed,
-      //     algorithm: algorithm,
-      //     percentage: scramblingPercentage
-      // }
+      action: "scramble-photo-basic",
+
       params: {
         scrambleLevel: scrambleLevel,
         grid: { rows, cols },
@@ -889,6 +883,14 @@ export default function PhotoScrambler() {
       error(`Scrambling failed. ${result.message}`);
     }
   };
+
+  const getActualCost = () => {
+    console.log("get actionCost from localStorage:", localStorage.getItem('lastActionCost'));
+    console.log((" vs current actionCost state:", actionCost));
+    let num = parseInt(localStorage.getItem('lastActionCost'));
+    return num === actionCost ? num : actionCost;
+  };
+
 
   // =============================
   // RENDER

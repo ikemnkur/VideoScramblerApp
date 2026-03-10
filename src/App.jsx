@@ -85,8 +85,10 @@ import SubscriptionSuccess from './pages/SubscriptionSuccess';
 import BonusCredits from './pages/BonusCredits';
 import PurchaseStripeSuccessful from './pages/PurchaseStripeSuccesful';
 import TestGoogleTTS from './pages/TestGoogleTTS';
-// import Intro from './pages/Intro';
-//
+
+import CreditPurchases from './components/CreditPurchases';
+import CreditSpending from './components/CreditSpending';
+
 
 import { loadStripe } from '@stripe/stripe-js';
 
@@ -263,7 +265,13 @@ export default function App() {
                   <Route path="/purchase-stripe" element={<PurchaseStripe />} />
                   <Route path="/purchase-paypal" element={<PurchasePaypal />} />
                   <Route path="/purchase-cashapp" element={<PurchaseCashApp />} />
-                  <Route path="/purchase-history" element={<PurchaseHistory />} />
+                  {/* <Route path="/purchase-history" element={<PurchaseHistory />} /> */}
+
+
+                  {/* // In your routes: */}
+                  <Route path="/credit-purchase-history" element={<CreditPurchases />} />
+                  <Route path="/credit-spending-history" element={<CreditSpending />} />
+
                   <Route path="/account" element={<Account />} />
                 </>
 

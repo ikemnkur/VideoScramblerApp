@@ -406,30 +406,18 @@ export default function ScramblerVideosPro() {
     }
   };
 
-  const handleCreditConfirm = useCallback((actualCostSpent) => {
-    setShowCreditModal(false);
 
-    setAllowScrambling(true);
-
-    // Now you have access to the actual cost that was calculated and spent
-    setActionCost(localStorage.getItem('lastActionCost') || 0);
-
-    // Call scrambleVideo directly (it will use current state values)
-    scrambleVideo();
-
-  }, [scrambleVideo]);
 
   const handleRefundCredits = async () => {
     const result = await refundCredits({
       userId: userData.id,
       username: userData.username,
       email: userData.email,
-      credits: actionCost,
+      credits: getActualCost(), // Refund the actual cost that was spent
       currentCredits: userCredits,
       password: localStorage.getItem('hashedPassword'),
       action: 'scramble_video_pro',
       params: {
-
         scrambleLevel: scrambleLevel,
         grid: { rows, cols },
         seed: seed,
@@ -443,8 +431,29 @@ export default function ScramblerVideosPro() {
     } else {
       error(`Scrambling failed. ${result.message}`);
     }
+
+  }
+
+  const getActualCost = () => {
+    console.log("get actionCost from localStorage:", localStorage.getItem('lastActionCost'));
+    console.log((" vs current actionCost state:", actionCost));
+    let num = parseInt(localStorage.getItem('lastActionCost'));
+    return num === actionCost ? num : actionCost;
   };
 
+  const handleCreditConfirm = useCallback((actualCostSpent) => {
+    setShowCreditModal(false);
+
+    setAllowScrambling(true);
+
+    // Now you have access to the actual cost that was calculated and spent
+    setActionCost(localStorage.getItem('lastActionCost') || 0);
+    console.log("User confirmed credit spending. Actual cost spent:", actualCostSpent);
+
+    // Call scrambleVideo directly (it will use current state values)
+    scrambleVideo();
+
+  }, [scrambleVideo, handleRefundCredits]);
 
   // =============================
   // RENDER

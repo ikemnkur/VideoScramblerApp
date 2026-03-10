@@ -714,7 +714,7 @@ const Info = () => {
             }}
           >
             <iframe
-              src="https://youtu.be/FMVZezVXhoo"
+              src="https://www.youtube.com/embed/FMVZezVXhoo?si=ZVhyeAhF5NsRPT_Y"
               title="Intro Video"
               allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
               allowFullScreen
@@ -833,7 +833,7 @@ const Info = () => {
             }}
           >
             <iframe
-              src="https://youtu.be/FMVZezVXhoo"
+              src="https://www.youtube.com/embed/FMVZezVXhoo?si=ZVhyeAhF5NsRPT_Y"
               title="News Video"
               allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
               allowFullScreen
@@ -896,7 +896,7 @@ const Info = () => {
             >
               <iframe
                 ref={howToVideoRef}
-                src="https://youtu.be/FMVZezVXhoo"
+                src="https://www.youtube.com/embed/FMVZezVXhoo?si=ZVhyeAhF5NsRPT_Y"
                 title="How-to Video"
                 allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
                 allowFullScreen

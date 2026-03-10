@@ -157,7 +157,7 @@ export default function AudioUnscrambler() {
       userId: userData.id,
       username: userData.username,
       email: userData.email,
-      credits: actionCost,
+      credits: getActualCost(), // Refund the actual cost that was spent
       currentCredits: userCredits,
       password: localStorage.getItem('hashedPassword'),
       action: 'scramble_photo_pro',
@@ -176,6 +176,14 @@ export default function AudioUnscrambler() {
       error(`Scrambling failed. ${result.message}`);
     }
   };
+
+  const getActualCost = () => {
+    console.log("get actionCost from localStorage:", localStorage.getItem('lastActionCost'));
+    console.log((" vs current actionCost state:", actionCost));
+    let num = parseInt(localStorage.getItem('lastActionCost'));
+    return num === actionCost ? num : actionCost;
+  };
+
 
   // =============================
   // UTILITY FUNCTIONS
@@ -939,7 +947,7 @@ export default function AudioUnscrambler() {
 
       success("Audio watermarked successfully!");
 
-      let link2AudioFile = Flask_API_URL +"/"+ data.download_url
+      let link2AudioFile = Flask_API_URL + "/" + data.download_url
       setDownloadUrl(link2AudioFile);
 
       console.log("Link to watermarked audio file:", link2AudioFile);

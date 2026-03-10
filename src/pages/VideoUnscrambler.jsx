@@ -425,7 +425,7 @@ export default function VideoUnscrambler() {
 
     // Watermark bar height to exclude from unscrambling process
     const watermarkHeight = 32;
-    
+
     // Calculate the cropped video dimensions (excluding bottom watermark bar)
     const croppedVideoWidth = video.videoWidth;
     const croppedVideoHeight = video.videoHeight - watermarkHeight;
@@ -444,7 +444,7 @@ export default function VideoUnscrambler() {
       const sR = rectsSrcFromShuffled[shuffledDestIdx];
       const dR = rectsDest[origIdx];
       if (!sR || !dR) continue;
-      
+
       // Adjust source rectangle to be proportional to cropped height
       const adjustedSR = {
         x: sR.x,
@@ -452,7 +452,7 @@ export default function VideoUnscrambler() {
         w: sR.w,
         h: (sR.h / video.videoHeight) * croppedVideoHeight
       };
-      
+
       // Adjust destination rectangle to match canvas size
       const adjustedDR = {
         x: (dR.x / video.videoWidth) * canvas.width,
@@ -460,11 +460,11 @@ export default function VideoUnscrambler() {
         w: (dR.w / video.videoWidth) * canvas.width,
         h: (dR.h / video.videoHeight) * canvas.height
       };
-      
+
       // Only draw if the source rectangle doesn't overlap with the watermark area
       if (adjustedSR.y + adjustedSR.h <= croppedVideoHeight) {
         ctx.drawImage(
-          video, 
+          video,
           adjustedSR.x, adjustedSR.y, adjustedSR.w, adjustedSR.h,
           adjustedDR.x, adjustedDR.y, adjustedDR.w, adjustedDR.h
         );
@@ -607,7 +607,7 @@ export default function VideoUnscrambler() {
       userId: userData.id,
       username: userData.username,
       email: userData.email,
-      credits: actionCost,
+      credits: getActualCost(), // Refund the actual cost that was spent
       currentCredits: userCredits,
       password: localStorage.getItem('hashedPassword'),
       params: decodedParams,
@@ -620,6 +620,15 @@ export default function VideoUnscrambler() {
       error(`Scrambling failed. ${result.message}`);
     }
   };
+
+
+  const getActualCost = () => {
+    console.log("get actionCost from localStorage:", localStorage.getItem('lastActionCost'));
+    console.log((" vs current actionCost state:", actionCost));
+    let num = parseInt(localStorage.getItem('lastActionCost'));
+    return num === actionCost ? num : actionCost;
+  };
+
 
   // ========== EFFECTS ==========
 

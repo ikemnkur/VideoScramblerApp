@@ -178,17 +178,11 @@ export default function PhotoScramblerPro() {
             userId: userData.id,
             username: userData.username,
             email: userData.email,
-            credits: actionCost,
+            // credits: actionCost,
+            credits: getActualCost(), // Refund the actual cost that was spent
             currentCredits: userCredits,
             password: localStorage.getItem('hashedPassword'),
-            action: 'scramble_photo_pro',
-            // params: {
-            //     scrambleLevel: scrambleLevel,
-            //     grid: { rows, cols },
-            //     seed: seed,
-            //     algorithm: algorithm,
-            //     percentage: scramblingPercentage
-            // }
+            action: 'scramble-photo-pro',
             params: {
                 scrambleLevel: scrambleLevel,
                 grid: { rows, cols },
@@ -220,8 +214,10 @@ export default function PhotoScramblerPro() {
     };
 
 
+
+
     const confirmSpendingCredits = () => {
-        
+
         // const LQ = 2;
         // const SDcharge = 3;
         // const HDcharge = 5;

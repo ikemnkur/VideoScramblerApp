@@ -475,7 +475,7 @@ export default function Wallet() {
                             <Stack spacing={1}>
 
                               <Button
-                                amountUSD={10}
+                                // amountUSD={10}
                                 onError={onPaymentError}
                                 onClick={() => setSelectedPlan('premium')}
                                 sx={{
@@ -488,7 +488,7 @@ export default function Wallet() {
                                 Premium Plan - $10/month
                               </Button>
                               <Button
-                                amountUSD={5}
+                                // amountUSD={5}
                                 onError={onPaymentError}
                                 onClick={() => setSelectedPlan('standard')}
                                 sx={{
@@ -502,7 +502,7 @@ export default function Wallet() {
                               </Button>
 
                               <Button
-                                amountUSD={2.5}
+                                // amountUSD={2.5}
                                 onError={onPaymentError}
                                 onClick={() => setSelectedPlan('basic')}
                                 sx={{
@@ -516,7 +516,7 @@ export default function Wallet() {
                               </Button>
 
                               <Button
-                                amountUSD={0}
+                                // amountUSD={0}
                                 onError={onPaymentError}
                                 onClick={() => setSelectedPlan('free')}
                                 sx={{

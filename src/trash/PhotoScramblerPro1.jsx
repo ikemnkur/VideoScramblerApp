@@ -213,7 +213,7 @@ export default function PhotoScramblerPro() {
                 const { data } = await api.post(`/api/wallet/balance/${userData.username}`, {
                     email: userData.email
                 });
-                
+
             } catch (e) {
                 console.error('Failed to load wallet balance:', e);
 
@@ -238,12 +238,22 @@ export default function PhotoScramblerPro() {
         }
     }, [userData]);
 
+    const getActualCost = () => {
+        console.log("get actionCost from localStorage:", localStorage.getItem('lastActionCost'));
+        console.log((" vs current actionCost state:", actionCost));
+        let num = parseInt(localStorage.getItem('lastActionCost'));
+        return num === actionCost ? num : actionCost;
+    };
+
     const handleRefundCredits = async () => {
+
+
         const result = await refundCredits({
             userId: userData.id,
             username: userData.username,
             email: userData.email,
-            credits: actionCost,
+            // credits: actionCost,
+            credits: getActualCost(), // Refund the actual cost that was spent
             currentCredits: userCredits,
             password: localStorage.getItem('hashedPassword'),
             action: 'scramble_photo_pro',

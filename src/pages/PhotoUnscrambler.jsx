@@ -346,11 +346,13 @@ export default function PhotoUnscrambler() {
 
   };
 
-  // const confirmSpendingCredits = () => {
-  //   // setShowCreditModal(false);
-  //   setShowCreditModal(true);
+  const getActualCost = () => {
+    console.log("get actionCost from localStorage:", localStorage.getItem('lastActionCost'));
+    console.log((" vs current actionCost state:", actionCost));
+    let num = parseInt(localStorage.getItem('lastActionCost'));
+    return num === actionCost ? num : actionCost;
+  };
 
-  // };
 
   // Refund credits on error using shared utility
   const handleRefundCredits = async () => {
@@ -358,7 +360,8 @@ export default function PhotoUnscrambler() {
       userId: userData.id,
       username: userData.username,
       email: userData.email,
-      credits: actionCost,
+      // credits: actionCost,
+      credits: getActualCost(), // Refund the actual cost that was spent
       currentCredits: userCredits,
       password: localStorage.getItem('hashedPassword'),
       params: decodedParams
@@ -530,7 +533,7 @@ export default function PhotoUnscrambler() {
       }
     }, 'image/png');
 
-    
+
     // log succesful media unscramble event to analytics
     api.post('/api/analytics/unscramble-event', {
       username: userData.username,
@@ -550,12 +553,12 @@ export default function PhotoUnscrambler() {
       },
       watermarkParams: {
         // freq1, freq2, freq3, pulseRate1: 0.125, pulseRate2: 0.25, pulseRate3: 0.5
-        id:Math.ceil(1000 * Math.random())
-          // Placeholder for actual watermark parameters if needed
+        id: Math.ceil(1000 * Math.random())
+        // Placeholder for actual watermark parameters if needed
       }
-      
+
     }).catch(err => {
-      console.error('Failed to log analytics event:', err); 
+      console.error('Failed to log analytics event:', err);
 
     });
 

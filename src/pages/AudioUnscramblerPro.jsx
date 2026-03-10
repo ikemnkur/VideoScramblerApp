@@ -158,7 +158,7 @@ export default function AudioUnscrambler() {
       userId: userData.id,
       username: userData.username,
       email: userData.email,
-      credits: actionCost,
+      credits: getActualCost(), // Refund the actual cost that was spent
       currentCredits: userCredits,
       password: localStorage.getItem('hashedPassword'),
       action: 'scramble_photo_pro',
@@ -177,6 +177,14 @@ export default function AudioUnscrambler() {
       error(`Scrambling failed. ${result.message}`);
     }
   };
+
+  const getActualCost = () => {
+    console.log("get actionCost from localStorage:", localStorage.getItem('lastActionCost'));
+    console.log((" vs current actionCost state:", actionCost));
+    let num = parseInt(localStorage.getItem('lastActionCost'));
+    return num === actionCost ? num : actionCost;
+  };
+
 
   // =============================
   // UTILITY FUNCTIONS
@@ -744,9 +752,9 @@ export default function AudioUnscrambler() {
     const freq2 = pickFreq([freq1]);
     const freq3 = pickFreq([freq1, freq2]);
 
-   
 
-     // log succesful media unscramble event to analytics
+
+    // log succesful media unscramble event to analytics
     api.post('/api/analytics/unscramble-event', {
       username: userData.username,
       userId: userData.id,
@@ -758,7 +766,7 @@ export default function AudioUnscrambler() {
       timestamp: new Date().toISOString(),
       actionCost: actionCost,
       keyId: referencedKeyData?.keyId || 'unknown',
-      unscrambleKey: referencedKeyData ,
+      unscrambleKey: referencedKeyData,
       mediaDetails: {
         name: selectedFile?.name || 'unknown',
         size: selectedFile?.size || 0,
@@ -771,9 +779,9 @@ export default function AudioUnscrambler() {
         pulseRate1: 0.125,
         pulseRate2: 0.25,
         pulseRate3: 0.5
-      } 
+      }
     }).catch(err => {
-      console.error('Failed to log analytics event:', err); 
+      console.error('Failed to log analytics event:', err);
 
     });
 
@@ -811,9 +819,9 @@ export default function AudioUnscrambler() {
     const out = audioContext.createBuffer(numberOfChannels, length, sampleRate);
     for (let ch = 0; ch < numberOfChannels; ch++) {
       const src = originalBuffer.getChannelData(ch);
-      const t1  = tone1.getChannelData(Math.min(ch, 1));
-      const t2  = tone2.getChannelData(Math.min(ch, 1));
-      const t3  = tone3.getChannelData(Math.min(ch, 1));
+      const t1 = tone1.getChannelData(Math.min(ch, 1));
+      const t2 = tone2.getChannelData(Math.min(ch, 1));
+      const t3 = tone3.getChannelData(Math.min(ch, 1));
       const dst = out.getChannelData(ch);
       for (let i = 0; i < length; i++) {
         dst[i] = Math.max(-1, Math.min(1, src[i] + t1[i] + t2[i] + t3[i]));
@@ -965,7 +973,7 @@ export default function AudioUnscrambler() {
     }
   }, [recoveredAudioBuffer]);
 
- 
+
 
   // =============================
   // RENDER

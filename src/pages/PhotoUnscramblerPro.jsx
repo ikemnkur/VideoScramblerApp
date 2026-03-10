@@ -554,8 +554,8 @@ export default function PhotoUnscramblerPro() {
 
                 scrambleLevel: scrambleLevel,
 
-                algorithm: decodedKey.scramble.algorithm,
-                percentage: decodedKey.scramble.percentage,
+                "algorithm": decodedKey.scramble.algorithm,
+                "percentage": decodedKey.scramble.percentage,
                 scramble: decodedKey.scramble,
                 noise: decodedKey.noise,
                 noise_seed: decodedKey.noise.noise_seed,
@@ -762,19 +762,19 @@ export default function PhotoUnscramblerPro() {
         // const nSeed = genRandomSeed();
         // setNoiseSeed(nSeed);
 
-        let cost = 0;
+        // let cost = 0;
 
-        if (actionCosts != actionCost) {
-            cost = parseInt(localStorage.getItem('lastActionCost')) || actionCost;
-        } else {
-            cost = actionCost;
-        }
+        // if (actionCosts != actionCost) {
+        //     cost = parseInt(localStorage.getItem('lastActionCost')) || actionCost;
+        // } else {
+        //     cost = actionCost;
+        // }
 
         const result = await refundCredits({
             userId: userData.id,
             username: userData.username,
             email: userData.email,
-            credits: cost,
+            credits: getActualCost(),
             currentCredits: userCredits,
             password: localStorage.getItem('hashedPassword'),
             action: 'unscramble_photo_pro',
@@ -787,7 +787,7 @@ export default function PhotoUnscramblerPro() {
                 col: decodedKey?.cols || null,
                 seed: decodedKey?.seed || null,
                 algorithm: decodedKey?.scramble?.algorithm || null,
-                percentage: decodedKey?.scramble?.percentage || null,
+                "percentage%": decodedKey?.scramble?.percentage || null,
                 scramble: decodedKey?.scramble || null,
                 noise: decodedKey?.noise || null,
 
@@ -807,6 +807,14 @@ export default function PhotoUnscramblerPro() {
             error(`Scrambling failed. ${result.message}`);
         }
     };
+
+    const getActualCost = () => {
+        console.log("get actionCost from localStorage:", localStorage.getItem('lastActionCost'));
+        console.log((" vs current actionCost state:", actionCost));
+        let num = parseInt(localStorage.getItem('lastActionCost'));
+        return num === actionCost ? num : actionCost;
+    };
+
 
 
 

@@ -773,6 +773,14 @@ export default function PhotoScrambler() {
   }, [base64Key, error, success]);
 
 
+  const getActualCost = () => {
+    console.log("get actionCost from localStorage:", localStorage.getItem('lastActionCost'));
+    console.log((" vs current actionCost state:", actionCost));
+    let num = parseInt(localStorage.getItem('lastActionCost'));
+    return num === actionCost ? num : actionCost;
+  };
+
+
   const handleRefundCredits = async (actionCost) => {
     // Generate noise seed
     // const nSeed = genRandomSeed();
@@ -782,7 +790,9 @@ export default function PhotoScrambler() {
       userId: userData.id,
       username: userData.username,
       email: userData.email,
-      credits: actionCost,
+      // credits: actionCost,
+      credits: getActualCost(),
+
       currentCredits: userCredits,
       password: localStorage.getItem('hashedPassword'),
       action: 'scramble_photo_pro',

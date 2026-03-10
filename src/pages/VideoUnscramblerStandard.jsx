@@ -65,7 +65,7 @@ export default function VideoUnscramblerPro() {
   const [isProcessing, setIsProcessing] = useState(false);
   const [unscrambledReady, setUnscrambledReady] = useState(false);
   const [scrambleLevel, setScrambleLevel] = useState(1); // Level of scrambling (for credit calculation)
-  const watermark_idNumber = useRef(Math.ceil(2**16 * Math.random())); // Random ID for watermark (for analytics)
+  const watermark_idNumber = useRef(Math.ceil(2 ** 16 * Math.random())); // Random ID for watermark (for analytics)
 
   const [userData, setUserData] = useState(JSON.parse(localStorage.getItem("userdata")));
   const [allowUnscrambling, setAllowUnscrambling] = useState(false);
@@ -393,13 +393,13 @@ export default function VideoUnscramblerPro() {
         api.post('/api/analytics/unscramble-event', {
           username: userData.username,
           userId: userData.id,
-           creator: referencedKeyData?.creator || 'unknown',
-        scrambleType: 'video',
-        scrambleLevel: scrambleLevel,
-        timestamp: new Date().toISOString(),
-        actionCost: actionCost,
-        keyId: referencedKeyData?.keyId || 'unknown',
-        unscrambleKey: referencedKeyData ? JSON.stringify(referencedKeyData) : null,
+          creator: referencedKeyData?.creator || 'unknown',
+          scrambleType: 'video',
+          scrambleLevel: scrambleLevel,
+          timestamp: new Date().toISOString(),
+          actionCost: actionCost,
+          keyId: referencedKeyData?.keyId || 'unknown',
+          unscrambleKey: referencedKeyData ? JSON.stringify(referencedKeyData) : null,
           mediaDetails: {
             name: selectedFile?.name || 'unknown',
             size: selectedFile?.size || 0,
@@ -497,7 +497,8 @@ export default function VideoUnscramblerPro() {
       userId: userData.id,
       username: userData.username,
       email: userData.email,
-      credits: setActionCost(localStorage.getItem('lastActionCost') || actionCost),
+      // credits: setActionCost(localStorage.getItem('lastActionCost') || actionCost),
+      credits: getActualCost(), // Refund the actual cost that was spent
       currentCredits: userCredits,
       password: localStorage.getItem('hashedPassword'),
       params: decodedParams,
@@ -511,6 +512,12 @@ export default function VideoUnscramblerPro() {
     }
   };
 
+  const getActualCost = () => {
+    console.log("get actionCost from localStorage:", localStorage.getItem('lastActionCost'));
+    console.log((" vs current actionCost state:", actionCost));
+    let num = parseInt(localStorage.getItem('lastActionCost'));
+    return num === actionCost ? num : actionCost;
+  };
 
 
   useEffect(() => {

@@ -618,7 +618,7 @@ export default function VideoUnscramblerBasic() {
       api.post('/api/analytics/unscramble-event', {
         username: userData.username,
         userId: userData.id,
-         creator: referencedKeyData?.creator || 'unknown',
+        creator: referencedKeyData?.creator || 'unknown',
         scrambleType: 'video',
         scrambleLevel: scrambleLevel,
         timestamp: new Date().toISOString(),
@@ -726,7 +726,7 @@ export default function VideoUnscramblerBasic() {
       userId: userData.id,
       username: userData.username,
       email: userData.email,
-      credits: actionCost,
+      credits: getActualCost(), // Refund the actual cost that was spent
       currentCredits: userCredits,
       password: localStorage.getItem('hashedPassword'),
       params: decodedParams,
@@ -739,6 +739,14 @@ export default function VideoUnscramblerBasic() {
       error(`Scrambling failed. ${result.message}`);
     }
   };
+
+  const getActualCost = () => {
+    console.log("get actionCost from localStorage:", localStorage.getItem('lastActionCost'));
+    console.log((" vs current actionCost state:", actionCost));
+    let num = parseInt(localStorage.getItem('lastActionCost'));
+    return num === actionCost ? num : actionCost;
+  };
+
 
   // ========== EFFECTS ==========
 

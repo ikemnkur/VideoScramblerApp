@@ -189,7 +189,7 @@ export default function PhotoUnscrambler() {
     return new ImageData(out, w, h);
   }
 
- 
+
 
   const jsonToParams = (obj) => {
     // Handle nested structure (with "scramble" key) or flat structure
@@ -425,7 +425,8 @@ export default function PhotoUnscrambler() {
       userId: userData.id,
       username: userData.username,
       email: userData.email,
-      credits: localStorage.getItem("actualCostSpent") || actionCost, // Refund the actual cost spent if available, otherwise use the default action cost
+      // credits: localStorage.getItem("actualCostSpent") || actionCost, // Refund the actual cost spent if available, otherwise use the default action cost
+      credits: getActualCost(), // Refund the actual cost that was spent
       currentCredits: userCredits,
       password: localStorage.getItem('hashedPassword'),
       params: decodedParams
@@ -437,6 +438,14 @@ export default function PhotoUnscrambler() {
       error(`Scrambling failed. ${result.message}`);
     }
   };
+
+  const getActualCost = () => {
+    console.log("get actionCost from localStorage:", localStorage.getItem('lastActionCost'));
+    console.log((" vs current actionCost state:", actionCost));
+    let num = parseInt(localStorage.getItem('lastActionCost'));
+    return num === actionCost ? num : actionCost;
+  };
+
 
 
   const confirmSpendingCredits = () => {
@@ -459,8 +468,8 @@ export default function PhotoUnscrambler() {
       // Use jsonToParams to properly extract and validate parameters
       // const params = jsonToParams(parsedParams);
 
-      const {  noise, metadata } = referencedKeyData;
-       const { n, m, permDestToSrc0} = referencedKeyData.scramble ? jsonToParams(referencedKeyData) : jsonToParams(parsedParams);
+      const { noise, metadata } = referencedKeyData;
+      const { n, m, permDestToSrc0 } = referencedKeyData.scramble ? jsonToParams(referencedKeyData) : jsonToParams(parsedParams);
 
       setActionCost(n * m >= 100 ? 15 : n * m >= 64 ? 10 : 5); // Adjust cost based on grid size
 

@@ -248,7 +248,7 @@ export default function ScramblerVideosPro() {
           userId: userData.userId || 'Unknown',
           timestamp: new Date().toISOString()
         },
-        limits:{
+        limits: {
           activated: KeyLimitsActivated,
           uses: KeyLimitsActivated ? keyUses : 1000,
           expiry: KeyLimitsActivated ? keyExpiry : 100,
@@ -464,7 +464,8 @@ export default function ScramblerVideosPro() {
       userId: userData.id,
       username: userData.username,
       email: userData.email,
-      credits: localStorage.getItem('lastActionCost') || actionCost,
+      // credits: localStorage.getItem('lastActionCost') || actionCost,
+      credits: getActualCost(), // Refund the actual cost that was spent
       currentCredits: userCredits,
       password: localStorage.getItem('hashedPassword'),
       action: 'scramble_video_pro',
@@ -484,6 +485,14 @@ export default function ScramblerVideosPro() {
     } else {
       error(`Scrambling failed. ${result.message}`);
     }
+  };
+
+
+  const getActualCost = () => {
+    console.log("get actionCost from localStorage:", localStorage.getItem('lastActionCost'));
+    console.log((" vs current actionCost state:", actionCost));
+    let num = parseInt(localStorage.getItem('lastActionCost'));
+    return num === actionCost ? num : actionCost;
   };
 
 
@@ -952,7 +961,7 @@ export default function ScramblerVideosPro() {
 
               </Grid>
 
-            
+
               {/* </Box> */}
             </Box>
           </Box>
