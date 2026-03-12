@@ -33,6 +33,7 @@ import { refundCredits } from "../utils/creditUtils";
 
 import CreditConfirmationModal from '../components/CreditConfirmationModal';
 import api from '../api/client';
+import { useNavigationWarning } from '../utils/useNavigationWarning';
 
 
 // Simple Photo Scrambler (React)
@@ -55,11 +56,10 @@ export default function PhotoScrambler() {
   // =============================
   // SUBSCRIPTION HOOKS (mock)
   // =============================
-  const [user] = useState({ id: "demo-user-123", email: "demo@example.com", username: "photoartist" });
+  const [userData, setUserData] = useState(JSON.parse(localStorage.getItem("userdata")));
+  const [isPro, setIsPro] = useState(userData?.accountType !== 'free'); // Mock subscription status based on user data (replace with real check)
+  // const togglePro = () => setIsPro((p) => !p);
 
-
-  const [isPro, setIsPro] = useState(false);
-  const togglePro = () => setIsPro((p) => !p);
 
   // =============================
   // STATE & REFS
@@ -82,7 +82,7 @@ export default function PhotoScrambler() {
   const [jsonKey, setJsonKey] = useState("");
   const [imageLoaded, setImageLoaded] = useState(false);
   const [imageFile, setImageFile] = useState(null);
-  const [userData, setUserData] = useState(JSON.parse(localStorage.getItem("userdata")));
+  
 
   // Processing state
   const [isProcessing, setIsProcessing] = useState(false);
@@ -359,13 +359,40 @@ export default function PhotoScrambler() {
     ctx.globalAlpha = 1.0;
     ctx.textAlign = 'left';
 
-  }, [grid, permDestToSrc0, imageLoaded, user.username, selectedLevel]);
+  }, [grid, permDestToSrc0, imageLoaded, userData.username, selectedLevel]);
 
   // =============================
   // EVENTS
   // =============================
 
 
+
+  // Refund credits on error using shared utility
+  const handleRefundCredits = async () => {
+    const result = await refundCredits({
+      userId: userData.id,
+      username: userData.username,
+      email: userData.email,
+      // credits: actionCost,
+      credits: getActualCost(), // Refund the actual cost that was spent
+      currentCredits: userCredits,
+      password: localStorage.getItem('hashedPassword'),
+      params: params
+    });
+
+    if (result.success) {
+      error(`An error occurred during scrambling. ${result.message}`);
+    } else {
+      error(`Scrambling failed. ${result.message}`);
+    }
+  };
+
+  const getActualCost = () => {
+    console.log("get actionCost from localStorage:", localStorage.getItem('lastActionCost'));
+    console.log((" vs current actionCost state:", actionCost));
+    let num = parseInt(localStorage.getItem('lastActionCost'));
+    return num === actionCost ? num : actionCost;
+  };
 
 
   useEffect(() => {
@@ -457,7 +484,15 @@ export default function PhotoScrambler() {
   }, [imageLoaded, drawScrambledImage, permDestToSrc0]);
 
 
-
+  // =============================
+  // NAVIGATION WARNING (Once per day)
+  // =============================
+  useNavigationWarning({
+    shouldWarn: imageLoaded && permDestToSrc0.length > 0 && base64Key,
+    message: 'Make sure you have downloaded both your scrambled image and unscramble key!',
+    storageKey: 'photoScramblerNavigationAlert',
+    cooldownHours: 24
+  });
 
   // =============================
   // DOWNLOAD SCRAMBLED IMAGE
@@ -580,6 +615,12 @@ export default function PhotoScrambler() {
     success("Key file downloaded successfully!");
   }, [base64Key, error, success]);
 
+
+
+
+
+
+  
   // =============================
   // RENDER
   // =============================

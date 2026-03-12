@@ -71,16 +71,31 @@ export default function CreditConfirmationModal({
 
 
     async function fetchData(params) {
-      console.log('Fetching user credits for', userData.username);
-      const response = await api.post(`/api/wallet/balance/${userData.username}`, {
-        username: userData.username,
-        email: userData.email,
-        password: localStorage.getItem('hashedPassword')
-      });
+      try {
+        console.log('Fetching user credits for', userData.username);
+        const response = await api.post(`/api/wallet/balance/${userData.username}`, {
+          username: userData.username,
+          email: userData.email,
+          password: localStorage.getItem('hashedPassword')
+        });
 
-      if (response.status === 200 && response.data) {
-        setUserCredits(response.data.credits);
+        if (response.status === 200 && response.data) {
+          setUserCredits(response.data.credits);
+        }
+      } catch (error) {
+        // Failed to load wallet balance: 
+        if (error.response) {
+          console.error('Failed to load wallet balance:', error.response.data);
+          error('Failed to load wallet balance: ' + (error.response.data?.message || 'Unknown error'));
+          
+        } else {
+          console.error('Failed to load wallet balance:', error.message);
+          error('Failed to load wallet balance: ' + error.message);
+        }
+        
+        window.location.href = '/login'; // Redirect to login page on auth error
       }
+
     }
 
     fetchData();
@@ -260,7 +275,7 @@ export default function CreditConfirmationModal({
         multipler = 2; // photos are less compute expensive to leak check
       }
 
-      calculatedCost  += 25; // base cost for leak checking
+      calculatedCost += 25; // base cost for leak checking
       console.log('Stored leak check cost for', mediaType, ':', calculatedCost * multipler);
     }
 

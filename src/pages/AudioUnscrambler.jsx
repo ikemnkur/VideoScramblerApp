@@ -137,7 +137,7 @@ export default function AudioUnscrambler() {
       userId: userData.id,
       username: userData.username,
       email: userData.email,
-       credits: getActualCost(), // Refund the actual cost that was spent
+      credits: getActualCost(), // Refund the actual cost that was spent
       currentCredits: userCredits,
       password: localStorage.getItem('hashedPassword'),
       action: 'scramble_photo_pro',
@@ -157,7 +157,7 @@ export default function AudioUnscrambler() {
     }
   };
 
-   const getActualCost = () => {
+  const getActualCost = () => {
     console.log("get actionCost from localStorage:", localStorage.getItem('lastActionCost'));
     console.log((" vs current actionCost state:", actionCost));
     let num = parseInt(localStorage.getItem('lastActionCost'));
@@ -290,14 +290,14 @@ export default function AudioUnscrambler() {
 
   // Render watermarked audio using OfflineAudioContext
   const renderWatermarkedAudio = async (originalBuffer, watermarkBuffer, intervalSeconds, fadeDuration, watermarkVolume) => {
-    const sampleRate = originalBuffer.sampleRate;
+    const samplingRate = originalBuffer.sampleRate;
     const numChannels = originalBuffer.numberOfChannels;
     const duration = originalBuffer.duration;
 
     const offlineContext = new OfflineAudioContext(
       numChannels,
-      Math.ceil(duration * sampleRate),
-      sampleRate
+      Math.ceil(duration * samplingRate),
+      samplingRate
     );
 
     // Create source for original audio
@@ -792,15 +792,15 @@ export default function AudioUnscrambler() {
     }
 
     const duration = Math.ceil((fileDetails.duration || 0) / 60); // duration in minutes
-    const sampleRate = fileDetails.sampleRate || 44100;
-    const numberOfChannels = fileDetails.numberOfChannels || 2;
+    const samplingRate = fileDetails.sampleRate || 44100;
+    const numberOfChannelz = fileDetails.numberOfChannels || 2;
 
     console.log('Audio Duration:', fileDetails.duration, 'seconds (', duration, 'minutes)');
     console.log('Audio Size:', fileDetails.size, 'bytes');
     console.log("cost due to size: ", (1 + fileDetails.size / (1000 * 1000 * 1)))
 
-    
-let calculatedCost = Math.ceil((sampleRate / 24000) * duration + (numberOfChannels * fileDetails.size / (1000 * 1000 * 1))); // scale by size in MB over 1MB
+
+    let calculatedCost = Math.ceil((samplingRate / 24000) * duration + (numberOfChannelz * fileDetails.size / (1000 * 1000 * 1))); // scale by size in MB over 1MB
 
     console.log('Calculated Audio Cost:', calculatedCost);
 
@@ -933,7 +933,7 @@ let calculatedCost = Math.ceil((sampleRate / 24000) * duration + (numberOfChanne
               numbersPath: '/audio-numbers',
               symbolsPath: '/audio-symbols',
               watermarksPath: '/watermarks',
-              silenceBetween: 0.15,
+              silenceBetween: 0.05,
             }
           );
 
@@ -946,8 +946,8 @@ let calculatedCost = Math.ceil((sampleRate / 24000) * duration + (numberOfChanne
             audioContext,
             {
               intervalSeconds, // starts at t=0, repeats every 3× watermark duration
-              volume: 0.45,    // audible but not obtrusive
-              fadeMs: 200,
+              volume: 0.20,    // audible but not obtrusive
+              fadeMs: 100,
             }
           );
 
@@ -1066,7 +1066,7 @@ let calculatedCost = Math.ceil((sampleRate / 24000) * duration + (numberOfChanne
           🎵 Audio Unscrambler
         </Typography>
         <Typography variant="h6" color="text.secondary" sx={{ mb: 2 }}>
-          Upload scrambled audio and key, apply segment unshuffling and/or noise removal, and download the unscrambled audio.
+          Upload scrambled audio and key, apply unscrambling, then download the unscrambled audio (with watermark).
         </Typography>
 
         <Box sx={{ display: 'flex', gap: 1, justifyContent: 'center', flexWrap: 'wrap' }}>
@@ -1276,7 +1276,7 @@ let calculatedCost = Math.ceil((sampleRate / 24000) * duration + (numberOfChanne
               Step 3
             </Typography>
             <Typography variant="h6" sx={{ color: '#e0e0e0' }}>
-              Paste Your Unscramble Key
+              Unscramble and Download
             </Typography>
           </Box>
           {/* <Box sx={{ display: 'flex', gap: 2, alignItems: 'center', flexWrap: 'wrap', mb: 2 }}> */}
@@ -1322,9 +1322,9 @@ let calculatedCost = Math.ceil((sampleRate / 24000) * duration + (numberOfChanne
       {/* Info Section */}
       <Paper elevation={1} sx={{ p: 2, backgroundColor: '#f5f5f5' }}>
         <Typography variant="body2" color="black">
-          💡 Upload audio, scramble it with segment shuffling and multi-frequency noise, save the key,
-          and export the result. The scrambled audio can only be recovered with the correct key file.
-          Use this to protect your audio content from unauthorized distribution.
+          💡 Upload scrambled audio, unscramble it with our algorithm, then download it.
+          
+          Use this tool to download protected audio content from creators' distribution platforms.
         </Typography>
       </Paper>
 

@@ -50,7 +50,12 @@ export default function PhotoUnscrambler() {
   const [previewUrl, setPreviewUrl] = useState(null);
   const [imageError, setImageError] = useState(null);
   const [imageFile, setImageFile] = useState(null);
+
+
   const [userData, setUserData] = useState(JSON.parse(localStorage.getItem("userdata")));
+  const [isPro, setIsPro] = useState(userData?.accountType !== 'free'); // Mock subscription status based on user data (replace with real check)
+  // const togglePro = () => setIsPro((p) => !p);
+
 
 
   const scrambledImageRef = useRef(null);

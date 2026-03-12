@@ -3,7 +3,7 @@
  * Handles generation and application of audio watermarks
  */
 
-const TTS_SERVER_URL = 'http://localhost:5000/';
+const TTS_SERVER_URL = 'http://localhost:5000';
 
 /**
  * Generate a TTS watermark for audio scrambling/unscrambling
@@ -51,9 +51,9 @@ export async function generateWatermark(username, type = 'unscrambler', options 
       })
     });
 
-    if (!response.ok) {
-      throw new Error(`TTS Server error: ${response.statusText}`);
-    }
+    // if (!response.ok) {
+    //   throw new Error(`TTS Server error: ${response.statusText}`);
+    // }
 
     const result = await response.json();
 

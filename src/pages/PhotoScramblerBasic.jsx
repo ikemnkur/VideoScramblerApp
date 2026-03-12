@@ -34,6 +34,7 @@ import CreditConfirmationModal from '../components/CreditConfirmationModal';
 import { Navigate, useNavigate } from "react-router-dom";
 import { refundCredits } from '../utils/creditUtils';
 import api from '../api/client';
+import { useNavigationWarning } from '../utils/useNavigationWarning';
 
 
 // Simple Photo Scrambler (React)
@@ -597,14 +598,7 @@ export default function PhotoScrambler() {
 
 
   const onGenerate = useCallback((actualCostSpent) => {
-    // if (!imageFile) {
-    //   error("Please select an image file first");
-    //   return;
-    // }
-    // if (!imageLoaded) {
-    //   error("Please wait for the image to load");
-    //   return;
-    // }
+ 
     setIsProcessing(true);
 
     console.log('Credits spent:', actualCostSpent);
@@ -724,39 +718,6 @@ export default function PhotoScrambler() {
     // Show credit confirmation modal before scrambling
     setShowCreditModal(true);
 
-    // const LQ = 2;
-    // const SDcharge = 3;
-    // const HDcharge = 5;
-    // const FHDCharge = 10;
-
-    // let fileDetails = {
-    //   type: 'image',
-    //   size: selectedFile?.size || 0,
-    //   name: selectedFile?.name || '',
-    //   horizontal: imageRef.current?.naturalWidth || 0,
-    //   vertical: imageRef.current?.naturalHeight || 0
-    // };
-
-    // // Calculate cost based on photo resolution from fileDetails
-    // const width = fileDetails.horizontal;
-    // const height = fileDetails.vertical;
-
-    // console.log('Photo Dimensions:', width, 'x', height);
-    // console.log('Photo Size:', fileDetails.size, 'bytes');
-
-    // let resolutionCost = LQ;
-    // if (width >= 1920 && height >= 1080) {
-    //   resolutionCost = FHDCharge;
-    // } else if (width >= 1280 && height >= 720) {
-    //   resolutionCost = HDcharge;
-    // } else if (width >= 854 && height >= 480) {
-    //   resolutionCost = SDcharge;
-    // } else {
-    //   resolutionCost = LQ;
-    // }
-
-    // let calculatedCost = Math.ceil(Math.sqrt(resolutionCost + 1) * (1 + fileDetails.size / (1000 * 1000 * 0.5))); // scale by size in MB over 0.5MB
-
     setActionCost(localStorage.getItem('lastActionCost') || 5); // Default to 5 credits if not set
   };
 
@@ -774,6 +735,15 @@ export default function PhotoScrambler() {
     }
   }, [imageLoaded, drawScrambledImage, permDestToSrc0]);
 
+  // =============================
+  // NAVIGATION WARNING (Once per day)
+  // =============================
+  useNavigationWarning({
+    shouldWarn: imageLoaded && permDestToSrc0.length > 0 && base64Key,
+    message: 'Make sure you have downloaded both your scrambled image and unscramble key!',
+    storageKey: 'photoScramblerNavigationAlert',
+    cooldownHours: 24
+  });
 
   // =============================
   // DOWNLOAD SCRAMBLED IMAGE

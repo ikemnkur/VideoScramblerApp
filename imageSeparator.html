@@ -1,0 +1,141 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <meta charset="UTF-8">
+    <title>Image Frequency Separator</title>
+
+    <script async src="https://docs.opencv.org/4.x/opencv.js"></script>
+
+    <style>
+        body {
+            font-family: Arial;
+            background: #111;
+            color: white;
+            text-align: center;
+        }
+
+        canvas {
+            border: 1px solid #555;
+            margin: 10px;
+        }
+
+        .container {
+            display: flex;
+            flex-wrap: wrap;
+            justify-content: center;
+        }
+
+        .block {
+            margin: 10px;
+        }
+    </style>
+</head>
+
+<body>
+
+    <h2>Image Frequency Separation</h2>
+
+    <input type="file" id="upload">
+
+    <div class="container">
+
+        <div class="block">
+            <p>Original</p>
+            <canvas id="original"></canvas> 
+            
+            <p>Frequency Separation</p>
+            --------------------------------------------------------------------------
+        <!--  -->
+        <br>  
+       
+       
+        </br>
+        <div style="display: flex; flex-direction: row;">
+          
+            <div class="block">
+                <p>Low Pass (Blur)</p>
+                <canvas id="low"></canvas>
+            </div>
+
+            <div class="block">
+                <p>Medium Detail</p>
+                <canvas id="medium"></canvas>
+            </div>
+
+            <div class="block">
+                <p>High Pass (Edges)</p>
+                <canvas id="high"></canvas>
+            </div>
+
+
+        </div>
+    </div>
+
+    <script>
+
+        let ready = false
+        cv['onRuntimeInitialized'] = () => {
+            ready = true
+        }
+
+        document.getElementById('upload').addEventListener('change', function (e) {
+
+            if (!ready) {
+                alert("OpenCV not ready yet")
+                return
+            }
+
+            let file = e.target.files[0]
+            let img = new Image()
+
+            img.onload = function () {
+
+                let canvas = document.getElementById('original')
+                canvas.width = img.width
+                canvas.height = img.height
+
+                let ctx = canvas.getContext('2d')
+                ctx.drawImage(img, 0, 0)
+
+                process()
+
+            }
+
+            img.src = URL.createObjectURL(file)
+
+        })
+
+        function process() {
+
+            let src = cv.imread('original')
+
+            let blurSmall = new cv.Mat()
+            let blurLarge = new cv.Mat()
+
+            cv.GaussianBlur(src, blurSmall, new cv.Size(0, 0), 3)
+            cv.GaussianBlur(src, blurLarge, new cv.Size(0, 0), 15)
+
+            let medium = new cv.Mat()
+            let high = new cv.Mat()
+
+            cv.subtract(blurSmall, blurLarge, medium)
+            cv.subtract(src, blurSmall, high)
+
+            cv.imshow('low', blurLarge)
+            cv.imshow('medium', medium)
+            cv.imshow('high', high)
+
+            src.delete()
+            blurSmall.delete()
+            blurLarge.delete()
+            medium.delete()
+            high.delete()
+
+        }
+
+    </script>
+
+</body>
+
+</html>

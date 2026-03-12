@@ -59,7 +59,7 @@ export default function VideoScrambler() {
   // =============================
   const [user] = useState({ id: "demo-user-123", email: "demo@example.com" });
   const [userData] = useState(JSON.parse(localStorage.getItem("userdata")));
-  // const [isPro, setIsPro] = useState(false);
+  const [isPro, setIsPro] = useState(userData?.accountType !== 'free'); // Mock subscription status based on user data (replace with real check)
 
   const [selectedFile, setSelectedFile] = useState(null);
   const [selectedLevel, setSelectedLevel] = useState("med"); // low|med|high

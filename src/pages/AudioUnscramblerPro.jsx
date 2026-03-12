@@ -983,7 +983,7 @@ export default function AudioUnscrambler() {
       <Box sx={{ mb: 4, textAlign: 'center' }}>
         <Typography variant="h3" color="primary.main" sx={{ mb: 2, fontWeight: 'bold', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 1 }}>
           {/* <AudioFile /> */}
-          🎵 Audio Unscrambler
+          🎵 Audio Unscrambler +
         </Typography>
         <Typography variant="h6" color="text.secondary" sx={{ mb: 2 }}>
           Upload scrambled audio and key, apply segment unshuffling and/or noise removal, and download the unscrambled audio.
@@ -1012,7 +1012,7 @@ export default function AudioUnscrambler() {
                   Step 1
                 </Typography>
                 <Typography variant="h6" sx={{ color: '#e0e0e0' }}>
-                  Select Scramble Audio
+                  Select Scrambled Audio File
                 </Typography>
               </Box>
 
@@ -1146,49 +1146,7 @@ export default function AudioUnscrambler() {
             })()}
           </Box>
 
-          {/* Key Code Input
-          <Box sx={{ mb: 3 }}>
-
-            <Grid item xs={12} md={6}>
-              <Typography variant="body2" sx={{ color: '#bdbdbd', mb: 1 }}>
-                Scramble Key File
-              </Typography>
-              <input
-                type="file"
-                accept=".key,.json,.txt"
-                onChange={handleKeyFileSelect}
-                style={{ display: 'none' }}
-                id="key-file-upload"
-                ref={keyFileInputRef}
-              />
-              <label htmlFor="key-file-upload">
-                <Button variant="contained" component="span" startIcon={<Upload />} sx={{ backgroundColor: '#2196f3', color: 'white', mb: 2 }}>
-                  Choose Key File
-                </Button>
-              </label>
-
-            </Grid>
-            <strong style={{ fontSize: 24, margin: '0 16px' }}> OR </strong>
-            <Typography variant="h6" sx={{ mb: 1, color: '#e0e0e0' }}>
-              Enter Key Code
-            </Typography>
-            <TextField
-              fullWidth
-              multiline
-              rows={3}
-              value={keyCode}
-              onChange={(e) => setKeyCode(e.target.value)}
-              placeholder="eyJzZWVkIjoxMjM0NSwibiI6MywibSI6MywicGVybTFiYXNlZCI6WzMsMiw1LDEsNyw2LDksNCw4XX0="
-              sx={{
-                mb: 2,
-                '& .MuiInputBase-root': {
-                  backgroundColor: '#353535',
-                  color: 'white',
-                  fontFamily: 'monospace'
-                }
-              }}
-            />
-          </Box> */}
+      
 
           {/* Unnscramble Action Button */}
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 2 }}>
@@ -1196,7 +1154,7 @@ export default function AudioUnscrambler() {
               Step 3
             </Typography>
             <Typography variant="h6" sx={{ color: '#e0e0e0' }}>
-              Paste Your Unscramble Key
+              Unscramble and Download
             </Typography>
           </Box>
           {/* <Box sx={{ display: 'flex', gap: 2, alignItems: 'center', flexWrap: 'wrap', mb: 2 }}> */}
@@ -1220,12 +1178,12 @@ export default function AudioUnscrambler() {
 
           {recoveredAudioBuffer && (
             <>
-              <Divider sx={{ my: 3, backgroundColor: '#666' }} />
-              <Typography variant="h6" sx={{ mb: 2, color: '#e0e0e0' }}>
+              <Divider sx={{ my: 2, backgroundColor: '#666' }} />
+              {/* <Typography variant="h6" sx={{ mb: 2, color: '#e0e0e0' }}>
                 Recovered Audio
               </Typography>
               <canvas ref={unscrambledCanvasRef} width="600" height="150" style={{ width: '100%', height: 'auto', border: '1px solid #666', borderRadius: '4px', marginBottom: '10px' }} />
-              <audio ref={unscrambledAudioPlayerRef} controls style={{ width: '100%', marginBottom: '15px' }} />
+              <audio ref={unscrambledAudioPlayerRef} controls style={{ width: '100%', marginBottom: '15px' }} /> */}
 
               <Button
                 variant="contained"
@@ -1243,9 +1201,9 @@ export default function AudioUnscrambler() {
       {/* Info Section */}
       <Paper elevation={1} sx={{ p: 2, backgroundColor: '#f5f5f5' }}>
         <Typography variant="body2" color="black">
-          💡 Upload audio, scramble it with segment shuffling and multi-frequency noise, save the key,
-          and export the result. The scrambled audio can only be recovered with the correct key file.
-          Use this to protect your audio content from unauthorized distribution.
+          💡 Upload scrambled audio, unscramble it with our algorithm, then download it.
+          
+          Use this tool to download protected audio content from creators' distribution platforms.
         </Typography>
       </Paper>
 

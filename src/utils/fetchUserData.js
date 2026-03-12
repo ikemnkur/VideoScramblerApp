@@ -62,14 +62,16 @@ export async function fetchUserData() {
 
       } catch (e) {
         console.error('Error loading wallet balance:', e);
-
-        alert('Session Expired. Unable to fetch user data. Please login again.');
-        setTimeout(() => { 
+        if ((window.location.pathname !== '/login') && (window.location.pathname !== '/info') && (window.location.pathname !== '/help') && (window.location.pathname !== '/register')) {
+          alert('Session Expired. Unable to fetch user data. Please login again.');
+          setTimeout(() => {
             window.location.href = '/login';
             return null;
-        }, 1000); // Redirect to login after 1 second
+          }, 1000); // Redirect to login after 1 second
+
+        }
       }
-    }, timeout); 
+    }, timeout);
 
 
   } catch (err) {

@@ -37,6 +37,9 @@ import {
   checkTTSServerHealth
 } from '../utils/ttsWatermarkService';
 
+import { refundCredits } from '../utils/creditUtils';
+import { useNavigationWarning } from '../utils/useNavigationWarning';
+
 export default function AudioScrambler() {
   const { success, error, info } = useToast();
 
@@ -71,7 +74,7 @@ export default function AudioScrambler() {
   const [noiseSeed, setNoiseSeed] = useState(Math.floor(Math.random() * 100000).toString());
   const [segmentSize, setSegmentSize] = useState('2');
   const [padding, setPadding] = useState('0.5');
-  const [noiseLevel, setNoiseLevel] = useState('0.3');
+  const [noiseLevel, setNoiseLevel] = useState('0.15');
 
   const [filename, setFilename] = useState('');
   const [selectedFile, setSelectedFile] = useState(null);
@@ -605,7 +608,7 @@ export default function AudioScrambler() {
       const segSize = parseFloat(segmentSize) || 2;
       const pad = parseFloat(padding) || 0.5;
       const shuffleSd = parseInt(shuffleSeed) || 12345;
-      const noiseLevel_ = parseFloat(noiseLevel) || 0.3;
+      const noiseLevel_ = parseFloat(noiseLevel) || 0;
       const noiseSd = parseInt(noiseSeed) || 54321;
 
       // Prepend watermark to original audio if available
@@ -913,7 +916,7 @@ export default function AudioScrambler() {
                   </Button>
                 </Box>
               </Box>
-
+{/* 
               <Box sx={{ mb: 2 }}>
                 <Typography variant="body2" sx={{ color: '#bdbdbd', mb: 1 }}>
                   Segment Size (seconds)
@@ -939,8 +942,9 @@ export default function AudioScrambler() {
                   size="small"
                   fullWidth
                   sx={{ backgroundColor: '#353535', input: { color: 'white' } }}
+                  inputProps={{ min: 0, max: 0.5, step: 0.01 }}
                 />
-              </Box>
+              </Box> */}
             </Grid>
 
             <Grid item xs={12} md={6}>
@@ -972,15 +976,15 @@ export default function AudioScrambler() {
 
               <Box sx={{ mb: 2 }}>
                 <Typography variant="body2" sx={{ color: '#bdbdbd', mb: 1 }}>
-                  Noise Strength (0.0 - 1.0)
+                  Noise Strength (0.0 - 0.50)
                 </Typography>
                 <TextField
                   value={noiseLevel}
-                  onChange={(e) => setNoiseLevel(e.target.value)}
+                  onChange={(e) => setNoiseLevel(e.target.value || 0)}
                   type="number"
                   size="small"
                   fullWidth
-                  inputProps={{ min: 0, max: 1, step: 0.01 }}
+                  inputProps={{ min: 0, max: 0.5, step: 0.01 }}
                   sx={{ backgroundColor: '#353535', input: { color: 'white' } }}
                 />
               </Box>

@@ -1,0 +1,101 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Frequency Separation Demo</title>
+    <style>
+        body { font-family: sans-serif; text-align: center; background: #f0f0f0; padding: 20px; }
+        canvas { border: 1px solid #ccc; max-width: 300px; margin: 10px; background: white; }
+        .container { display: flex; flex-wrap: wrap; justify-content: center; gap: 10px; }
+        .box { display: flex; flex-direction: column; align-items: center; }
+        h3 { margin-bottom: 5px; font-size: 14px; }
+        .upload-section { margin: 20px 0; padding: 20px; background: white; border-radius: 8px; display: inline-block; }
+        input[type="file"] { padding: 10px; font-size: 14px; }
+        .instructions { color: #666; font-size: 14px; margin-top: 10px; }
+    </style>
+</head>
+<body>
+    <h2>Image Reconstruction Test</h2>
+    <p>Low Pass + High Pass = Original</p>
+    
+    <div class="upload-section">
+        <input type="file" id="imageUpload" accept="image/*">
+        <div class="instructions">Upload an image to see frequency separation</div>
+    </div>
+    
+    <div class="container">
+        <div class="box"><h3>1. Original</h3><canvas id="canvasOrig"></canvas></div>
+        <div class="box"><h3>2. Low-Pass (Blur)</h3><canvas id="canvasLow"></canvas></div>
+        <div class="box"><h3>3. High-Pass (Detail)</h3><canvas id="canvasHigh"></canvas></div>
+        <div class="box"><h3>4. Reconstructed</h3><canvas id="canvasResult"></canvas></div>
+    </div>
+
+    <script>
+        function processImage(img) {
+            const canvases = ['canvasOrig', 'canvasLow', 'canvasHigh', 'canvasResult'].map(id => {
+                const c = document.getElementById(id);
+                c.width = img.width;
+                c.height = img.height;
+                return c.getContext('2d', { willReadFrequently: true });
+            });
+
+            const [ctxOrig, ctxLow, ctxHigh, ctxRes] = canvases;
+
+            // 1. Draw Original
+            ctxOrig.drawImage(img, 0, 0);
+            const origData = ctxOrig.getImageData(0, 0, img.width, img.height);
+
+            // 2. Create Low-Pass (using built-in CSS blur filter)
+            ctxLow.filter = 'blur(4px)';
+            ctxLow.drawImage(img, 0, 0);
+            const lowData = ctxLow.getImageData(0, 0, img.width, img.height);
+
+            // 3. Calculate High-Pass (Original - LowPass)
+            const highData = ctxHigh.createImageData(img.width, img.height);
+            // 4. Calculate Reconstruction (LowPass + HighPass)
+            const resData = ctxRes.createImageData(img.width, img.height);
+
+            for (let i = 0; i < origData.data.length; i += 4) {
+                for (let j = 0; j < 3; j++) { // RGB channels
+                    const idx = i + j;
+                    // High-Pass: Center around 128 for visualization
+                    const diff = origData.data[idx] - lowData.data[idx];
+                    highData.data[idx] = diff + 128; 
+                    
+                    // Reconstruction: Low + (High - 128)
+                    resData.data[idx] = lowData.data[idx] + diff;
+                }
+                highData.data[i + 3] = 255; // Alpha
+                resData.data[i + 3] = 255;  // Alpha
+            }
+            ctxHigh.putImageData(highData, 0, 0);
+            ctxRes.putImageData(resData, 0, 0);
+        }
+
+        // Handle file upload
+        document.getElementById('imageUpload').addEventListener('change', (event) => {
+            const file = event.target.files[0];
+            if (!file) return;
+
+            if (!file.type.startsWith('image/')) {
+                alert('Please select a valid image file');
+                return;
+            }
+
+            const img = new Image();
+            const url = URL.createObjectURL(file);
+
+            img.onload = () => {
+                processImage(img);
+                URL.revokeObjectURL(url); // Clean up
+            };
+
+            img.onerror = () => {
+                alert('Failed to load image');
+                URL.revokeObjectURL(url);
+            };
+
+            img.src = url;
+        });
+    </script>
+</body>
+</html>
