@@ -83,7 +83,7 @@ export default function PhotoScramblerPro() {
     const [seed, setSeed] = useState(Math.floor(Math.random() * 1000000000));
     const [rows, setRows] = useState(6);
     const [cols, setCols] = useState(6);
-    const [scramblingPercentage, setScramblingPercentage] = useState(50);
+    const [scramblingPercentage, setScramblingPercentage] = useState(100);
 
     // noise seed
 
@@ -213,16 +213,56 @@ export default function PhotoScramblerPro() {
         }
     };
 
-
-
+  
     const getActualCost = () => {
-        console.log("get actionCost from localStorage:", localStorage.getItem('lastActionCost'));
-        console.log((" vs current actionCost state:", actionCost));
-        let num = parseInt(localStorage.getItem('lastActionCost'));
-        return num === actionCost ? num : actionCost;
+      console.log("get actionCost from localStorage:", localStorage.getItem('lastActionCost'));
+      console.log((" vs current actionCost state:", actionCost));
+      let num = parseInt(localStorage.getItem('lastActionCost'));
+      return num === actionCost ? num : actionCost;
     };
 
+
     const confirmSpendingCredits = () => {
+
+        // const LQ = 2;
+        // const SDcharge = 3;
+        // const HDcharge = 5;
+        // const FHDCharge = 10;
+
+        // let fileDetails = {
+        //     type: 'image',
+        //     size: selectedFile?.size || 0,
+        //     name: selectedFile?.name || '',
+        //     horizontal: imageRef.current?.naturalWidth || 0,
+        //     vertical: imageRef.current?.naturalHeight || 0
+        // };
+
+        // // Calculate cost based on photo resolution from fileDetails
+        // const width = fileDetails.horizontal;
+        // const height = fileDetails.vertical;
+
+        // console.log('Photo Dimensions:', width, 'x', height);
+        // console.log('Photo Size:', fileDetails.size, 'bytes');
+
+        // let resolutionCost = LQ;
+        // if (width >= 1920 && height >= 1080) {
+        //     resolutionCost = FHDCharge;
+        // } else if (width >= 1280 && height >= 720) {
+        //     resolutionCost = HDcharge;
+        // } else if (width >= 854 && height >= 480) {
+        //     resolutionCost = SDcharge;
+        // } else {
+        //     resolutionCost = LQ;
+        // }
+
+        // let calculatedCost = Math.ceil(Math.sqrt(resolutionCost + 1) * (1 + fileDetails.size / (1000 * 1000 * 0.5))); // scale by size in MB over 0.5MB
+
+        // setActionCost(calculatedCost);
+
+        // // Show credit confirmation modal before scrambling
+        // // setShowCreditModal(true);
+
+        // // onGenerate();
 
         setShowCreditModal(true);
         setScrambleLevel(cols >= rows ? cols : rows);
@@ -349,15 +389,11 @@ export default function PhotoScramblerPro() {
                 input: selectedFile.name,
                 output: `scrambled_${selectedFile.name}`,
                 seed: seed,
-                // algorithm: 'hpf',
-                rows: rows,
-                cols: cols,
-                percentage: scramblingPercentage,
                 mode: 'scramble',
                 noise_seed: noiseSeed,
                 noise_intensity: Math.round(noiseIntensity),
                 noise_tile_size: noiseTileSize,
-                // noise_mode: "add_mod256_tile",
+                noise_mode: "add_mod256_tile",
                 prng: "mulberry32",
                 creator: {
                     username: userData?.username || 'Anonymous',
@@ -377,7 +413,39 @@ export default function PhotoScramblerPro() {
 
             };
 
-                // Convert to PNG before sending, then build FormData
+            // Add algorithm-specific parameters
+            switch (algorithm) {
+                case 'position':
+                    params.algorithm = 'position';
+                    params.rows = rows;
+                    params.cols = cols;
+                    params.percentage = scramblingPercentage;
+                    break;
+                case 'color':
+                    params.algorithm = 'color';
+                    params.max_hue_shift = maxHueShift;
+                    params.percentage = scramblingPercentage;
+                    break;
+                case 'rotation':
+                    params.algorithm = 'rotation';
+                    params.rows = rows;
+                    params.cols = cols;
+                    params.percentage = scramblingPercentage;
+                    break;
+                case 'mirror':
+                    params.algorithm = 'mirror';
+                    params.rows = rows;
+                    params.cols = cols;
+                    params.percentage = scramblingPercentage;
+                    break;
+                case 'intensity':
+                    params.algorithm = 'intensity';
+                    params.max_intensity_shift = maxIntensityShift;
+                    params.percentage = scramblingPercentage;
+                    break;
+            }
+
+            // Convert to PNG before sending, then build FormData
             const pngFile = await convertToPng(selectedFile);
             const formData = new FormData();
             formData.append('file', pngFile);
@@ -388,7 +456,7 @@ export default function PhotoScramblerPro() {
                 // Call scramble endpoint
                 // Don't set Content-Type header for FormData - browser sets it automatically with boundary
                 // api.post will automatically include JWT token in Authorization header
-                const response = await api.post(`${API_URL}/api/scramble-photo-pro`, formData);
+                const response = await api.post(`${API_URL}/api/scramble-photo`, formData);
 
                 const data = response.data;
 
@@ -533,6 +601,7 @@ export default function PhotoScramblerPro() {
 
             success("Scrambled image downloaded!");
             alert("Scrambled image downloaded! Make sure to also download your unscramble key and keep it safe.");
+            
         } catch (err) {
             error("Download failed: " + err.message);
         }
@@ -586,7 +655,7 @@ export default function PhotoScramblerPro() {
             <Box sx={{ mb: 4, textAlign: 'center' }}>
                 <Typography variant="h3" color="primary.main" sx={{ mb: 2, fontWeight: 'bold', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 1 }}>
                     <AutoAwesome />
-                    🚀 Photo Scrambler Pro
+                    🚀 Standard Photo Scrambler
                 </Typography>
                 <Typography variant="h6" color="text.secondary" sx={{ mb: 2 }}>
                     Advanced server-side scrambling with multiple algorithms
@@ -641,7 +710,7 @@ export default function PhotoScramblerPro() {
                     {/* Algorithm Selection */}
                     <Box sx={{ mb: 3 }}>
                         <Typography variant="h6" sx={{ mb: 2, color: '#e0e0e0' }}>
-                            Scrambling Level
+                            Scrambling Algorithm
                         </Typography>
 
                         {/* <Tabs
@@ -660,63 +729,89 @@ export default function PhotoScramblerPro() {
                         <Grid container spacing={2}>
 
 
-                            {/* Common Parameters */}
-                            <Grid item xs={12} md={6}>
-                                <TextField
-                                    fullWidth
-                                    type="number"
-                                    label="Seed"
-                                    value={seed}
-                                    onChange={(e) => setSeed(parseInt(e.target.value) || 0)}
-                                    InputProps={{
-                                        sx: { backgroundColor: '#353535', color: 'white' },
-                                        endAdornment: (
-                                            <Button size="small" onClick={regenerateSeed} sx={{ color: '#22d3ee' }}>
-                                                Random
-                                            </Button>
-                                        )
-                                    }}
-                                    InputLabelProps={{ sx: { color: '#e0e0e0' } }}
-                                />
-                            </Grid>
 
+{/* 
                             {/* Position, Rotation, Mirror - need rows/cols */}
-                            {/* {(algorithm === 'position' || algorithm === 'rotation' || algorithm === 'mirror') && ( */}
-                            <>
-                                <Grid item xs={6} md={3}>
-                                    <TextField
-                                        fullWidth
-                                        type="number"
-                                        label="Rows"
-                                        value={rows}
-                                        onChange={(e) => setRows(parseInt(e.target.value) || 1)}
-                                        inputProps={{ min: 1, max: 20 }}
-                                        InputProps={{ sx: { backgroundColor: '#353535', color: 'white' } }}
-                                        InputLabelProps={{ sx: { color: '#e0e0e0' } }}
-                                    />
-                                </Grid>
-                                <Grid item xs={6} md={3}>
-                                    <TextField
-                                        fullWidth
-                                        type="number"
-                                        label="Columns"
-                                        value={cols}
-                                        onChange={(e) => setCols(parseInt(e.target.value) || 1)}
-                                        inputProps={{ min: 1, max: 20 }}
-                                        InputProps={{ sx: { backgroundColor: '#353535', color: 'white' } }}
-                                        InputLabelProps={{ sx: { color: '#e0e0e0' } }}
-                                    />
-                                </Grid>
-                            </>
+                            {/* {(algorithm === 'position' || algorithm === 'rotation' || algorithm === 'mirror') && ( */} 
+                                <>
+                                    <Grid item xs={6} md={3}>
+                                        <TextField
+                                            fullWidth
+                                            type="number"
+                                            label="Rows"
+                                            value={rows}
+                                            onChange={(e) => setRows(parseInt(e.target.value) || 1)}
+                                            inputProps={{ min: 1, max: 20 }}
+                                            InputProps={{ sx: { backgroundColor: '#353535', color: 'white' } }}
+                                            InputLabelProps={{ sx: { color: '#e0e0e0' } }}
+                                        />
+                                    </Grid>
+                                    <Grid item xs={6} md={3}>
+                                        <TextField
+                                            fullWidth
+                                            type="number"
+                                            label="Columns"
+                                            value={cols}
+                                            onChange={(e) => setCols(parseInt(e.target.value) || 1)}
+                                            inputProps={{ min: 1, max: 20 }}
+                                            InputProps={{ sx: { backgroundColor: '#353535', color: 'white' } }}
+                                            InputLabelProps={{ sx: { color: '#e0e0e0' } }}
+                                        />
+                                    </Grid>
+                                </>
                             {/* )} */}
 
+                            {/* Color - needs hue shift */}
+                            {/* {algorithm === 'color' && (
+                                <Grid item xs={12} md={6}>
+                                    <Typography variant="body2" sx={{ color: '#e0e0e0', mb: 1 }}>
+                                        Max Hue Shift: {maxHueShift}
+                                    </Typography>
+                                    <Slider
+                                        value={maxHueShift}
+                                        onChange={(e, val) => setMaxHueShift(val)}
+                                        min={16}
+                                        max={180}
+                                        step={8}
+                                        marks={[
+                                            { value: 16, label: '16' },
+                                            { value: 64, label: '64' },
+                                            { value: 128, label: '128' },
+                                            { value: 180, label: '180' }
+                                        ]}
+                                        sx={{ color: '#22d3ee' }}
+                                    />
+                                </Grid>
+                            )} */}
 
+                            {/* Intensity - needs intensity shift */}
+                            {/* {algorithm === 'intensity' && (
+                                <Grid item xs={12} md={6}>
+                                    <Typography variant="body2" sx={{ color: '#e0e0e0', mb: 1 }}>
+                                        Max Intensity Shift: {maxIntensityShift}
+                                    </Typography>
+                                    <Slider
+                                        value={maxIntensityShift}
+                                        onChange={(e, val) => setMaxIntensityShift(val)}
+                                        min={32}
+                                        max={255}
+                                        step={8}
+                                        marks={[
+                                            { value: 32, label: '32' },
+                                            { value: 128, label: '128' },
+                                            { value: 192, label: '192' },
+                                            { value: 255, label: '255' }
+                                        ]}
+                                        sx={{ color: '#22d3ee' }}
+                                    />
+                                </Grid>
+                            )} */}
                         </Grid>
 
-                        {/* <Grid>
+                        <Grid>
 
                             {/* Algorithm Descriptions */}
-                        {/* <Alert severity="info" sx={{ mt: 2, backgroundColor: '#1976d2', color: 'white' }}>
+                            <Alert severity="info" sx={{ mt: 2, backgroundColor: '#1976d2', color: 'white' }}>
                                 <strong>{algorithm.toUpperCase()}</strong>: {
                                     algorithm === 'position' ? 'Scrambles by shuffling tile positions in a grid' :
                                         algorithm === 'color' ? 'Scrambles by shifting hue values in HSV color space' :
@@ -724,30 +819,26 @@ export default function PhotoScramblerPro() {
                                                 algorithm === 'mirror' ? 'Scrambles by randomly flipping tiles horizontally/vertically' :
                                                     'Scrambles by shifting pixel intensity values'
                                 }
-                            </Alert> */}
-                        {/* <br></br> */}
-                        {/* </Grid> */}
+                            </Alert>
+                            <br></br>
+                        </Grid>
 
                         <Grid item xs={12} md={6} sx={{ mt: 2 }}>
                             <Typography variant="h6" sx={{ color: '#e0e0e0', mb: 1 }}>
-                                Blur Percentage: {scramblingPercentage}%
+                                Scrambling Percentage: {scramblingPercentage}%
                             </Typography>
                             <Box m={3}>
                                 <Slider
                                     value={scramblingPercentage}
                                     onChange={(e, val) => setScramblingPercentage(val)}
-                                    min={20}
-                                    max={80}
+                                    min={25}
+                                    max={100}
                                     step={5}
                                     marks={[
-                                        { value: 20, label: '20%' },
-                                        { value: 30, label: '30%' },
-                                        { value: 40, label: '40%' },
+                                        { value: 25, label: '25%' },
                                         { value: 50, label: '50%' },
-                                        { value: 60, label: '60%' },
-                                        { value: 70, label: '70%' },
-                                        { value: 80, label: '80%' },
-                                        // { value: 100, label: '100%' }
+                                        { value: 75, label: '75%' },
+                                        { value: 100, label: '100%' }
                                     ]}
                                     sx={{ color: '#22d3ee' }}
                                 />
@@ -755,78 +846,68 @@ export default function PhotoScramblerPro() {
 
                         </Grid>
 
-
                         <Grid item xs={12} md={6}>
+                            <Typography variant="h6" sx={{ mb: 1, color: '#e0e0e0' }}>
+                                Scramble Noise Intensity
+                            </Typography>
 
                             <Box>
-                                <div style={{ display: 'flex' }}>
-
-                                </div>
-                                <div>
-                                    <Typography variant="h6" sx={{ mb: 1, color: '#e0e0e0' }}>
-                                        Scramble Noise Intensity
-                                    </Typography>
-
-                                </div>
-                                <div>
-                                    <Typography variant="body2" sx={{ mb: 1, color: '#bdbdbd' }}>
-                                        Noise intensity (max abs per channel)
-                                    </Typography>
-                                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                                        <Button
-                                            variant="outlined"
-                                            onClick={() => setNoiseIntensity(Math.max(0, noiseIntensity - 1))}
-                                            disabled={scrambledFilename !== ''}
-                                            sx={{
-                                                minWidth: '40px',
-                                                borderColor: scrambledFilename !== '' ? '#444' : '#666',
-                                                color: scrambledFilename !== '' ? '#666' : '#e0e0e0'
-                                            }}
-                                        >
-                                            −
-                                        </Button>
-                                        <input
-                                            type="range"
-                                            min="0"
-                                            max="127"
-                                            value={noiseIntensity}
-                                            onChange={(e) => setNoiseIntensity(Number(e.target.value))}
-                                            disabled={scrambledFilename !== ''}
-                                            style={{
-                                                flex: 1,
-                                                opacity: scrambledFilename !== '' ? 0.5 : 1,
-                                                cursor: scrambledFilename !== '' ? 'not-allowed' : 'pointer'
-                                            }}
-                                        />
-                                        <Button
-                                            variant="outlined"
-                                            onClick={() => setNoiseIntensity(Math.min(127, noiseIntensity + 1))}
-                                            disabled={scrambledFilename !== ''}
-                                            sx={{
-                                                minWidth: '40px',
-                                                borderColor: scrambledFilename !== '' ? '#444' : '#666',
-                                                color: scrambledFilename !== '' ? '#666' : '#e0e0e0'
-                                            }}
-                                        >
-                                            +
-                                        </Button>
-                                        <TextField
-                                            type="number"
-                                            value={noiseIntensity}
-                                            onChange={(e) => setNoiseIntensity(Number(e.target.value))}
-                                            disabled={scrambledFilename !== ''}
-                                            inputProps={{ min: 0, max: 127 }}
-                                            sx={{
-                                                width: '80px',
-                                                '& .MuiInputBase-root': {
-                                                    backgroundColor: scrambledFilename !== '' ? '#252525' : '#353535',
-                                                    color: scrambledFilename !== '' ? '#666' : 'white'
-                                                }
-                                            }}
-                                        />
-                                    </Box>
-                                </div>
-
+                                <Typography variant="body2" sx={{ mb: 1, color: '#bdbdbd' }}>
+                                    Noise intensity (max abs per channel)
+                                </Typography>
+                                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                                    <Button
+                                        variant="outlined"
+                                        onClick={() => setNoiseIntensity(Math.max(0, noiseIntensity - 1))}
+                                        disabled={scrambledFilename !== ''}
+                                        sx={{
+                                            minWidth: '40px',
+                                            borderColor: scrambledFilename !== '' ? '#444' : '#666',
+                                            color: scrambledFilename !== '' ? '#666' : '#e0e0e0'
+                                        }}
+                                    >
+                                        −
+                                    </Button>
+                                    <input
+                                        type="range"
+                                        min="0"
+                                        max="127"
+                                        value={noiseIntensity}
+                                        onChange={(e) => setNoiseIntensity(Number(e.target.value))}
+                                        disabled={scrambledFilename !== ''}
+                                        style={{
+                                            flex: 1,
+                                            opacity: scrambledFilename !== '' ? 0.5 : 1,
+                                            cursor: scrambledFilename !== '' ? 'not-allowed' : 'pointer'
+                                        }}
+                                    />
+                                    <Button
+                                        variant="outlined"
+                                        onClick={() => setNoiseIntensity(Math.min(127, noiseIntensity + 1))}
+                                        disabled={scrambledFilename !== ''}
+                                        sx={{
+                                            minWidth: '40px',
+                                            borderColor: scrambledFilename !== '' ? '#444' : '#666',
+                                            color: scrambledFilename !== '' ? '#666' : '#e0e0e0'
+                                        }}
+                                    >
+                                        +
+                                    </Button>
+                                    <TextField
+                                        type="number"
+                                        value={noiseIntensity}
+                                        onChange={(e) => setNoiseIntensity(Number(e.target.value))}
+                                        disabled={scrambledFilename !== ''}
+                                        inputProps={{ min: 0, max: 127 }}
+                                        sx={{
+                                            width: '80px',
+                                            '& .MuiInputBase-root': {
+                                                backgroundColor: scrambledFilename !== '' ? '#252525' : '#353535',
+                                                color: scrambledFilename !== '' ? '#666' : 'white'
+                                            }
+                                        }}
+                                    />
+                                </Box>
                             </Box>
                             {/* Todo: fix noise preview */}
                             {/* <div class="canvRow">

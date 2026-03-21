@@ -74,11 +74,11 @@ export default function ScramblerVideosPro() {
   const [scrambleLevel, setScrambleLevel] = useState(6); // 'lite' or 'pro'
 
   // Scrambling Parameters
-  const [algorithm, setAlgorithm] = useState('position'); // position, color, rotation, mirror, intensity
+  const [algorithm, setAlgorithm] = useState('hpf'); // hpf, position, color, rotation, mirror, intensity
   const [seed, setSeed] = useState(Math.floor(Math.random() * 1000000000));
   const [rows, setRows] = useState(6);
   const [cols, setCols] = useState(6);
-  const [scramblingPercentage, setScramblingPercentage] = useState(100);
+  const [scramblingBlur, setscramblingBlur] = useState(50);
 
   // Algorithm-specific parameters
   const [maxHueShift, setMaxHueShift] = useState(64);
@@ -129,7 +129,7 @@ export default function ScramblerVideosPro() {
 
     console.log("parameters have changed")
 
-  }, [rows, cols, algorithm, maxHueShift, maxIntensityShift, scramblingPercentage]);
+  }, [rows, cols, algorithm, maxHueShift, maxIntensityShift, scramblingBlur]);
 
 
 
@@ -209,12 +209,9 @@ export default function ScramblerVideosPro() {
     success("New seed generated!");
   };
 
-
-
-
   const scrambleVideo = useCallback(async () => {
     console.log("scrambleVideo called with current state:", {
-      rows, cols, algorithm, seed, maxHueShift, maxIntensityShift, scramblingPercentage
+      rows, cols, algorithm, seed, maxHueShift, maxIntensityShift, scramblingBlur
     });
 
     if (!selectedFile) {
@@ -236,16 +233,17 @@ export default function ScramblerVideosPro() {
         seed,
         rows,
         cols,
-        percentage: scramblingPercentage,
-        maxHueShift,
-        maxIntensityShift,
+        percentage: scramblingBlur,
+        blur_ksize: scramblingBlur,
+        // maxHueShift,
+        // maxIntensityShift,
         timestamp: Date.now(),
         // username: userData.username || 'Anonymous',
-        // userId: userData.userId || 'Unknown',
-
+        // userId: userData.id || 'Unknown',
+        type: 'video',
         creator: {
           username: userData.username || 'Anonymous',
-          userId: userData.userId || 'Unknown',
+          userId: userData.id || 'Unknown',
           timestamp: new Date().toISOString()
         },
         limits: {
@@ -266,37 +264,12 @@ export default function ScramblerVideosPro() {
         }
       };
 
-      // Add algorithm-specific parameters
-      switch (algorithm) {
-        case 'position':
-          params.algorithm = 'position';
-          params.rows = rows;
-          params.cols = cols;
-          params.percentage = scramblingPercentage;
-          break;
-        case 'color':
-          params.algorithm = 'color';
-          params.max_hue_shift = maxHueShift;
-          params.percentage = scramblingPercentage;
-          break;
-        case 'rotation':
-          params.algorithm = 'rotation';
-          params.rows = rows;
-          params.cols = cols;
-          params.percentage = scramblingPercentage;
-          break;
-        case 'mirror':
-          params.algorithm = 'mirror';
-          params.rows = rows;
-          params.cols = cols;
-          params.percentage = scramblingPercentage;
-          break;
-        case 'intensity':
-          params.algorithm = 'intensity';
-          params.max_intensity_shift = maxIntensityShift;
-          params.percentage = scramblingPercentage;
-          break;
-      }
+
+      params.algorithm = 'position';
+      params.rows = rows;
+      params.cols = cols;
+      params.percentage = scramblingBlur;
+
 
       console.log("Scrambling with params:", params);
 
@@ -306,7 +279,7 @@ export default function ScramblerVideosPro() {
       formData.append('params', JSON.stringify(params));
 
       try {
-        const response = await api.post(`${API_URL}/api/scramble-video`, formData, {
+        const response = await api.post(`${API_URL}/api/scramble-video-pro`, formData, {
           headers: {
             'Content-Type': 'multipart/form-data'
           }
@@ -337,23 +310,22 @@ export default function ScramblerVideosPro() {
 
         console.log("Scrambled file:", tempFileName);
 
-
-        // Generate and display key
         // Generate and display key
         const key = {
           algorithm,
           seed,
           rows,
           cols,
-          percentage: scramblingPercentage,
+          percentage: scramblingBlur,
           maxHueShift,
           maxIntensityShift,
           timestamp: Date.now(),
           creator: {
             username: userData.username || 'Anonymous',
-            userId: userData.userId || 'Unknown',
+            userId: userData.id || 'Unknown',
             timestamp: new Date().toISOString()
           },
+          version: 'premium',
           metadata: {
             videoName: selectedFile.name,
             size: selectedFile.size,
@@ -390,13 +362,13 @@ export default function ScramblerVideosPro() {
     } finally {
       setIsProcessing(false);
     }
-  }, [selectedFile, algorithm, seed, rows, cols, scramblingPercentage, maxHueShift, maxIntensityShift, error, userData]);
+  }, [selectedFile, algorithm, seed, rows, cols, scramblingBlur, maxHueShift, maxIntensityShift, error, userData]);
 
 
   const loadScrambledVideo = async () => {
     try {
       const response = await fetch(`${Flask_API_URL}/download/${scrambledFilename}`);
-      if (!response.ok) throw new Error('Failed to load scrambled video');
+      // if (!response.ok) throw new Error('Failed to load scrambled video');
 
       const blob = await response.blob();
       const url = URL.createObjectURL(blob);
@@ -417,6 +389,7 @@ export default function ScramblerVideosPro() {
 
     } catch (err) {
       error("Failed to load scrambled video: " + err.message);
+      console.error("Load scrambled video error:", err);
     }
   };
 
@@ -428,7 +401,7 @@ export default function ScramblerVideosPro() {
 
     try {
       const response = await fetch(`${Flask_API_URL}/download/${scrambledFilename}`);
-      if (!response.ok) throw new Error('Download failed');
+      // if (!response.ok) throw new Error('Download failed');
 
       const blob = await response.blob();
       const url = URL.createObjectURL(blob);
@@ -441,6 +414,7 @@ export default function ScramblerVideosPro() {
       URL.revokeObjectURL(url);
 
       success("Scrambled video downloaded!");
+      alert("Scrambled video downloaded! Make sure to also download your unscramble key and keep it safe.");
     } catch (err) {
       error("Download failed: " + err.message);
     }
@@ -470,20 +444,19 @@ export default function ScramblerVideosPro() {
       password: localStorage.getItem('hashedPassword'),
       action: 'scramble_video_pro',
       params: {
-
         scrambleLevel: scrambleLevel,
         grid: { rows, cols },
         seed: seed,
         algorithm: algorithm,
-        percentage: scramblingPercentage
+        percentage: scramblingBlur
       }
 
     });
 
     if (result.success) {
-      error(`An error occurred during scrambling. ${result.message}`);
+      error(`An error occurred during refunding. ${result.message}`);
     } else {
-      error(`Scrambling failed. ${result.message}`);
+      error(`Scrambling failed. Your account has been refunded with ${getActualCost()} credits. ${result.message}`);
     }
   };
 
@@ -559,11 +532,36 @@ export default function ScramblerVideosPro() {
 
           {/* Algorithm Selection */}
           <Box sx={{ mb: 3 }}>
-            <Typography variant="h6" sx={{ mb: 2, color: '#e0e0e0' }}>
-              Scrambling Algorithm
-            </Typography>
 
-            <Tabs
+            <Grid item xs={12} md={6} sx={{ mt: 2 }}>
+              <Typography variant="h6" sx={{ color: '#e0e0e0', mb: 1 }}>
+                Blur Percentage: {scramblingBlur}%
+              </Typography>
+              <Box m={3}>
+                <Slider
+                  value={scramblingBlur}
+                  onChange={(e, val) => setscramblingBlur(val)}
+                  min={20}
+                  max={80}
+                  step={5}
+                  marks={[
+                    { value: 20, label: '20%' },
+                    { value: 30, label: '30%' },
+                    { value: 40, label: '40%' },
+                    { value: 50, label: '50%' },
+                    { value: 60, label: '60%' },
+                    { value: 70, label: '70%' },
+                    { value: 80, label: '80%' },
+                    // { value: 100, label: '100%' }
+                  ]}
+                  sx={{ color: '#22d3ee' }}
+                />
+              </Box>
+
+            </Grid>
+
+
+            {/* <Tabs
               value={currentTab}
               onChange={(e, val) => setCurrentTab(val)}
               sx={{ mb: 2, borderBottom: '1px solid #666' }}
@@ -573,7 +571,12 @@ export default function ScramblerVideosPro() {
               <Tab label="Rotation" onClick={() => setAlgorithm('rotation')} />
               <Tab label="Mirror" onClick={() => setAlgorithm('mirror')} />
               <Tab label="Intensity" onClick={() => setAlgorithm('intensity')} />
-            </Tabs>
+            </Tabs> */}
+
+            <Typography variant="h6" sx={{ mb: 2, color: '#e0e0e0' }}>
+              Scrambling Algorithm
+            </Typography>
+
 
             {/* Algorithm Parameters */}
             <Grid container spacing={2}>
@@ -598,8 +601,8 @@ export default function ScramblerVideosPro() {
               </Grid>
 
 
-              {/* Position, Rotation, Mirror - need rows/cols */}
-              {(algorithm === 'position' || algorithm === 'rotation' || algorithm === 'mirror') && (
+              {/* Position, Rotation, Mirror - need rows/cols
+              {(algorithm === 'position' || algorithm === 'rotation' || algorithm === 'mirror') && ( */}
                 <>
                   <Grid item xs={6} md={3}>
                     <TextField
@@ -632,7 +635,7 @@ export default function ScramblerVideosPro() {
                     />
                   </Grid>
                 </>
-              )}
+              {/* )} */}
 
               {/* Color - needs hue shift */}
               {algorithm === 'color' && (
@@ -680,25 +683,25 @@ export default function ScramblerVideosPro() {
                 </Grid>
               )}
             </Grid>
-
+            {/* 
             {/* Algorithm Descriptions */}
-            <Alert severity="info" sx={{ mt: 2, backgroundColor: '#1976d2', color: 'white' }}>
+            {/* <Alert severity="info" sx={{ mt: 2, backgroundColor: '#1976d2', color: 'white' }}>
               <strong>{algorithm.toUpperCase()}</strong>: {
                 algorithm === 'position' ? 'Scrambles by shuffling tile positions in a grid' :
                   algorithm === 'color' ? 'Scrambles by shifting hue values in HSV color space' :
                     algorithm === 'rotation' ? 'Scrambles by randomly rotating tiles (90°, 180°, 270°)' :
                       algorithm === 'mirror' ? 'Scrambles by randomly flipping tiles horizontally/vertically' :
                         'Scrambles by shifting pixel intensity values'
-              }
-            </Alert>
+              } */}
+            {/* </Alert>  */}
 
             {/* <Grid item xs={12} md={6}>
                 <Typography variant="body2" sx={{ color: '#e0e0e0', mb: 1 }}>
-                  Scrambling Percentage: {scramblingPercentage}%
+                  Scrambling Percentage: {scramblingBlur}%
                 </Typography>
                 <Slider
-                  value={scramblingPercentage}
-                  onChange={(e, val) => setScramblingPercentage(val)}
+                  value={scramblingBlur}
+                  onChange={(e, val) => setscramblingBlur(val)}
                   min={25}
                   max={100}
                   step={5}

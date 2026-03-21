@@ -759,7 +759,7 @@ const Info = () => {
             {!localStorage.getItem("userdata") ? null : (
               <Button
                 variant="outlined"
-                onClick={() => navigate("/dashboard")}
+                onClick={() => window.location.href = "/dashboard"}
                 sx={{
                   borderColor: "#00e676",
                   color: "#00e676",

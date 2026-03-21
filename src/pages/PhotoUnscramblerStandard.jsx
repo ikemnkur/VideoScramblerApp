@@ -330,9 +330,9 @@ export default function PhotoUnscramblerPro() {
         console.log('Credits spent:', actualCostSpent);
 
         // You can use this value for logging, analytics, or displaying to user
-        setActionCost(actualCostSpent);
-        // setActionCost(parseInt(localStorage.getItem('lastActionCost')) || actionCost);
-        // setSc
+        setActionCost(localStorage.getItem('lastActionCost') || 0);
+
+
 
         // Use setTimeout to ensure state update completes before scrambling
         setTimeout(() => {
@@ -552,13 +552,13 @@ export default function PhotoUnscramblerPro() {
                 max_hue_shift: decodedKey.maxHueShift,
                 max_intensity_shift: decodedKey.maxIntensityShift,
 
-                scrambleLevel: scrambleLevel,
+                scrambleLevel: scrambleLevel, 
+                
+                watermark_idNumber: watermark_idNumber,
+                
 
                 "algorithm": decodedKey.scramble.algorithm,
                 "percentage": decodedKey.scramble.percentage,
-
-                watermark_idNumber: watermark_idNumber,
-
                 scramble: decodedKey.scramble,
                 noise: decodedKey.noise,
                 noise_seed: decodedKey.noise.noise_seed,
@@ -571,7 +571,7 @@ export default function PhotoUnscramblerPro() {
                     timestamp: decodedKey.creator.timestamp || new Date().toISOString()
                 },
 
-                
+               
                 metadata: decodedKey.metadata || {},
                 user_id: userData.id,
                 username: userData.username,
@@ -591,7 +591,7 @@ export default function PhotoUnscramblerPro() {
 
             try {
                 // Call unscramble endpoint
-                const response = await api.post(`${API_URL}/api/unscramble-photo-pro`, formData, {
+                const response = await api.post(`${API_URL}/api/unscramble-photo`, formData, {
                     headers: {
                         'Content-Type': 'multipart/form-data'
                     }
@@ -832,7 +832,7 @@ export default function PhotoUnscramblerPro() {
             <Box sx={{ mb: 4, textAlign: 'center' }}>
                 <Typography variant="h3" color="primary.main" sx={{ mb: 2, fontWeight: 'bold', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 1 }}>
                     {/* <LockOpen /> */}
-                    🔓 Photo Unscrambler Pro
+                    🔓 Standard Photo Unscrambler
                 </Typography>
                 <Typography variant="h6" color="text.secondary" sx={{ mb: 2 }}>
                     Restore scrambled images using your unscramble key
@@ -1145,7 +1145,7 @@ export default function PhotoUnscramblerPro() {
                         </Grid>
 
                         {/* Fingerprint info */}
-                        {fingerprintParams && (
+                        {/* {fingerprintParams && (
                             <Alert severity="info" sx={{ mt: 2, backgroundColor: '#0d2b45', color: '#7dd3fc' }}>
                                 <Typography variant="body2" sx={{ fontWeight: 'bold', mb: 0.5 }}>
                                     🔏 Distribution Fingerprint Applied
@@ -1161,7 +1161,7 @@ export default function PhotoUnscramblerPro() {
                                     The parameters are derived from their user ID and can be used to identify the source of any leaked image.
                                 </Typography>
                             </Alert>
-                        )}
+                        )} */}
                     </Box>
                 </CardContent>
             </Card>

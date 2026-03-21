@@ -62,7 +62,7 @@ export async function fetchUserData() {
 
       } catch (e) {
         console.error('Error loading wallet balance:', e);
-        if ((window.location.pathname !== '/login') && (window.location.pathname !== '/info') && (window.location.pathname !== '/help') && (window.location.pathname !== '/register')) {
+        if ((window.location.pathname !== '/login') && (window.location.pathname !== '/info')  && (window.location.pathname !== '/') && (window.location.pathname !== '/help') && (window.location.pathname !== '/register')) {
           alert('Session Expired. Unable to fetch user data. Please login again.');
           setTimeout(() => {
             window.location.href = '/login';

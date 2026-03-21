@@ -82,7 +82,7 @@ export default function PhotoScrambler() {
   const [jsonKey, setJsonKey] = useState("");
   const [imageLoaded, setImageLoaded] = useState(false);
   const [imageFile, setImageFile] = useState(null);
-  
+
 
   // Processing state
   const [isProcessing, setIsProcessing] = useState(false);
@@ -200,7 +200,7 @@ export default function PhotoScrambler() {
       version: "free",
       creator: {
         username: userData.username || 'Anonymous',
-        userId: userData.userId || 'Unknown',
+        userId: userData.id || 'Unknown',
         timestamp: new Date().toISOString()
       },
 
@@ -346,7 +346,7 @@ export default function PhotoScrambler() {
     ctx.font = '14px Arial, sans-serif';
     ctx.fillText(`Scrambled by: ${userData.username || 'Anonymous'}`, 10, 20);
     // ctx.fillText(`Scramble Level: ${selectedLevel.toUpperCase()} (${grid.n}×${grid.m})`, 10, 40);
-    ctx.fillText('Unscramble this image using the VideoScrambler app', 10, 40);
+    ctx.fillText('Unscramble this image using the Scramblurr App', 10, 40);
 
     // Step 7: Add subtle watermark on the scrambled image (centered, readable)
     ctx.globalAlpha = 0.3;
@@ -501,22 +501,32 @@ export default function PhotoScrambler() {
     const canvas = canvasRef.current;
     if (!canvas) return;
 
-    if (!imageFile) {
-      error("Please select an image file first");
-      return;
-    }
-    if (!imageLoaded) {
-      error("Please wait for the image to load");
-      return;
-    }
-    if (!permDestToSrc0 || permDestToSrc0.length === 0) {
-      error("Please scramble the image first");
-      return;
-    }
+    // if (!imageFile) {
+    //   error("Please select an image file first");
+    //   return;
+    // }
+    // if (!imageLoaded) {
+    //   error("Please wait for the image to load");
+    //   return;
+    // }
+    // if (!permDestToSrc0 || permDestToSrc0.length === 0) {
+    //   error("Please scramble the image first");
+    //   return;
+    // }
 
     // Show ad modal for free users
     if (!isPro) {
       showAdModal();
+    } else {
+      // Convert canvas to blob and download
+      canvas.toBlob((blob) => {
+        if (blob) {
+          let tempname = selectedFile.name.replace(/\.[^/.]+$/, ""); // remove extension
+          download(tempname + "-scrambled-image.png", blob);
+          success("Scrambled image downloaded successfully!");
+        }
+     }, "image/png", 1.0); 
+     alert("scrambled image downloaded! make sure to also download your unscramble key and keep it safe.");
     }
 
 
@@ -556,7 +566,7 @@ export default function PhotoScrambler() {
           //     download(selectedFile.name + "-scrambled-image.png", blob);
           //     success("Scrambled image downloaded successfully!");
           //   }
-          // }, "image/png", 1.0);
+          //}, "image/png", 1.0); alert("scrambled image downloaded! make sure to also download your unscramble key and keep it safe.");
 
           return 0;
         }
@@ -582,7 +592,7 @@ export default function PhotoScrambler() {
         download(tempname + "-scrambled-image.png", blob);
         success("Scrambled image downloaded successfully!");
       }
-    }, "image/png", 1.0);
+   }, "image/png", 1.0); alert("scrambled image downloaded! make sure to also download your unscramble key and keep it safe.");
 
   }, [hideAdModal, isPro, modalReady]);
 
@@ -620,7 +630,7 @@ export default function PhotoScrambler() {
 
 
 
-  
+
   // =============================
   // RENDER
   // =============================
@@ -772,7 +782,7 @@ export default function PhotoScrambler() {
               {isPro ? "Switch to Free (show ads)" : "Simulate Pro (no ads)"}
             </Button> */}
 
-            <Button
+           {!isPro && (<Button
               variant="outlined"
               // onClick={() => setIsPro(true)}
               onClick={() => {
@@ -781,7 +791,7 @@ export default function PhotoScrambler() {
               sx={{ borderColor: 'gold', color: 'gold', ml: 'auto' }}
             >
               Upgrade to Pro (No Ads)
-            </Button>
+            </Button>)} 
           </Box>
 
           {/* Debug Info */}

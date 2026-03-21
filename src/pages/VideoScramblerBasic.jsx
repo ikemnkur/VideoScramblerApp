@@ -457,11 +457,11 @@ export default function VideoScramblerBasic() {
         // maxIntensityShift,
         timestamp: Date.now(),
         // username: userData.username || 'Anonymous',
-        // userId: userData.userId || 'Unknown',
+        // userId: userData.id || 'Unknown',
 
         creator: {
           username: userData.username || 'Anonymous',
-          userId: userData.userId || 'Unknown',
+          userId: userData.id || 'Unknown',
           timestamp: new Date().toISOString()
         },
         metadata: {

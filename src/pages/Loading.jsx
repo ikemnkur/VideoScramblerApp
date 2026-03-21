@@ -30,6 +30,26 @@ export default function LoadingPage({ loading = false, error = null, retry = nul
         return () => clearInterval(timer);
     }, [loading, navigate]);
 
+    useEffect(() => {
+        // Reset error state when the component mounts
+
+        if ((localStorage.getItem('reloaded_') === 'false')) {
+            localStorage.setItem('reloaded_', 'true');
+            window.location.reload();
+        }
+        if ((localStorage.getItem('reloaded_') === null)) {
+            localStorage.setItem('reloaded_', 'false');
+        }
+
+        // return () => {
+        //   this.setState({
+        //     hasError: false,
+        //     error: null,
+        //     errorInfo: null
+        //   });
+        // };
+    }, []);
+
     return (
         <div style={styles.container} role="alert" aria-live="polite">
             {loading ? (
@@ -76,25 +96,25 @@ export default function LoadingPage({ loading = false, error = null, retry = nul
                         <button
                             style={{ ...styles.button }}
                             onClick={() => window.location.reload()}
-                            // sx={{
-                            //     borderColor: '#22d3ee',
-                            //     color: '#22d3ee',
-                            //     px: 4,
-                            //     py: 1.5
-                            // }}
+                        // sx={{
+                        //     borderColor: '#22d3ee',
+                        //     color: '#22d3ee',
+                        //     px: 4,
+                        //     py: 1.5
+                        // }}
                         >
                             Hard Reload
                         </button>
 
                         {/* {retry && ( */}
-                            <button
-                                style={{ ...styles.button, marginLeft: 8 }}
-                                onClick={() => {
-                                    retry();
-                                }}
-                            >
-                                Retry
-                            </button>
+                        <button
+                            style={{ ...styles.button, marginLeft: 8 }}
+                            onClick={() => {
+                                retry();
+                            }}
+                        >
+                            Retry
+                        </button>
                         {/* )} */}
                     </div>
 

@@ -62,6 +62,7 @@ export default function PhotoUnscrambler() {
   const [imageLoaded, setImageLoaded] = useState(false);
   const [keyCode, setKeyCode] = useState('');
   const [decodedParams, setDecodedParams] = useState(null);
+  const [referencedKeyData, setReferencedKeyData] = useState(null); // For storing key data from URL param
   const [unscrambleParams, setUnscrambleParams] = useState({
     n: 6, m: 6, permDestToSrc0: []
   });
@@ -83,7 +84,7 @@ export default function PhotoUnscrambler() {
   const [userCredits, setUserCredits] = useState(0); // Mock credits, replace with actual user data
   const [actionCost, setActionCost] = useState(5); // Cost per unscramble action
   const [scrambleLevel, setScrambleLevel] = useState(6); // Grid size for credit calculation
-  const [referencedKeyData, setReferencedKeyData] = useState(null); // Store key data from loaded key file for analytics reference
+
 
 
   // ========== UTILITY FUNCTIONS ==========
@@ -300,15 +301,59 @@ export default function PhotoUnscrambler() {
   };
 
   const decodeKeyCode = () => {
+    // try {
+    //   const json = fromBase64(keyCode);
+    //   setDecodedParams(json);
+    //   // localStorage.setItem("keyData", json)
+    //   // console.log("Decoded key data:", json);
+    //   success('Key code decoded successfully!');
+    // } catch (e) {
+    //   error('Invalid key code: ' + e.message);
+    // }
+
+    const text = keyCode.trim();
+
+    // Try to decrypt the key file (if it's encrypted)
     try {
-      const json = fromBase64(keyCode);
-      setDecodedParams(json);
-      // localStorage.setItem("keyData", json)
-      // console.log("Decoded key data:", json);
-      success('Key code decoded successfully!');
-    } catch (e) {
-      error('Invalid key code: ' + e.message);
+      const keyData = decryptKeyData(text);
+      // Set the decoded parameters directly
+      setDecodedParams(keyData);
+      setReferencedKeyData(keyData); // Store the key data for analytics reference
+      setKeyCode(text); // Store the encrypted key in the text box
+      success('🔑 Key file loaded and decoded successfully!');
+    } catch (decryptErr) {
+      // If decryption fails, try to parse as plain JSON or base64
+      try {
+        // Check if it's base64 encoded
+        const decoded = fromBase64(text.trim());
+        const keyData = JSON.parse(decoded);
+        setDecodedParams(keyData);
+        setKeyCode(text.trim());
+        console.log("Decoded key data from base64:", keyData);
+        setReferencedKeyData(keyData); // Store the key data for analytics reference
+        // localStorage.setItem("keyData", JSON.stringify(keyData));
+        success('🔑 Key file loaded and decoded successfully!');
+      } catch (base64Err) {
+        // Try direct JSON parse
+        const keyData = JSON.parse(text);
+        setDecodedParams(keyData);
+        setReferencedKeyData(keyData); // Store the key data for analytics reference
+        // localStorage.setItem("keyData", JSON.stringify(keyData));
+        setKeyCode(btoa(text)); // Convert to base64 for consistency
+        success('🔑 Key file loaded and decoded successfully!');
+      }
     }
+
+    setTimeout(() => {
+      const decoded = fromBase64(text.trim());
+      const keyData = JSON.parse(decoded);
+      if (keyData.type !== "photo") {
+        error('The loaded key file is not a valid photo scramble key.');
+      } else if (keyData.version !== "basic") {
+        error('Use the ' + keyData.version + ' ' + keyData.type + ' scrambler to unscramble this file.');
+        alert('The loaded key file will not work with this scrambler version, you must use the ' + keyData.version + ' ' + keyData.type + ' scrambler to unscramble this file.');
+      }
+    }, 200);
 
   };
 
@@ -317,49 +362,10 @@ export default function PhotoUnscrambler() {
     if (!file) return;
 
     try {
+
       const text = await file.text();
+      setKeyCode(text);
 
-      // Try to decrypt the key file (if it's encrypted)
-      try {
-        const keyData = decryptKeyData(text);
-        // Set the decoded parameters directly
-        setDecodedParams(keyData);
-        setReferencedKeyData(keyData); // Store the key data for analytics reference
-        setKeyCode(text); // Store the encrypted key in the text box
-        success('🔑 Key file loaded and decoded successfully!');
-      } catch (decryptErr) {
-        // If decryption fails, try to parse as plain JSON or base64
-        try {
-          // Check if it's base64 encoded
-          const decoded = fromBase64(text.trim());
-          const keyData = JSON.parse(decoded);
-          setDecodedParams(keyData);
-          setKeyCode(text.trim());
-          console.log("Decoded key data from base64:", keyData);
-          setReferencedKeyData(keyData); // Store the key data for analytics reference
-          // localStorage.setItem("keyData", JSON.stringify(keyData));
-          success('🔑 Key file loaded and decoded successfully!');
-        } catch (base64Err) {
-          // Try direct JSON parse
-          const keyData = JSON.parse(text);
-          setDecodedParams(keyData);
-          setReferencedKeyData(keyData); // Store the key data for analytics reference
-          // localStorage.setItem("keyData", JSON.stringify(keyData));
-          setKeyCode(btoa(text)); // Convert to base64 for consistency
-          success('🔑 Key file loaded and decoded successfully!');
-        }
-      }
-
-      setTimeout(() => {
-        const decoded = fromBase64(text.trim());
-        const keyData = JSON.parse(decoded);
-        if (keyData.type !== "photo") {
-          error('The loaded key file is not a valid photo scramble key.');
-        } else if (keyData.version !== "basic") {
-          error('Use the ' + keyData.version + ' ' + keyData.type + ' scrambler to unscramble this file.');
-          alert('The loaded key file will not work with this scrambler version, you must use the ' + keyData.version + ' ' + keyData.type + ' scrambler to unscramble this file.');
-        }
-      }, 200);
     } catch (err) {
       console.error("Error loading key:", err);
       error('Invalid or corrupted key file. Please check the file format.');
@@ -724,7 +730,7 @@ export default function PhotoUnscrambler() {
       <Box sx={{ mb: 4, textAlign: 'center' }}>
         <Typography variant="h3" color="primary.main" sx={{ mb: 2, fontWeight: 'bold', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 1 }}>
           {/* <ImageIcon /> */}
-          🖼️ Photo Unscrambler
+          🖼️ Photo Unscrambler Basic
         </Typography>
         <Typography variant="h6" color="text.secondary" sx={{ mb: 2 }}>
           Upload a scrambled photo, enter the key code, and restore the original image.

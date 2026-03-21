@@ -43,25 +43,25 @@ class ErrorBoundary extends React.Component {
 
 
   hasError() {
-    useEffect(() => {
-      // Reset error state when the component mounts
+    // useEffect(() => {
+    //   // Reset error state when the component mounts
 
-      if ((localStorage.getItem('reloaded_') === 'false')) {
-        localStorage.setItem('reloaded_', 'true');
-        window.location.reload();
-      }
-      if ((localStorage.getItem('reloaded_') === null)) {
-        localStorage.setItem('reloaded_', 'false');
-      }
+    //   if ((localStorage.getItem('reloaded_') === 'false')) {
+    //     localStorage.setItem('reloaded_', 'true');
+    //     window.location.reload();
+    //   }
+    //   if ((localStorage.getItem('reloaded_') === null)) {
+    //     localStorage.setItem('reloaded_', 'false');
+    //   }
 
-      // return () => {
-      //   this.setState({
-      //     hasError: false,
-      //     error: null,
-      //     errorInfo: null
-      //   });
-      // };
-    }, []);
+    //   // return () => {
+    //   //   this.setState({
+    //   //     hasError: false,
+    //   //     error: null,
+    //   //     errorInfo: null
+    //   //   });
+    //   // };
+    // }, []);
   }
 
 

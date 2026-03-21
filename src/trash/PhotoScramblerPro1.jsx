@@ -271,7 +271,7 @@ export default function PhotoScramblerPro() {
                 },
                 metadata: {
                     username: userData.username || 'Anonymous',
-                    userId: userData.userId || 'Unknown',
+                    userId: userData.id || 'Unknown',
                     timestamp: new Date().toISOString()
                 },
                 type: "photo",
@@ -521,7 +521,7 @@ export default function PhotoScramblerPro() {
                     metadata: {
                         timestamp: Date.now(),
                         username: userData.username || 'Anonymous',
-                        userId: userData.userId || 'Unknown',
+                        userId: userData.id || 'Unknown',
                         type: "photo",
                         version: "premium"
                     }

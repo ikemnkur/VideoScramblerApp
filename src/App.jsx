@@ -55,6 +55,9 @@ import AudioWatermarkDetectorGoertzel from './pages/AudioWatermarkDetectorGoertz
 import TestSpellOutUsername from './pages/TestSpellOutUsername';
 
 
+import PhotoScramblerStandard from './pages/PhotoScramblerStandard';
+import PhotoUnscramblerStandard from './pages/PhotoUnscramblerStandard';
+
 import PhotoScramblerPro from './pages/PhotoScramblerPro';
 import PhotoUnscramblerPro from './pages/PhotoUnscramblerPro';
 
@@ -130,7 +133,15 @@ export default function App() {
   const [userData, setUserData] = useState(getInitialUserData());
   const [dayPassExpiry, setDayPassExpiry] = useState("");
   const [dayPassMode, setDayPassMode] = useState("free");
-  const [accountType, setAccountType] = useState(localStorage.getItem('userdata') ? JSON.parse(localStorage.getItem('userdata')).accountType : "free");
+  const [accountType, setAccountType] = useState(() => {
+    try {
+      const userDataStr = localStorage.getItem('userdata');
+      return userDataStr ? JSON.parse(userDataStr).accountType : 'free';
+    } catch (err) {
+      console.error("Error reading accountType from localStorage:", err);
+      return 'free';
+    }
+  });
   const [subscriptionExpiry, setSubscriptionExpiry] = useState("");
 
   // Helper function to check if user has access to a given tier
@@ -140,14 +151,32 @@ export default function App() {
   };
 
 
+  // Listen for storage changes (when user logs in)
   useEffect(() => {
-    if ((localStorage.getItem('reloaded_') === 'false')) {
-      localStorage.setItem('reloaded_', 'true');
-      window.location.reload();
-    }
-    if ((localStorage.getItem('reloaded_') === null)) {
-      localStorage.setItem('reloaded_', 'false');
-    }
+    const handleStorageChange = () => {
+      try {
+        const userDataStr = localStorage.getItem('userdata');
+        if (userDataStr) {
+          const parsedData = JSON.parse(userDataStr);
+          setAccountType(parsedData.accountType || 'free');
+          setUserData(parsedData);
+          console.log("📝 Account type updated from storage event:", parsedData.accountType);
+        }
+      } catch (err) {
+        console.error("Error handling storage change:", err);
+      }
+    };
+
+    // Listen for storage events (cross-tab)
+    window.addEventListener('storage', handleStorageChange);
+    
+    // Also listen for custom event (same-tab login)
+    window.addEventListener('userLoggedIn', handleStorageChange);
+
+    return () => {
+      window.removeEventListener('storage', handleStorageChange);
+      window.removeEventListener('userLoggedIn', handleStorageChange);
+    };
   }, []);
 
   // Fetch fresh user data on mount
@@ -156,6 +185,7 @@ export default function App() {
       return; // Don't fetch user data on auth or public pages
     }
 
+    
     localStorage.setItem('currentModeSelection', "free");
     const loadUserData = async () => {
       const freshUserData = await fetchUserData();
@@ -361,9 +391,9 @@ export default function App() {
                 {accountType === "standard" || accountType === 'premium' || ((dayPassMode === 'standard' || dayPassMode === 'premium') && new Date(dayPassExpiry) > new Date()) ? (
                   <>
 
-                    <Route path="/photo-scrambler-pro" element={<PhotoScramblerPro />} />
+                    <Route path="/photo-scrambler-standard" element={<PhotoScramblerStandard />} />
 
-                    <Route path="/photo-unscrambler-pro" element={<PhotoUnscramblerPro />} />
+                    <Route path="/photo-unscrambler-standard" element={<PhotoUnscramblerStandard />} />
 
                     <Route path="/video-scrambler-standard" element={<VideoScramblerStandard />} />
 
@@ -391,6 +421,10 @@ export default function App() {
 
                     <Route path="/video-unscrambler-pro" element={<VideoUnscramblerPro />} />
 
+
+                    <Route path="/photo-scrambler-pro" element={<PhotoScramblerPro />} />
+
+                    <Route path="/photo-unscrambler-pro" element={<PhotoUnscramblerPro />} />
 
                     {/* Leak Checkers - premium feature */}
                     <Route path="/photo-leak-checker" element={<PhotoLeakChecker />} />

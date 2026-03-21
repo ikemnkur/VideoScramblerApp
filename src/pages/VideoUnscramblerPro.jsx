@@ -147,55 +147,58 @@ export default function VideoUnscramblerPro() {
     try {
       const text = await file.text();
 
-      // Try to decrypt the key file (if it's encrypted)
-      try {
-        const keyData = decryptKeyData(text);
-        // Set the decoded parameters directly
-        setDecodedParams(keyData);
+      // place text in the Enter Key Code box 
+      setKeyCode(text.trim());
 
-        setCreatorInfo({
-          username: keyData.creator?.username || 'Anonymous',
-          userId: keyData.creator?.userId || 'Unknown',
-          time: keyData.creator?.timestamp || new Date().toISOString()
-        });
+      // // Try to decrypt the key file (if it's encrypted)
+      // try {
+      //   const keyData = decryptKeyData(text);
+      //   // Set the decoded parameters directly
+      //   setDecodedParams(keyData);
 
-        setMetadata({
-          filename: keyData.metadata?.filename || 'untitled.mp4',
-          size: keyData.metadata?.size || 0,
-          fileType: keyData.metadata?.fileType || '',
-          dimensions: keyData.metadata?.dimensions || { width: 0, height: 0 },
-          duration: keyData.metadata?.duration || 0,
-          fps: keyData.metadata?.fps || 0
-        });
+      //   setCreatorInfo({
+      //     username: keyData.creator?.username || 'Anonymous',
+      //     userId: keyData.creator?.userId || 'Unknown',
+      //     time: keyData.creator?.timestamp || new Date().toISOString()
+      //   });
 
-        setKeyCode(text); // Store the encrypted key in the text box
-        success('🔑 Key file loaded and decoded successfully!');
-      } catch (decryptErr) {
-        // If decryption fails, try to parse as plain JSON or base64
-        try {
-          // Check if it's base64 encoded
-          const decoded = fromBase64(text.trim());
-          const keyData = JSON.parse(decoded);
-          setDecodedParams(keyData);
-          setKeyCode(text.trim());
-          console.log("Decoded key data from base64:", keyData);
-          success('🔑 Key file loaded and decoded successfully!');
-        } catch (base64Err) {
-          // Try direct JSON parse
-          const keyData = JSON.parse(text);
-          setDecodedParams(keyData);
-          setKeyCode(btoa(text)); // Convert to base64 for consistency
-          success('🔑 Key file loaded and decoded successfully!');
-        }
-        const decoded = fromBase64(text.trim());
-        const keyData = JSON.parse(decoded);
-        if (keyData.type !== "video") {
-          error('The loaded key file is not a valid video scramble key.');
-        } else if (keyData.version !== "premium" || keyData.version !== "standard") {
-          error('Use the ' + keyData.version + ' ' + keyData.type + ' scrambler to unscramble this file.');
-          alert('The loaded key file will not work with this scrambler version, you must use the ' + keyData.version + ' ' + keyData.type + ' scrambler to unscramble this file.');
-        }
-      }
+      //   setMetadata({
+      //     filename: keyData.metadata?.filename || 'untitled.mp4',
+      //     size: keyData.metadata?.size || 0,
+      //     fileType: keyData.metadata?.fileType || '',
+      //     dimensions: keyData.metadata?.dimensions || { width: 0, height: 0 },
+      //     duration: keyData.metadata?.duration || 0,
+      //     fps: keyData.metadata?.fps || 0
+      //   });
+
+      //   setKeyCode(text); // Store the encrypted key in the text box
+      //   success('🔑 Key file loaded and decoded successfully!');
+      // } catch (decryptErr) {
+      //   // If decryption fails, try to parse as plain JSON or base64
+      //   try {
+      //     // Check if it's base64 encoded
+      //     const decoded = fromBase64(text.trim());
+      //     const keyData = JSON.parse(decoded);
+      //     setDecodedParams(keyData);
+      //     setKeyCode(text.trim());
+      //     console.log("Decoded key data from base64:", keyData);
+      //     success('🔑 Key file loaded and decoded successfully!');
+      //   } catch (base64Err) {
+      //     // Try direct JSON parse
+      //     const keyData = JSON.parse(text);
+      //     setDecodedParams(keyData);
+      //     setKeyCode(btoa(text)); // Convert to base64 for consistency
+      //     success('🔑 Key file loaded and decoded successfully!');
+      //   }
+      //   const decoded = fromBase64(text.trim());
+      //   const keyData = JSON.parse(decoded);
+      //   if (keyData.type !== "video") {
+      //     error('The loaded key file is not a valid video scramble key.');
+      //   } else if (keyData.version !== "premium" || keyData.version !== "standard") {
+      //     error('Use the ' + keyData.version + ' ' + keyData.type + ' scrambler to unscramble this file.');
+      //     alert('The loaded key file will not work with this scrambler version, you must use the ' + keyData.version + ' ' + keyData.type + ' scrambler to unscramble this file.');
+      //   }
+      // }
     } catch (err) {
       console.error("Error loading key:", err);
       error('Invalid or corrupted key file. Please check the file format.');
@@ -315,12 +318,14 @@ export default function VideoUnscramblerPro() {
         output: `unscrambled_${selectedFile.name}`,
         seed: decodedParams.seed,
         mode: 'unscramble',
-        algorithm: decodedParams.algorithm,
+        // algorithm: decodedParams.algorithm,
         rows: decodedParams.rows,
         cols: decodedParams.cols,
         percentage: decodedParams.percentage,
         max_hue_shift: decodedParams.maxHueShift,
         max_intensity_shift: decodedParams.maxIntensityShift,
+
+        watermark_idNumber: watermark_idNumber,
 
 
         creator: {
@@ -351,18 +356,18 @@ export default function VideoUnscramblerPro() {
         //   body: formData
         // });
 
-        const response = await api.post(`${API_URL}/api/unscramble-video`, formData, {
+        const response = await api.post(`${API_URL}/api/unscramble-video-pro`, formData, {
           headers: {
             'Content-Type': 'multipart/form-data'
           }
         });
 
-        const data = await response.json();
-
-        console.log("Video Unscramble response:", response);
-
-        if (!response.ok || !data.success) {
-          error("Scrambling failed: " + (data.message || "Unknown error"));
+        console.log("Unscramble response:", response);
+        const data = await response.data;
+        console.log("Unscramble response data:", data);
+        
+        if (!data.success) {
+          error("Unscrambling failed: " + (data.message || "Unknown error"));
           setIsProcessing(false);
           handleRefundCredits();
           return;
@@ -441,7 +446,7 @@ export default function VideoUnscramblerPro() {
       if (unscrambledVideoRef.current) {
         unscrambledVideoRef.current.src = url;
         console.log("UNSCRAMBLED VIDEO URL SET: " + url);
-        setVideoUrl(url);
+        // setVideoUrl(url);
       }
 
       // let url = `${Flask_API_URL}/download/${unscrambledFilename}`;
@@ -459,6 +464,7 @@ export default function VideoUnscramblerPro() {
       // }
     } catch (err) {
       error("Failed to load unscrambled video: " + err.message);
+      console.error("Load unscrambled video error:", err);
     }
   };
 
@@ -469,7 +475,7 @@ export default function VideoUnscramblerPro() {
     }
 
     try {
-      const response = await api.get(`${Flask_API_URL}/download/${unscrambledFilename}`);
+      const response = await fetch(`${Flask_API_URL}/download/${unscrambledFilename}`);
       // if (!response.ok) throw new Error('Download failed');
 
       const blob = await response.blob();
@@ -483,6 +489,7 @@ export default function VideoUnscramblerPro() {
       URL.revokeObjectURL(url);
 
       success("Unscrambled video downloaded!");
+      // alert("Scrambled video downloaded! Make sure to also download your unscramble key and keep it safe.");
     } catch (err) {
       error("Download failed: " + err.message);
     }
@@ -519,7 +526,7 @@ export default function VideoUnscramblerPro() {
     if (result.success) {
       error(`An error occurred during scrambling. ${result.message}`);
     } else {
-      error(`Scrambling failed. ${result.message}`);
+      error(`Scrambling failed. Your account has been refunded with ${getActualCost()} credits. ${result.message}`);
     }
   };
 
@@ -590,12 +597,12 @@ export default function VideoUnscramblerPro() {
         </Typography>
 
         {/* Status indicators */}
-        <Box sx={{ display: 'flex', gap: 1, justifyContent: 'center', flexWrap: 'wrap' }}>
+        {/* <Box sx={{ display: 'flex', gap: 1, justifyContent: 'center', flexWrap: 'wrap' }}>
           <Chip label="Format: MP4, AVI, MOV" size="small" />
           <Chip label="Server Processing" size="small" />
           <Chip label="Advanced Algorithms" size="small" />
           <Chip icon={<AutoAwesome />} label="Pro Version" color="secondary" size="small" />
-        </Box>
+        </Box> */}
       </Box>
 
       {/* Main Unscramble Section */}

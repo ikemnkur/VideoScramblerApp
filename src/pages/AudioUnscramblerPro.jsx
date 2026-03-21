@@ -463,21 +463,44 @@ export default function AudioUnscrambler() {
 
   const decodeKeyCode = () => {
     try {
-      const json = fromBase64(keyCode);
-      const params = JSON.parse(json);
-      setDecodedParams(params);
-      success('Key code decoded successfully!');
-      console.log("Decoded (XOR Decrypt) key parameters:", params);
-    } catch (e) {
-      try {
-        const keyData = decryptKeyData(keyCode);
-        setDecodedParams(keyData);
-        console.log("Decoded (Base64) key data from code:", keyData);
-      } catch (err) {
-        console.error("Error decoding key code:", err);
+      // const text = await file.text();
+      const text = keyCode.trim();
+      const keyData = decryptKeyData(text);
+      if (keyData.type !== "audio") {
+        error('The loaded key file is not a valid audio scramble key.');
+        // throw new Error('Invalid key file type');
+      } else if (keyData.version !== "standard") {
+        error('Use the ' + keyData.version + ' ' + keyData.type + ' scrambler to unscramble this file.');
+        alert('The loaded key file will not work with this scrambler version, you must use the ' + keyData.version + ' ' + keyData.type + ' scrambler to unscramble this file.');
+        // throw new Error('Incompatible key file version');
       }
-      error('Invalid key code: ' + e.message);
+      setLoadedKeyData(keyData);
+      applyParametersFromKey(keyData);
+      success('🔑 Key loaded!');
+    } catch (err) {
+
+      console.error("Error loading key:", err);
+      error('Invalid or corrupted key file');
+      console.log("Attempting to decode key code as Base64-encoded JSON...");
+      try {
+        const json = fromBase64(keyCode);
+        const params = JSON.parse(json);
+        setDecodedParams(params);
+        success('Key code decoded successfully!');
+        console.log("Decoded (XOR Decrypt) key parameters:", params);
+      } catch (e) {
+        try {
+          const keyData = decryptKeyData(keyCode);
+          setDecodedParams(keyData);
+          console.log("Decoded (Base64) key data from code:", keyData);
+        } catch (err) {
+          console.error("Error decoding key code:", err);
+        }
+        error('Invalid key code: ' + e.message);
+      }
     }
+
+
   };
 
   // =============================
@@ -715,24 +738,10 @@ export default function AudioUnscrambler() {
     const file = event.target.files?.[0];
     if (!file) return;
 
-    try {
-      const text = await file.text();
-      const keyData = decryptKeyData(text);
-      if (keyData.type !== "audio") {
-        error('The loaded key file is not a valid video scramble key.');
-        throw new Error('Invalid key file type');
-      } else if (keyData.version !== "basic") {
-        error('Use the ' + keyData.version + ' ' + keyData.type + ' scrambler to unscramble this file.');
-        alert('The loaded key file will not work with this scrambler version, you must use the ' + keyData.version + ' ' + keyData.type + ' scrambler to unscramble this file.');
-        throw new Error('Incompatible key file version');
-      }
-      setLoadedKeyData(keyData);
-      applyParametersFromKey(keyData);
-      success('🔑 Key loaded!');
-    } catch (err) {
-      console.error("Error loading key:", err);
-      error('Invalid or corrupted key file');
-    }
+    // place text in the Enter Key Code box 
+    setKeyCode(text.trim());
+
+
   };
 
   // =============================
@@ -1146,7 +1155,7 @@ export default function AudioUnscrambler() {
             })()}
           </Box>
 
-      
+
 
           {/* Unnscramble Action Button */}
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 2 }}>
@@ -1202,7 +1211,7 @@ export default function AudioUnscrambler() {
       <Paper elevation={1} sx={{ p: 2, backgroundColor: '#f5f5f5' }}>
         <Typography variant="body2" color="black">
           💡 Upload scrambled audio, unscramble it with our algorithm, then download it.
-          
+
           Use this tool to download protected audio content from creators' distribution platforms.
         </Typography>
       </Paper>

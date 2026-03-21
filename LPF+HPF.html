@@ -59,7 +59,7 @@
                     const idx = i + j;
                     // High-Pass: Center around 128 for visualization
                     const diff = origData.data[idx] - lowData.data[idx];
-                    highData.data[idx] = diff + 128; 
+                    highData.data[idx] = diff + 128+32; 
                     
                     // Reconstruction: Low + (High - 128)
                     resData.data[idx] = lowData.data[idx] + diff;

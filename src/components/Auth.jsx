@@ -206,6 +206,8 @@ const Auth = ({ isLogin, onLoginSuccess }) => {
       localStorage.setItem('tokenExpiry', tokenExpiry);
       localStorage.setItem('accountType', accountType);
 
+      // Dispatch custom event to notify App.jsx of login
+      window.dispatchEvent(new Event('userLoggedIn'));
 
       console.log('✅ Login successful for:', user.username);
       setLoginStep(2); // Move to CAPTCHA step after successful login
@@ -279,6 +281,9 @@ const Auth = ({ isLogin, onLoginSuccess }) => {
       localStorage.setItem('userdata', JSON.stringify(user));
       localStorage.setItem('accountType', user.accountType);
       localStorage.setItem('unlockedKeys', JSON.stringify([])); // Initialize unlocked keys storage
+
+      // Dispatch custom event to notify App.jsx of registration/login
+      window.dispatchEvent(new Event('userLoggedIn'));
 
       console.log('✅ Registration successful for:', user.username);
       setLoginStep(2); // Move to CAPTCHA step after successful registration

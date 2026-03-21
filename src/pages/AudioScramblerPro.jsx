@@ -614,7 +614,7 @@ export default function AudioScrambler() {
         },
         creator: {
           username: userData.username || 'Anonymous',
-          userId: userData.userId || 'Unknown',
+          userId: userData.id || 'Unknown',
           timestamp: new Date().toISOString()
         },
         metadata: {
@@ -716,6 +716,7 @@ export default function AudioScrambler() {
     a.download = filename ? filename.replace(/\.[^/.]+$/, "").replace(/[^\w\-. ]+/g, '').replace(/\s+/g, '_') + '-scrambled.wav' : 'scrambled-audio.wav';
     a.click();
     success("Scrambled audio downloaded!");
+    alert("Scrambled audio downloaded! Make sure to also download your unscramble key and keep it safe.");
   };
 
   const handleDownloadKey = () => {
@@ -736,6 +737,7 @@ export default function AudioScrambler() {
       URL.revokeObjectURL(url);
 
       success('🔑 Protection key downloaded!');
+      alert("Protection key downloaded! Make sure to keep it safe.");
     } catch (err) {
       console.error('Key download error:', err);
       error('Error downloading key');

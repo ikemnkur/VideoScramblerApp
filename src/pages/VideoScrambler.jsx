@@ -60,6 +60,7 @@ export default function VideoScrambler() {
   const [user] = useState({ id: "demo-user-123", email: "demo@example.com" });
   const [userData] = useState(JSON.parse(localStorage.getItem("userdata")));
   const [isPro, setIsPro] = useState(userData?.accountType !== 'free'); // Mock subscription status based on user data (replace with real check)
+  
 
   const [selectedFile, setSelectedFile] = useState(null);
   const [selectedLevel, setSelectedLevel] = useState("med"); // low|med|high
@@ -140,7 +141,7 @@ export default function VideoScrambler() {
       //
       creator: {
         username: userData.username || 'Anonymous',
-        userId: userData.userId || 'Unknown',
+        userId: userData.id || 'Unknown',
         timestamp: new Date().toISOString()
       },
       timestamp: new Date().toISOString(),
@@ -265,10 +266,11 @@ export default function VideoScrambler() {
 
     // Add watermark overlay text on the black bar
     ctx.fillStyle = 'rgba(255, 255, 255, 0.5)';
-    ctx.font = 'bold 16px Arial';
+    ctx.font = 'bold 12px Arial';
     // ctx.fillText('🔓 Scrambled Video', 10, canvas.height - 40);
-    ctx.fillText(`Scrambled by: ${userData.username}`, 10, canvas.height);
-    ctx.fillText(`Scramblurr🔓`, canvas.width - 220, canvas.height);
+    ctx.fillText(`Scrambled by : ${userData.username}`, 10, canvas.height-8  );
+    // ctx.fillText(`Scramblurr🔓`, canvas.width - 220, canvas.height);
+    ctx.fillText(`Scramblurr🔓`, canvas.width - canvas.width/10 - 60, canvas.height - 8);
 
   }, [grid, permDestToSrc0]);
 
@@ -492,25 +494,25 @@ export default function VideoScrambler() {
   }, [grid, drawScrambledFrame, success, actionCost]);
 
 
-  // Refund credits on error using shared utility
-  const handleRefundCredits = async () => {
-    const result = await refundCredits({
-      userId: userData.id,
-      username: userData.username,
-      email: userData.email,
-      // credits: actionCost,
-      credits: getActualCost(), // Refund the actual cost that was spent
-      currentCredits: userCredits,
-      password: localStorage.getItem('hashedPassword'),
-      params: params
-    });
+  // // Refund credits on error using shared utility
+  // const handleRefundCredits = async () => {
+  //   const result = await refundCredits({
+  //     userId: userData.id,
+  //     username: userData.username,
+  //     email: userData.email,
+  //     // credits: actionCost,
+  //     credits: getActualCost(), // Refund the actual cost that was spent
+  //     currentCredits: userCredits,
+  //     password: localStorage.getItem('hashedPassword'),
+  //     params: params
+  //   });
 
-    if (result.success) {
-      error(`An error occurred during scrambling. ${result.message}`);
-    } else {
-      error(`Scrambling failed. ${result.message}`);
-    }
-  };
+  //   if (result.success) {
+  //     error(`An error occurred during scrambling. ${result.message}`);
+  //   } else {
+  //     error(`Scrambling failed. ${result.message}`);
+  //   }
+  // };
 
   const getActualCost = () => {
     console.log("get actionCost from localStorage:", localStorage.getItem('lastActionCost'));
@@ -531,7 +533,7 @@ export default function VideoScrambler() {
     setWaitTimeRemaining(15);
     waitTimeRef.current = 15; // Reset ref
     setModalShown(true);
-    setTimerText("Recording video...");
+    setTimerText("Processing video...");
 
     if (adIframeRef.current) {
       adIframeRef.current.src = adUrl || "about:blank";
@@ -584,8 +586,8 @@ export default function VideoScrambler() {
 
   const markRecordingFinished = useCallback(() => {
     setRecordingFinished(true);
-    // setWaitTimeRemaining(isPro ? 0 : 15);
-    setWaitTimeRemaining(15);
+    setWaitTimeRemaining(isPro ? 0 : 15);
+    // setWaitTimeRemaining(15);
     startAdModalCloseoutTimer();
   }, []);
 
@@ -741,6 +743,15 @@ export default function VideoScrambler() {
       ? selectedFile.name.replace(/\.[^/.]+$/, '').replace(/[^\w\-. ]+/g, '').replace(/\s+/g, '_')
       : 'unscramble_key';
     download(`${baseName}_scrambled.webm`, blob);
+    // check file size
+    if (blob.size > 100 * 1024 * 1024) { // 100MB
+      error("Warning: The scrambled video file is quite large and may take a while to download.");
+    }
+
+     if (blob.size < 256 * 1024) { // 256KB
+      error("Warning: The scrambled video file is quite small and may indicate an issue with the recording.");
+      handleRefundCredits();
+    }
     chunksRef.current = [];
   };
 
@@ -750,6 +761,9 @@ export default function VideoScrambler() {
       downloadRecording();
       success("Scrambled video downloaded!");
       hideAdModal();
+      setTimeout(() => {
+        alert("Thank you for using VideoScrambler Lite! Dont forget to download your KEY!!! Consider upgrading to Pro for higher quality exports, more features, and to support development.");
+      }, 500);
     }
 
   }, [hideAdModal, modalReady]);
@@ -787,6 +801,45 @@ export default function VideoScrambler() {
     setSeed(genRandomSeed());
     success("New seed generated!");
   };
+
+
+     const handleRefundCredits = async (actionCost) => {
+          // Generate noise seed
+          // const nSeed = genRandomSeed();
+          // setNoiseSeed(nSeed);
+  
+          const result = await refundCredits({
+              userId: userData.id,
+              username: userData.username,
+              email: userData.email,
+              // credits: actionCost,
+              credits: getActualCost(), // Refund the actual cost that was spent
+              currentCredits: userCredits,
+              password: localStorage.getItem('hashedPassword'),
+              action: 'scramble-video-lite',
+              params: {
+                  scrambleLevel: scrambleLevel,
+                  grid: { rows, cols },
+                  seed: seed,
+                  algorithm: algorithm,
+                  percentage: scramblingPercentage,
+                  scramble: shuffleParams,
+                  metadata: {
+                      username: userData.username || 'Anonymous',
+                      userId: userData.id || 'Unknown',
+                      timestamp: new Date().toISOString()
+                  },
+                  type: "video",
+                  version: "lite"
+              }
+          });
+  
+          if (result.success) {
+              error(`An error occurred during scrambling. ${result.message}`);
+          } else {
+              error(`Scrambling failed. ${result.message}`);
+          }
+      };
 
   // =============================
   // RENDER

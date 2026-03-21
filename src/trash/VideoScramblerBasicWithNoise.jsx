@@ -521,7 +521,7 @@
 //         },
 //         metadata: {
 //           username: userData.username || 'Anonymous',
-//           userId: userData.userId || 'Unknown',
+//           userId: userData.id || 'Unknown',
 //           timestamp: new Date().toISOString()
 //         }
 //       };

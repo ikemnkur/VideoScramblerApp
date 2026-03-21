@@ -86,6 +86,8 @@ export default function PhotoScrambler() {
   const [params, setParams] = useState(null);
 
 
+
+
   const [base64Key, setBase64Key] = useState("");
   const [jsonKey, setJsonKey] = useState("");
   const [imageLoaded, setImageLoaded] = useState(false);
@@ -566,7 +568,7 @@ export default function PhotoScrambler() {
     ctx.font = '14px Arial, sans-serif';
     ctx.fillText(`Scrambled by: ${userData.username || 'Anonymous'}`, 10, 20);
     // ctx.fillText(`Scramble Level: ${selectedLevel.toUpperCase()} (${grid.n}×${grid.m})`, 10, 40);
-    ctx.fillText('Unscramble this image using the VideoScrambler app', 10, 40);
+    ctx.fillText('Unscramble this image using the Scramblurr App', 10, 40);
 
     // Step 7: Add subtle watermark on the scrambled image (centered, readable)
     ctx.globalAlpha = 0.3;
@@ -643,7 +645,7 @@ export default function PhotoScrambler() {
             },
             metadata: {
               username: userData.username || 'Anonymous',
-              userId: userData.userId || 'Unknown',
+              userId: userData.id || 'Unknown',
               timestamp: new Date().toISOString()
             },
             type: "photo",
@@ -777,7 +779,8 @@ export default function PhotoScrambler() {
         download(tempname + "-scrambled-image.png", blob);
         success("Scrambled image downloaded successfully!");
       }
-    }, "image/png", 1.0);
+   }, "image/png", 1.0); 
+   alert("scrambled image downloaded! make sure to also download your unscramble key and keep it safe.");
   }, [permDestToSrc0, imageLoaded, imageFile, isPro, error, success]);
 
   // =============================
@@ -839,7 +842,7 @@ export default function PhotoScrambler() {
         },
         metadata: {
           username: userData.username || 'Anonymous',
-          userId: userData.userId || 'Unknown',
+          userId: userData.id || 'Unknown',
           timestamp: new Date().toISOString()
         },
         type: "photo",
@@ -871,7 +874,7 @@ export default function PhotoScrambler() {
       <Box sx={{ mb: 4, textAlign: 'center' }}>
         <Typography variant="h3" color="primary.main" sx={{ mb: 2, fontWeight: 'bold', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 1 }}>
           {/* <PhotoCamera /> */}
-          🖼️ Photo Scrambler
+          🖼️ Photo Scrambler Basic
         </Typography>
         <Typography variant="h6" color="text.secondary" sx={{ mb: 2 }}>
           Upload an image, choose scramble level, and download your unscramble key.
@@ -1116,7 +1119,7 @@ export default function PhotoScrambler() {
               {isPro ? "Switch to Free (show ads)" : "Simulate Pro (no ads)"}
             </Button> */}
 
-            <Button
+            {/* <Button
               variant="outlined"
               // onClick={() => setIsPro(true)}
               onClick={() => {
@@ -1125,18 +1128,18 @@ export default function PhotoScrambler() {
               sx={{ borderColor: 'gold', color: 'gold', ml: 'auto' }}
             >
               Upgrade to Pro (No Ads)
-            </Button>
+            </Button> */}
           </Box>
 
           {/* Debug Info */}
-          {process.env.NODE_ENV === 'development' && (
+          {/* {process.env.NODE_ENV === 'development' && (
             <Box sx={{ mb: 2, p: 1, backgroundColor: '#333', borderRadius: 1 }}>
               <Typography variant="caption" sx={{ color: '#ccc' }}>
                 Debug: imageFile={imageFile?.name || 'none'}, imageLoaded={imageLoaded.toString()},
                 canScramble={imageLoaded && !isProcessing}
               </Typography>
             </Box>
-          )}
+          )} */}
 
           {/* Image Comparison */}
           <Box sx={{ borderTop: '1px solid #666', pt: 3 }}>

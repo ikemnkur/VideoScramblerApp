@@ -20,7 +20,12 @@ import {
   Slider,
   LinearProgress,
   Divider,
-  duration
+  duration,
+  Radio,
+  RadioGroup,
+  FormControl,
+  FormControlLabel,
+  FormLabel
 } from '@mui/material';
 import {
   VideoFile,
@@ -63,6 +68,7 @@ export default function VideoUnscramblerBasic() {
   const [keyCode, setKeyCode] = useState('');
   const [isProcessing, setIsProcessing] = useState(false);
   const [decodedParams, setDecodedParams] = useState(null);
+  const [referencedKeyData, setreferencedKeyData] = useState(null); // Store key data from loaded key file for analytics reference
   const [unscrambleParams, setUnscrambleParams] = useState({
     n: 3, m: 3, permDestToSrc0: [0, 1, 2, 3, 4, 5, 6, 7, 8]
   });
@@ -79,6 +85,7 @@ export default function VideoUnscramblerBasic() {
   const [adCanClose, setAdCanClose] = useState(false);
 
   const [userData, setUserData] = useState(JSON.parse(localStorage.getItem("userdata")));
+  const watermark_idNumber = Math.floor(Math.random() * 1e4); // Random ID for this session's watermark
 
   const [allowScrambling, setAllowScrambling] = useState(false);
   const [showCreditModal, setShowCreditModal] = useState(false);
@@ -96,6 +103,17 @@ export default function VideoUnscramblerBasic() {
   const [progressMessage, setProgressMessage] = useState('');
   const [progressPercent, setProgressPercent] = useState(0);
   const [progressType, setProgressType] = useState('info'); // 'info' | 'success' | 'error'
+
+  // Download settings modal state
+  const [showDownloadSettingsModal, setShowDownloadSettingsModal] = useState(false);
+  const [downloadQuality, setDownloadQuality] = useState('high'); // 'high' | 'med' | 'low'
+
+  // Bouncing watermark state (2 watermarks)
+  const [watermarks, setWatermarks] = useState([
+    { x: 50, y: 50, vx: 2, vy: 1.5, text: `🔓 Unscrambled by: ${userData?.username || 'User'}` },
+    { x: 200, y: 150, vx: -1.5, vy: 2.5, text: `ID: ${Math.floor(Math.random() * 10000)}` }
+  ]);
+  const watermarkAnimationRef = useRef(null);
 
   // Recording state
   const chunksRef = useRef([]);
@@ -136,6 +154,59 @@ export default function VideoUnscramblerBasic() {
       fetchUserCredits();
     }
   }, [userData]);
+
+  // Animate watermarks (bouncing screensaver style)
+  useEffect(() => {
+    const animateWatermarks = () => {
+      setWatermarks(prevWatermarks => {
+        const canvas = unscrambleCanvasRef.current;
+        if (!canvas || canvas.width === 0) return prevWatermarks;
+
+        return prevWatermarks.map(wm => {
+          // Measure text width for boundary detection
+          const ctx = canvas.getContext('2d');
+          ctx.font = 'bold 16px Arial';
+          const textWidth = ctx.measureText(wm.text).width;
+          const textHeight = 20; // Approximate height
+
+          let newX = wm.x + wm.vx;
+          let newY = wm.y + wm.vy;
+          let newVx = wm.vx;
+          let newVy = wm.vy;
+
+          // Bounce off edges
+          if (newX <= 0 || newX + textWidth >= canvas.width) {
+            newVx = -newVx;
+            newX = Math.max(0, Math.min(newX, canvas.width - textWidth));
+          }
+          if (newY - textHeight <= 0 || newY >= canvas.height) {
+            newVy = -newVy;
+            newY = Math.max(textHeight, Math.min(newY, canvas.height));
+          }
+
+          return {
+            ...wm,
+            x: newX,
+            y: newY,
+            vx: newVx,
+            vy: newVy
+          };
+        });
+      });
+
+      watermarkAnimationRef.current = requestAnimationFrame(animateWatermarks);
+    };
+
+    // Start animation
+    watermarkAnimationRef.current = requestAnimationFrame(animateWatermarks);
+
+    // Cleanup
+    return () => {
+      if (watermarkAnimationRef.current) {
+        cancelAnimationFrame(watermarkAnimationRef.current);
+      }
+    };
+  }, []);
 
   // ========== UTILITY FUNCTIONS ==========
 
@@ -214,6 +285,26 @@ export default function VideoUnscramblerBasic() {
     if (unscrambleParams.n && unscrambleParams.m) {
       buildUnscrambleRects();
     }
+
+    // Reinitialize watermarks with proper canvas dimensions
+    const width = video.videoWidth || 640;
+    const height = video.videoHeight || 480;
+    setWatermarks([
+      { 
+        x: Math.random() * width * 0.5, 
+        y: Math.random() * height * 0.5 + 30, 
+        vx: 2 + Math.random(), 
+        vy: 1.5 + Math.random(), 
+        text: `🔓 Unscrambled by: ${userData?.username || 'User'}` 
+      },
+      { 
+        x: Math.random() * width * 0.5 + width * 0.25, 
+        y: Math.random() * height * 0.5 + height * 0.25, 
+        vx: -(1.5 + Math.random()), 
+        vy: 2 + Math.random(), 
+        text: `Session ID: ${Math.floor(Math.random() * 10000)}` 
+      }
+    ]);
   };
 
   const handleKeyFileSelect = async (event) => {
@@ -223,11 +314,26 @@ export default function VideoUnscramblerBasic() {
     try {
       const text = await file.text();
 
-      // Try to decrypt the key file (if it's encrypted)
+      // place text in the Enter Key Code box 
+      setKeyCode(text.trim());
+
+
+    } catch (err) {
+      console.error("Error loading key:", err);
+      error('Invalid or corrupted key file. Please check the file format.');
+    }
+  };
+
+  const decodeKeyCode = () => {
+
+    const text = keyCode.trim();
+
+          // Try to decrypt the key file (if it's encrypted)
       try {
         const keyData = decryptKeyData(text);
         // Set the decoded parameters directly
         setDecodedParams(keyData);
+        setreferencedKeyData(keyData); // Store the key data for analytics reference
         console.log("Decoded Parameters from key file:", keyData);
         setKeyCode(text); // Store the encrypted key in the text box
         success('🔑 Key file loaded and decoded successfully!');
@@ -238,6 +344,7 @@ export default function VideoUnscramblerBasic() {
           const decoded = fromBase64(text.trim());
           const keyData = JSON.parse(decoded);
           setDecodedParams(keyData);
+          setreferencedKeyData(keyData); // Store the key data for analytics reference
           setKeyCode(text.trim());
           console.log("Decoded key data from base64:", keyData);
           success('🔑 Key file loaded and decoded successfully!');
@@ -245,6 +352,7 @@ export default function VideoUnscramblerBasic() {
           // Try direct JSON parse
           const keyData = JSON.parse(text);
           setDecodedParams(keyData);
+          setreferencedKeyData(keyData); // Store the key data for analytics reference
           setKeyCode(btoa(text)); // Convert to base64 for consistency
           console.log("Decoded key data from base64:", keyData);
           success('🔑 Key file loaded and decoded successfully!');
@@ -259,25 +367,19 @@ export default function VideoUnscramblerBasic() {
         error('Use the ' + keyData.version + ' ' + keyData.type + ' scrambler to unscramble this file.');
         alert('The loaded key file will not work with this scrambler version, you must use the ' + keyData.version + ' ' + keyData.type + ' scrambler to unscramble this file.');
       }
-    } catch (err) {
-      console.error("Error loading key:", err);
-      error('Invalid or corrupted key file. Please check the file format.');
-    }
-  };
 
-  const decodeKeyCode = () => {
-    try {
-      // const json = fromBase64(keyCode);
-      // setDecodedParams(json);
-      const decoded = fromBase64(keyCode);
-      const keyData = JSON.parse(decoded);
-      setDecodedParams(keyData);
-      localStorage.setItem('decodedParams', keyCode);
-      success('Key code decoded successfully!');
-      console.log("Decoded Parameters from key code entry:", keyData);
-    } catch (e) {
-      error('Invalid key code: ' + e.message);
-    }
+    // try {
+    //   // const json = fromBase64(keyCode);
+    //   // setDecodedParams(json);
+    //   const decoded = fromBase64(keyCode);
+    //   const keyData = JSON.parse(decoded);
+    //   setDecodedParams(keyData);
+    //   localStorage.setItem('decodedParams', keyCode);
+    //   success('Key code decoded successfully!');
+    //   console.log("Decoded Parameters from key code entry:", keyData);
+    // } catch (e) {
+    //   error('Invalid key code: ' + e.message);
+    // }
   };
 
 
@@ -407,18 +509,51 @@ export default function VideoUnscramblerBasic() {
       }
     }
 
-    // Add transparent watermark overlay to indicate unscrambled
-    ctx.fillStyle = 'rgba(255, 255, 255, 0.1)';
-    ctx.font = '15px Arial';
-    ctx.fillText(`🔓 Unscrambled by: ${userData.username}`, 10, canvas.height / 2 + 7);
+    // Draw bouncing watermarks (screensaver style)
+    ctx.font = 'bold 18px Arial';
+    
+    watermarks.forEach((wm) => {
+      // Measure text for background
+      const textMetrics = ctx.measureText(wm.text);
+      const textWidth = textMetrics.width;
+      const textHeight = 22;
+      const padding = 6;
+      
+      // Draw semi-transparent background
+      ctx.fillStyle = 'rgba(0, 0, 0, 0.5)';
+      ctx.fillRect(
+        wm.x - padding, 
+        wm.y - textHeight, 
+        textWidth + padding * 2, 
+        textHeight + padding
+      );
+      
+      // Draw border
+      ctx.strokeStyle = 'rgba(255, 255, 255, 0.3)';
+      ctx.lineWidth = 1;
+      ctx.strokeRect(
+        wm.x - padding, 
+        wm.y - textHeight, 
+        textWidth + padding * 2, 
+        textHeight + padding
+      );
+      
+      // Draw watermark text with shadow
+      ctx.shadowBlur = 4;
+      ctx.shadowColor = 'rgba(0, 0, 0, 0.9)';
+      ctx.fillStyle = 'rgba(255, 255, 255, 0.85)';
+      ctx.fillText(wm.text, wm.x, wm.y);
+    });
+    
+    ctx.shadowBlur = 0;
 
-  }, [srcToDest, rectsSrcFromShuffled, rectsDest, unscrambleParams]);
+  }, [srcToDest, rectsSrcFromShuffled, rectsDest, unscrambleParams, watermarks]);
 
 
   // =============================
   // RECORD UNSCRAMBLED VIDEO (Frame-by-Frame)
   // =============================
-  const recordUnscrambledVideo = useCallback(async () => {
+  const recordUnscrambledVideo = useCallback(() => {
     const canvas = unscrambleCanvasRef.current;
     const video = shufVideoRef.current;
     if (!canvas || !video) return;
@@ -432,6 +567,18 @@ export default function VideoUnscramblerBasic() {
       error("Please unscramble the video first");
       return;
     }
+
+    // Show download settings modal first
+    setShowDownloadSettingsModal(true);
+  }, [error, srcToDest]);
+
+  const startVideoRecording = useCallback(async () => {
+    const canvas = unscrambleCanvasRef.current;
+    const video = shufVideoRef.current;
+    if (!canvas || !video) return;
+
+    // Close the settings modal
+    setShowDownloadSettingsModal(false);
 
     // Show progress modal
     setShowProgressModal(true);
@@ -471,7 +618,11 @@ export default function VideoUnscramblerBasic() {
       const fps = PRESET_FPS;
       const duration = video.duration;
       const totalFrames = Math.floor(duration * fps);
-      setProgressMessage(`Video loaded: ${totalFrames} frames at ${fps} fps`);
+      
+      // Apply quality scaling
+      const qualityScale = downloadQuality === 'high' ? 1.0 : downloadQuality === 'med' ? 0.75 : 0.5;
+      
+      setProgressMessage(`Video loaded: ${totalFrames} frames at ${fps} fps (${downloadQuality} quality - ${Math.round(qualityScale * 100)}%)`);
 
       // Phase 1: extract unscrambled frames into memory (no MediaRecorder yet)
       const unscrambledFrames = [];
@@ -522,8 +673,8 @@ export default function VideoUnscramblerBasic() {
 
       // Use a separate canvas for recording to avoid interfering with the preview canvas
       const recCanvas = document.createElement('canvas');
-      recCanvas.width = canvas.width;
-      recCanvas.height = canvas.height;
+      recCanvas.width = Math.round(canvas.width * qualityScale);
+      recCanvas.height = Math.round(canvas.height * qualityScale);
       const recCtx = recCanvas.getContext('2d');
 
       const stream = recCanvas.captureStream(fps);
@@ -607,11 +758,13 @@ export default function VideoUnscramblerBasic() {
       setProgressType('success');
       chunksRef.current = [];
       success("Unscrambled video downloaded!");
+      alert("Your unscrambled video has been downloaded! Higher quality versions are available using the Pro/Standard version of the unscrambler powered with GPUs on our servers, which uses a more advanced encoding method to preserve more details from the original video. The basic version applies a quality reduction to keep processing times reasonable while still providing a clear unscrambled result.");
 
       // Close modal after a short delay
       setTimeout(() => {
         setShowProgressModal(false);
         setIsProcessing(false);
+        
       }, 2000);
 
       // log succesful media unscramble event to analytics
@@ -655,7 +808,7 @@ export default function VideoUnscramblerBasic() {
         setShowProgressModal(false);
       }, 3000);
     }
-  }, [srcToDest, error, success, drawUnscrambledFrame, selectedFile]);
+  }, [srcToDest, error, success, drawUnscrambledFrame, selectedFile, downloadQuality]);
 
 
 
@@ -866,7 +1019,7 @@ export default function VideoUnscramblerBasic() {
       <Box sx={{ mb: 4, textAlign: 'center' }}>
         <Typography variant="h3" color="primary.main" sx={{ mb: 2, fontWeight: 'bold', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 1 }}>
           {/* <LockOpen /> */}
-          🔓 Video Unscrambler
+          🔓 Video Unscrambler Basic
         </Typography>
         <Typography variant="h6" color="text.secondary" sx={{ mb: 2 }}>
           Restore scrambled videos using your unscramble key
@@ -1335,6 +1488,124 @@ export default function VideoUnscramblerBasic() {
               </Button>
             </Box>
           )}
+        </Box>
+      </Modal>
+
+      {/* Download Settings Modal */}
+      <Modal
+        open={showDownloadSettingsModal}
+        onClose={() => setShowDownloadSettingsModal(false)}
+        aria-labelledby="download-settings-modal"
+      >
+        <Box sx={{
+          position: 'absolute',
+          top: '50%',
+          left: '50%',
+          transform: 'translate(-50%, -50%)',
+          width: 500,
+          bgcolor: '#424242',
+          borderRadius: 2,
+          boxShadow: 24,
+          p: 4,
+        }}>
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mb: 2 }}>
+            <CloudDownload sx={{ color: '#2196f3' }} />
+            <Typography id="download-settings-modal" variant="h6" sx={{ color: 'white' }}>
+              Download Settings
+            </Typography>
+          </Box>
+
+          <Alert severity="info" sx={{ mb: 3, backgroundColor: '#1976d2', color: 'white' }}>
+            ⏳ Please note: Video processing will take a while depending on the video length and selected quality. 
+            Higher quality videos take longer to process.
+          </Alert>
+
+          <FormControl component="fieldset" sx={{ width: '100%', mb: 3 }}>
+            <FormLabel component="legend" sx={{ color: '#e0e0e0', mb: 2, fontSize: '1.1rem' }}>
+              Select Download Quality:
+            </FormLabel>
+            <RadioGroup
+              value={downloadQuality}
+              onChange={(e) => setDownloadQuality(e.target.value)}
+              sx={{ gap: 1 }}
+            >
+              <FormControlLabel
+                value="high"
+                control={<Radio sx={{ color: '#22d3ee', '&.Mui-checked': { color: '#22d3ee' } }} />}
+                label={
+                  <Box>
+                    <Typography sx={{ color: 'white', fontWeight: 'bold' }}>High Quality (100%)</Typography>
+                    <Typography variant="body2" sx={{ color: '#b0b0b0' }}>
+                      Full resolution - Best quality, slowest processing
+                    </Typography>
+                  </Box>
+                }
+                sx={{ 
+                  border: '1px solid #666', 
+                  borderRadius: 1, 
+                  p: 1.5, 
+                  m: 0,
+                  '&:hover': { backgroundColor: 'rgba(34, 211, 238, 0.1)' }
+                }}
+              />
+              <FormControlLabel
+                value="med"
+                control={<Radio sx={{ color: '#22d3ee', '&.Mui-checked': { color: '#22d3ee' } }} />}
+                label={
+                  <Box>
+                    <Typography sx={{ color: 'white', fontWeight: 'bold' }}>Medium Quality (75%)</Typography>
+                    <Typography variant="body2" sx={{ color: '#b0b0b0' }}>
+                      Balanced quality and processing speed
+                    </Typography>
+                  </Box>
+                }
+                sx={{ 
+                  border: '1px solid #666', 
+                  borderRadius: 1, 
+                  p: 1.5, 
+                  m: 0,
+                  '&:hover': { backgroundColor: 'rgba(34, 211, 238, 0.1)' }
+                }}
+              />
+              <FormControlLabel
+                value="low"
+                control={<Radio sx={{ color: '#22d3ee', '&.Mui-checked': { color: '#22d3ee' } }} />}
+                label={
+                  <Box>
+                    <Typography sx={{ color: 'white', fontWeight: 'bold' }}>Low Quality (50%)</Typography>
+                    <Typography variant="body2" sx={{ color: '#b0b0b0' }}>
+                      Reduced resolution - Faster processing, smaller file
+                    </Typography>
+                  </Box>
+                }
+                sx={{ 
+                  border: '1px solid #666', 
+                  borderRadius: 1, 
+                  p: 1.5, 
+                  m: 0,
+                  '&:hover': { backgroundColor: 'rgba(34, 211, 238, 0.1)' }
+                }}
+              />
+            </RadioGroup>
+          </FormControl>
+
+          <Box sx={{ display: 'flex', gap: 2, justifyContent: 'flex-end' }}>
+            <Button
+              variant="outlined"
+              onClick={() => setShowDownloadSettingsModal(false)}
+              sx={{ color: '#e0e0e0', borderColor: '#666' }}
+            >
+              Cancel
+            </Button>
+            <Button
+              variant="contained"
+              onClick={startVideoRecording}
+              startIcon={<Download />}
+              sx={{ backgroundColor: '#22d3ee', color: 'black', fontWeight: 'bold' }}
+            >
+              Start Download
+            </Button>
+          </Box>
         </Box>
       </Modal>
 

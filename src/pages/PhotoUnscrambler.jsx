@@ -199,42 +199,9 @@ export default function PhotoUnscrambler() {
     try {
       const text = await file.text();
 
-      // Try to decrypt the key file (if it's encrypted)
-      try {
-        const keyData = decryptKeyData(text);
-        // Set the decoded parameters directly
-        setDecodedParams(keyData);
-        setKeyCode(text); // Store the encrypted key in the text box
-        success('🔑 Key file loaded and decoded successfully!');
-      } catch (decryptErr) {
-        // If decryption fails, try to parse as plain JSON or base64
-        try {
-          // Check if it's base64 encoded
-          const decoded = fromBase64(text.trim());
-          const keyData = JSON.parse(decoded);
-          setDecodedParams(keyData);
-          setKeyCode(text.trim());
-          console.log("Decoded key data from base64:", keyData);
-          success('🔑 Key file loaded and decoded successfully!');
-        } catch (base64Err) {
-          // Try direct JSON parse
-          const keyData = JSON.parse(text);
-          setDecodedParams(keyData);
-          setKeyCode(btoa(text)); // Convert to base64 for consistency
-          success('🔑 Key file loaded and decoded successfully!');
-        }
-      }
+      // place text in the Enter Key Code box 
+      setKeyCode(text.trim());
 
-      const decoded = fromBase64(text.trim());
-      const keyData = JSON.parse(decoded);
-      if (keyData.type == "photo") {
-        error('The loaded key file is not a valid video scramble key.');
-      } else if (keyData.version !== "premium" || keyData.version !== "standard") {
-        error('Use the ' + keyData.version + ' ' + keyData.type + ' scrambler to unscramble this file.');
-        alert('The loaded key file will not work with this scrambler version, you must use the ' + keyData.version + ' ' + keyData.type + ' scrambler to unscramble this file.');
-      }
-
-      setReferencedKeyData(keyData); // Store the key data for analytics reference
     } catch (err) {
       console.error("Error loading key:", err);
       error('Invalid or corrupted key file. Please check the file format.');
@@ -340,14 +307,44 @@ export default function PhotoUnscrambler() {
 
 
   const decodeKeyCode = () => {
+    const text = keyCode.trim();
+
+    // Try to decrypt the key file (if it's encrypted)
     try {
-      const json = fromBase64(keyCode);
-      setDecodedParams(json);
-      success('Key code decoded successfully!');
-    } catch (e) {
-      error('Invalid key code: ' + e.message);
+      const keyData = decryptKeyData(text);
+      // Set the decoded parameters directly
+      setDecodedParams(keyData);
+      setKeyCode(text); // Store the encrypted key in the text box
+      success('🔑 Key file loaded and decoded successfully!');
+    } catch (decryptErr) {
+      // If decryption fails, try to parse as plain JSON or base64
+      try {
+        // Check if it's base64 encoded
+        const decoded = fromBase64(text.trim());
+        const keyData = JSON.parse(decoded);
+        setDecodedParams(keyData);
+        setKeyCode(text.trim());
+        console.log("Decoded key data from base64:", keyData);
+        success('🔑 Key file loaded and decoded successfully!');
+      } catch (base64Err) {
+        // Try direct JSON parse
+        const keyData = JSON.parse(text);
+        setDecodedParams(keyData);
+        setKeyCode(btoa(text)); // Convert to base64 for consistency
+        success('🔑 Key file loaded and decoded successfully!');
+      }
     }
 
+    const decoded = fromBase64(text.trim());
+    const keyData = JSON.parse(decoded);
+    if (keyData.type !== "photo") {
+      error('The loaded key file is not a valid photo scramble key.');
+    } else if (keyData.version !== "free") { // check either or
+      error('Use the ' + keyData.version + ' ' + keyData.type + ' scrambler to unscramble this file.');
+      alert('The loaded key file will not work with this scrambler version, you must use the ' + keyData.version + ' ' + keyData.type + ' scrambler to unscramble this file.');
+    }
+
+    setReferencedKeyData(keyData); // Store the key data for analytics reference
 
   };
 
@@ -383,23 +380,80 @@ export default function PhotoUnscrambler() {
   const applyParameters = () => {
 
     try {
-      const obj = JSON.parse(decodedParams);
-      const { n, m, permDestToSrc0 } = jsonToParams(obj);
+
+      // Parse the JSON string if decodedParams is a string
+      const parsedParams = typeof decodedParams === 'string' ? JSON.parse(decodedParams) : decodedParams;
+
+      // Use jsonToParams to properly extract and validate parameters
+      // const params = jsonToParams(parsedParams);
+
+      const { noise, metadata } = referencedKeyData;
+      const { n, m, permDestToSrc0 } = referencedKeyData.scramble ? jsonToParams(referencedKeyData) : jsonToParams(parsedParams);
 
       setActionCost(n * m >= 100 ? 15 : n * m >= 64 ? 10 : 5); // Adjust cost based on grid size
 
-      setUnscrambleParams({ n, m, permDestToSrc0 });
-      success(`Parameters applied: ${n}×${m} grid`);
+      // Store complete params including noise data
+      setUnscrambleParams({ n, m, permDestToSrc0, noise, metadata });
+
+      const noiseInfo = noise ? `, noise intensity: ${noise.intensity}` : '';
+      success(`Parameters applied: ${n}×${m} grid${noiseInfo}`);
+
+      // log succesful media unscramble event to analytics
+      api.post('/api/analytics/unscramble-event', {
+        username: userData.username,
+        userId: userData.id,
+        creator: referencedKeyData?.creator || 'unknown',
+        scrambleType: 'photo',
+        scrambleLevel: scrambleLevel,
+        timestamp: new Date().toISOString(),
+        actionCost: actionCost,
+        keyId: referencedKeyData?.keyId || 'unknown',
+        unscrambleKey: referencedKeyData ? JSON.stringify(referencedKeyData) : null,
+        mediaDetails: {
+          name: selectedFile?.name || 'unknown',
+          size: selectedFile?.size || 0,
+          // dimensions: keyData.metadata?.dimensions || { width: 0, height: 0 },
+          width: scrambledImageRef.current?.naturalWidth || 0,
+          height: scrambledImageRef.current?.naturalHeight || 0
+        },
+        watermarkParams: {
+          watermark_x: localStorage.getItem('watermarkParams') ? JSON.parse(localStorage.getItem('watermarkParams')).x : 0,
+          watermark_y: localStorage.getItem('watermarkParams') ? JSON.parse(localStorage.getItem('watermarkParams')).y : 0,
+          watermark_rotation: localStorage.getItem('watermarkParams') ? JSON.parse(localStorage.getItem('watermarkParams')).rotation : 0,
+        }
+      }).catch(err => {
+        console.error('Failed to log analytics event:', err);
+
+      });
 
       // Build rectangles and draw preview
       if (imageLoaded) {
         buildUnscrambleRects(n, m, permDestToSrc0);
       }
     } catch (e) {
-      error('Invalid parameters: ' + e.message);
-      console.error('Error parsing parameters:', e);
       handleRefundCredits();
+      console.error('Error applying parameters:', e);
+      error('Invalid parameters: ' + e.message);
     }
+
+    // try {
+    //   const obj = JSON.parse(decodedParams);
+    //   const { n, m, permDestToSrc0 } = jsonToParams(obj);
+
+    //   setActionCost(n * m >= 100 ? 15 : n * m >= 64 ? 10 : 5); // Adjust cost based on grid size
+
+    //   setUnscrambleParams({ n, m, permDestToSrc0 });
+    //   success(`Parameters applied: ${n}×${m} grid`);
+
+    //   // Build rectangles and draw preview
+    //   if (imageLoaded) {
+    //     buildUnscrambleRects(n, m, permDestToSrc0);
+    //   }
+    // } catch (e) {
+    //   error('Invalid parameters: ' + e.message);
+    //   console.error('Error parsing parameters:', e);
+    //   handleRefundCredits();
+    // }
   };
 
   const buildUnscrambleRects = (n = unscrambleParams.n, m = unscrambleParams.m, perm = unscrambleParams.permDestToSrc0) => {
@@ -751,7 +805,7 @@ export default function PhotoUnscrambler() {
                 Step 3: Download Unscrambled Image
               </Button>
 
-              <Button
+              {!isPro && (<Button
                 variant="outlined"
                 // onClick={() => setIsPro(true)}
                 onClick={() => {
@@ -760,7 +814,7 @@ export default function PhotoUnscrambler() {
                 sx={{ borderColor: 'gold', color: 'gold', ml: 'auto' }}
               >
                 Upgrade to Pro (No Ads)
-              </Button>
+              </Button>)}
             </Box>
             {/* {!isPro && ( */}
 

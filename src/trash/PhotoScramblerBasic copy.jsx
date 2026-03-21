@@ -499,7 +499,7 @@ export default function PhotoScrambler() {
     ctx.font = '14px Arial, sans-serif';
     ctx.fillText(`Scrambled by: ${userData.username || 'Anonymous'}`, 10, 20);
     // ctx.fillText(`Scramble Level: ${selectedLevel.toUpperCase()} (${grid.n}×${grid.m})`, 10, 40);
-    ctx.fillText('Unscramble this image using the VideoScrambler app', 10, 40);
+    ctx.fillText('Unscramble this image using the Scramblurr App', 10, 40);
 
     // Step 7: Add subtle watermark on the scrambled image (centered, readable)
     ctx.globalAlpha = 0.3;
@@ -583,7 +583,7 @@ export default function PhotoScrambler() {
             },
             metadata: {
               username: userData.username || 'Anonymous',
-              userId: userData.userId || 'Unknown',
+              userId: userData.id || 'Unknown',
               timestamp: new Date().toISOString()
             },
             type: "photo",
@@ -740,7 +740,7 @@ export default function PhotoScrambler() {
         download(tempname + "-scrambled-image.png", blob);
         success("Scrambled image downloaded successfully!");
       }
-    }, "image/png", 1.0);
+   }, "image/png", 1.0); alert("scrambled image downloaded! make sure to also download your unscramble key and keep it safe.");
   }, [permDestToSrc0, imageLoaded, imageFile, isPro, error, success]);
 
   // =============================
@@ -818,7 +818,7 @@ export default function PhotoScrambler() {
         },
         metadata: {
           username: userData.username || 'Anonymous',
-          userId: userData.userId || 'Unknown',
+          userId: userData.id || 'Unknown',
           timestamp: new Date().toISOString()
         },
         type: "photo",

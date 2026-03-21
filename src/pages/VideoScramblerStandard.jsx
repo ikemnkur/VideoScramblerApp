@@ -210,6 +210,7 @@ export default function ScramblerVideosPro() {
 
 
   const scrambleVideo = useCallback(async () => {
+    // const scrambleVideo = (async () => {
     console.log("scrambleVideo called with current state:", {
       rows, cols, algorithm, seed, maxHueShift, maxIntensityShift, scramblingPercentage
     });
@@ -228,23 +229,54 @@ export default function ScramblerVideosPro() {
         input: selectedFile.name,
         output: `scrambled_${selectedFile.name}`,
         seed: seed,
-        mode: 'scramble'
+        mode: 'scramble',
+        rows: rows,
+        cols: cols,
+        percentage: scramblingPercentage,
+        max_hue_shift: maxHueShift,
+        max_intensity_shift: maxIntensityShift,
+        algorithm: algorithm,
+        timestamp: Date.now(),
+        // username: userData.username || 'Anonymous',
+        // userId: userData.id || 'Unknown',
+        type: 'video',
+        creator: {
+          username: userData.username || 'Anonymous',
+          userId: userData.id || 'Unknown',
+          timestamp: new Date().toISOString()
+        },
+        // limits: {
+        //   activated: KeyLimitsActivated,
+        //   uses: KeyLimitsActivated ? keyUses : 1000,
+        //   expiry: KeyLimitsActivated ? keyExpiry : 100,
+        // },
+        metadata: {
+          videoName: selectedFile.name,
+          size: selectedFile.size,
+          fileType: selectedFile.type,
+          dimensions: {
+            width: displayVideoRef.current?.videoWidth || 0,
+            height: displayVideoRef.current?.videoHeight || 0
+          },
+          duration: displayVideoRef.current?.duration || 0,
+          fps: displayVideoRef.current ? 30 : 0
+        }
       };
 
-      // Add algorithm-specific parameters
-      switch (algorithm) {
-        case 'position':
-          params.algorithm = 'position';
-          params.rows = rows;
-          params.cols = cols;
-          params.percentage = scramblingPercentage;
-          break;
-        case 'color':
-          params.algorithm = 'color';
-          params.max_hue_shift = maxHueShift;
-          params.percentage = scramblingPercentage;
-          break;
-      }
+      // // Add algorithm-specific parameters
+      // switch (algorithm) {
+      //   case 'position':
+      //     params.algorithm = 'position';
+      //     params.rows = rows;
+      //     params.cols = cols;
+      //     params.percentage = scramblingPercentage;
+      //     break;
+      //   case 'color':
+      //     params.algorithm = 'color';
+      //     params.max_hue_shift = maxHueShift;
+      //     params.percentage = scramblingPercentage;
+      //     break;
+      // }
 
       console.log("Scrambling with params:", params);
 
@@ -254,28 +286,24 @@ export default function ScramblerVideosPro() {
       formData.append('params', JSON.stringify(params));
 
       try {
-        // Call scramble endpoint
-        // const response = await fetch(`${API_URL}/api/scramble-video`, {
-        //   method: 'POST',
-        //   // headers: {
-        //   //   'Content-Type': 'application/json'
-        //   // },
-        //   body: formData
-        // });
-
+     
         const response = await api.post(`${API_URL}/api/scramble-video`, formData, {
           headers: {
             'Content-Type': 'multipart/form-data'
           }
         });
 
-        const data1 = await response.json();
-        console.log("Scramble response:", data1);
-        const data = response.data;
+        // const data1 = await response.json();
+        // console.log("Scramble response:", data1);
+        // const data = await response.data;
+        // console.log("Scramble response data:", data);
+
+        console.log("Scramble response:", response);
+        const data = await response.data;
         console.log("Scramble response data:", data);
 
-        if (!response.ok || !data.success) {
-          error("Scrambling failed: " + (data.message || "Unknown error"));
+        if (!data.success) {
+          error("Scrambling has failed: " + (data.message || "Unknown error"));
           setIsProcessing(false);
           handleRefundCredits();
           return;
@@ -295,7 +323,6 @@ export default function ScramblerVideosPro() {
 
         console.log("Scrambled file:", tempFileName);
 
-
         // Generate and display key
         const key = {
           algorithm,
@@ -306,16 +333,12 @@ export default function ScramblerVideosPro() {
           maxHueShift,
           maxIntensityShift,
           timestamp: Date.now(),
-          // username: userData.username || 'Anonymous',
-          // userId: userData.userId || 'Unknown',
-
           creator: {
             username: userData.username || 'Anonymous',
-            userId: userData.userId || 'Unknown',
+            userId: userData.id || 'Unknown',
             timestamp: new Date().toISOString()
           },
           version: "standard",
-
           metadata: {
             filename: selectedFile.name,
             size: selectedFile.size,
@@ -350,13 +373,14 @@ export default function ScramblerVideosPro() {
     } finally {
       setIsProcessing(false);
     }
+    // });
   }, [selectedFile, algorithm, seed, rows, cols, scramblingPercentage, maxHueShift, maxIntensityShift, error, userData]);
 
 
   const loadScrambledVideo = async () => {
     try {
       const response = await fetch(`${Flask_API_URL}/download/${scrambledFilename}`);
-      if (!response.ok) throw new Error('Failed to load scrambled video');
+      // if (!response.ok) throw new Error('Failed to load scrambled video');
 
       const blob = await response.blob();
       const url = URL.createObjectURL(blob);
@@ -401,6 +425,7 @@ export default function ScramblerVideosPro() {
       URL.revokeObjectURL(url);
 
       success("Scrambled video downloaded!");
+      alert("Scrambled video downloaded! Make sure to also download your unscramble key and keep it safe.");
     } catch (err) {
       error("Download failed: " + err.message);
     }
@@ -416,7 +441,7 @@ export default function ScramblerVideosPro() {
       credits: getActualCost(), // Refund the actual cost that was spent
       currentCredits: userCredits,
       password: localStorage.getItem('hashedPassword'),
-      action: 'scramble_video_pro',
+      action: 'scramble_video_standard',
       params: {
         scrambleLevel: scrambleLevel,
         grid: { rows, cols },
@@ -441,19 +466,19 @@ export default function ScramblerVideosPro() {
     return num === actionCost ? num : actionCost;
   };
 
+
   const handleCreditConfirm = useCallback((actualCostSpent) => {
     setShowCreditModal(false);
 
     setAllowScrambling(true);
 
     // Now you have access to the actual cost that was calculated and spent
-    setActionCost(localStorage.getItem('lastActionCost') || 0);
-    console.log("User confirmed credit spending. Actual cost spent:", actualCostSpent);
+    setActionCost(localStorage.getItem('lastActionCost') || actionCost);
 
     // Call scrambleVideo directly (it will use current state values)
     scrambleVideo();
 
-  }, [scrambleVideo, handleRefundCredits]);
+  }, [scrambleVideo]);
 
   // =============================
   // RENDER
@@ -464,7 +489,7 @@ export default function ScramblerVideosPro() {
       <Box sx={{ mb: 4, textAlign: 'center' }}>
         <Typography variant="h3" color="primary.main" sx={{ mb: 2, fontWeight: 'bold', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 1 }}>
           <AutoAwesome />
-          🎬 Standard Video Scrambler
+          🎬 Video Scrambler Standard
         </Typography>
         <Typography variant="h6" color="text.secondary" sx={{ mb: 2 }}>
           Advanced server-side scrambling with multiple algorithms

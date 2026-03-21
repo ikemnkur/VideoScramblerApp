@@ -678,10 +678,10 @@ export default function MainPage() {
                                         boxShadow: '0 4px 12px rgba(46, 125, 50, 0.3)'
                                     }
                                 }}
-                                    onClick={() => navigate("/photo-scrambler-pro")}>
+                                    onClick={() => navigate("/photo-scrambler-standard")}>
                                     <CardContent sx={{ p: 2 }}>
                                         <Typography variant="h6" sx={{ color: '#2e7d32ff', mb: 1, fontWeight: 'bold' }}>
-                                            🔐📸 Scramble Photo {serviceMode === 'premium' ? '(FHD)' : '+'}
+                                            🔐📸 Scramble Photo +
                                         </Typography>
                                         <Typography variant="body2" sx={{ color: '#ccc', lineHeight: 1.4 }}>
                                             Protect your images by scrambling them with watermarks and metadata headers for secure sharing.
@@ -706,10 +706,10 @@ export default function MainPage() {
                                         boxShadow: '0 4px 12px rgba(255, 152, 0, 0.3)'
                                     }
                                 }}
-                                    onClick={() => navigate("/photo-unscrambler-pro")}>
+                                    onClick={() => navigate("/photo-unscrambler-standard")}>
                                     <CardContent sx={{ p: 2 }}>
                                         <Typography variant="h6" sx={{ color: '#ff9800', mb: 1, fontWeight: 'bold' }}>
-                                            🖼️ Unscramble Photo {serviceMode === 'premium' ? '(FHD)' : '+'}
+                                            🖼️ Unscramble Photo +
                                         </Typography>
                                         <Typography variant="body2" sx={{ color: '#ccc', lineHeight: 1.4 }}>
                                             Restore scrambled images using unscramble keys. View protected photos in their original form.
@@ -740,7 +740,7 @@ export default function MainPage() {
                                     onClick={() => navigate("/video-scrambler-standard")}>
                                     <CardContent sx={{ p: 2 }}>
                                         <Typography variant="h6" sx={{ color: '#2e7d32', mb: 1, fontWeight: 'bold' }}>
-                                            🔐🎬 Scramble Video {serviceMode === 'premium' ? '(FHD)' : '+'}
+                                            🔐🎬 Scramble Video +
                                         </Typography>
                                         <Typography variant="body2" sx={{ color: '#ccc', lineHeight: 1.4 }}>
                                             Upload and scramble videos into unrecognizable tiles. Generate keys to monetize access to your content.
@@ -767,7 +767,7 @@ export default function MainPage() {
                                     onClick={() => navigate("/video-unscrambler-standard")}>
                                     <CardContent sx={{ p: 2 }}>
                                         <Typography variant="h6" sx={{ color: '#ff9800', mb: 1, fontWeight: 'bold' }}>
-                                            🎬 Unscramble Video {serviceMode === 'premium' ? '(FHD)' : '+'}
+                                            🎬 Unscramble Video +
                                         </Typography>
                                         <Typography variant="body2" sx={{ color: '#ccc', lineHeight: 1.4 }}>
                                             Restore scrambled videos using unscramble keys. View protected content in its original form.
@@ -837,7 +837,7 @@ export default function MainPage() {
 
 
                             {/*  Scramble Photo Service */}
-                            {/* {hasAccessToTier('premium') && serviceMode === 'premium' && (
+                            {hasAccessToTier('premium') && serviceMode === 'premium' && (
                                 <Card sx={{
                                     backgroundColor: '#2a2a2a',
                                     border: '1px solid #2e7d32',
@@ -853,17 +853,17 @@ export default function MainPage() {
                                     onClick={() => navigate("/photo-scrambler-pro")}>
                                     <CardContent sx={{ p: 2 }}>
                                         <Typography variant="h6" sx={{ color: '#2e7d32ff', mb: 1, fontWeight: 'bold' }}>
-                                            🔐📸 Scramble Photo {serviceMode === 'premium' ? '(FHD)' : '+'}
+                                            🔐📸 Scramble Photo Pro
                                         </Typography>
                                         <Typography variant="body2" sx={{ color: '#ccc', lineHeight: 1.4 }}>
                                             Protect your images by scrambling them with watermarks and metadata headers for secure sharing.
                                         </Typography>
                                     </CardContent>
                                 </Card>
-                            )} */}
+                            )}
 
                             {/*  Scramble Photo Service */}
-                            {/* {hasAccessToTier('premium') && serviceMode === 'premium' && (
+                            {hasAccessToTier('premium') && serviceMode === 'premium' && (
                                 <Card sx={{
                                     backgroundColor: '#2a2a2a',
                                     border: '1px solid #2e7d32',
@@ -879,16 +879,16 @@ export default function MainPage() {
                                     onClick={() => navigate("/photo-unscrambler-pro")}>
                                     <CardContent sx={{ p: 2 }}>
                                         <Typography variant="h6" sx={{ color: '#2e7d32ff', mb: 1, fontWeight: 'bold' }}>
-                                            🔐📸 Unscramble Photo (FHD)
+                                            🔐📸 Unscramble Photo Pro
                                         </Typography>
                                         <Typography variant="body2" sx={{ color: '#ccc', lineHeight: 1.4 }}>
-                                            Protect your images by scrambling them with watermarks and metadata headers for secure sharing.
+                                            Restore scrambled photos using unscramble keys. View protected content in its original form.
                                         </Typography>
                                     </CardContent>
                                 </Card>
-                            )} */}
+                            )}
 
-                            {/* {hasAccessToTier('premium') && serviceMode === 'premium' && <Divider sx={{ my: 0, borderColor: '#444', gridColumn: '1 / -1' }} />} */}
+                            {hasAccessToTier('premium') && serviceMode === 'premium' && <Divider sx={{ my: 0, borderColor: '#444', gridColumn: '1 / -1' }} />}
 
 
                             {hasAccessToTier('premium') && serviceMode === 'premium' && <Divider sx={{ my: 0, borderColor: '#444', gridColumn: '1 / -1' }} />}
@@ -911,7 +911,7 @@ export default function MainPage() {
                                     onClick={() => navigate("/video-scrambler-pro")}>
                                     <CardContent sx={{ p: 2 }}>
                                         <Typography variant="h6" sx={{ color: '#ff9800', mb: 1, fontWeight: 'bold' }}>
-                                            🎬 Scramble Video (PRO)
+                                            🎬 Scramble Video Pro
                                         </Typography>
                                         <Typography variant="body2" sx={{ color: '#ccc', lineHeight: 1.4 }}>
                                             Restore scrambled videos using unscramble keys. View protected content in its original form.
@@ -938,7 +938,7 @@ export default function MainPage() {
                                     onClick={() => navigate("/video-unscrambler-pro")}>
                                     <CardContent sx={{ p: 2 }}>
                                         <Typography variant="h6" sx={{ color: '#ff9800', mb: 1, fontWeight: 'bold' }}>
-                                            🎬 Unscramble Video (PRO)
+                                            🎬 Unscramble Video Pro
                                         </Typography>
                                         <Typography variant="body2" sx={{ color: '#ccc', lineHeight: 1.4 }}>
                                             Restore scrambled videos using unscramble keys. View protected content in its original form.
