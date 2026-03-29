@@ -36,7 +36,7 @@ import { refundCredits } from '../utils/creditUtils';
 import api from '../api/client';
 
 const API_URL = import.meta.env.VITE_API_SERVER_URL || 'http://localhost:3001';
-const Flask_API_URL = import.meta.env.VITE_API_PY_SERVER_URL || 'http://localhost:5000';
+// const Flask_API_URL = import.meta.env.VITE_API_PY_SERVER_URL || 'http://localhost:5000';
 
 // ============================================================
 // FINGERPRINT TRANSFORM UTILITIES
@@ -82,9 +82,9 @@ function paramsFromB(B) {
     const seed = seedFromInt(B);
     const rnd = mulberry32(seed);
 
-    const angleDeg = (rnd() * 20) - 10;          // ±10°
+    const angleDeg = (rnd() * 4) - 2;          // ±2°
     const angle = angleDeg * Math.PI / 180;
-    const zoom = 1.05 + rnd() * 0.15;         // 1.05–1.20×
+    const zoom = 1.15 + rnd() * 0.15;         // 1.15–1.30×
     const shiftX = (rnd() * 2 - 1) * 30;        // ±30px
     const shiftY = (rnd() * 2 - 1) * 30;
     const cropTop = 16 + Math.floor(rnd() * 49);
@@ -126,6 +126,7 @@ function warpImage(srcImgData, params, applyInverse = false) {
     const temp = new ImageData(w, h);
     const ang = applyInverse ? -params.angle : params.angle;
     const ca = Math.cos(ang), sa = Math.sin(ang);
+    // const ca = 1, sa = 0; // Disable rotation for now since it causes too much quality loss on photos with current parameters — need to tweak the angle/zoom/shift parameters to find a better balance
     const zoom = params.zoom || 1.0;
     const sx = applyInverse ? -params.shiftX : params.shiftX;
     const sy = applyInverse ? -params.shiftY : params.shiftY;
@@ -219,9 +220,14 @@ export default function PhotoUnscramblerPro() {
     const [grid, setGrid] = useState({ n: 5, m: 5 });
     const [unscrambledFilename, setUnscrambledFilename] = useState('');
     const [keyCode, setKeyCode] = useState('');
-    const [decodedKey, setDecodedKey] = useState(null);
+    // const [decodedKey, setDecodedKey] = useState(null);
     const [referencedKeyData, setReferencedKeyData] = useState(null); // Store key data from loaded key file for analytics reference
-    const [keyValid, setKeyValid] = useState(false);
+    const [keyValid, _setKeyValid] = useState(null);
+    const keyValidRef = useRef(null);
+    const setKeyValid = (v) => { keyValidRef.current = v; _setKeyValid(v); };
+    const [decodedKey, _setDecodedKey] = useState(null);
+    const decodedKeyRef = useRef(null);
+    const setDecodedKey = (v) => { decodedKeyRef.current = v; _setDecodedKey(v); };
     const [previewUrl, setPreviewUrl] = useState('');
 
     const [watermark_idNumber, setWatermark_idNumber] = useState(Math.ceil(2 ** 16 * Math.random())); // Random ID for watermark (for analytics)
@@ -450,6 +456,7 @@ export default function PhotoUnscramblerPro() {
             // const keyData = JSON.parse(text);
             setDecodedKey(keyData);
             setKeyValid(true);
+            console.log("Key file loaded and decoded successfully:", keyData);
             success('🔑 Key file loaded and decoded successfully!');
 
         } catch (err) {
@@ -508,6 +515,7 @@ export default function PhotoUnscramblerPro() {
 
             setDecodedKey(keyData);
             setKeyValid(true);
+            console.log("Key decoded successfully:", keyData);
             success("Key decoded successfully!");
 
             console.log("Decoded key:", keyData);
@@ -526,12 +534,14 @@ export default function PhotoUnscramblerPro() {
     const unscrambleImage = async () => {
         if (!selectedFile) {
             error("Please select a scrambled image first");
+            console.error("No file selected for unscrambling");
             handleRefundCredits(actionCost);
             return;
         }
 
-        if (!decodedKey || !keyValid) {
+        if (!keyValidRef.current || !decodedKey) {
             error("Please decode your key first");
+            console.error("Key not decoded or invalid");
             handleRefundCredits(actionCost);
             return;
         }
@@ -647,6 +657,7 @@ export default function PhotoUnscramblerPro() {
                     },
                     watermarkParams: {
                         watermark_idNumber: watermark_idNumber,
+                        fingerprintParams: fingerprintParams
                     }
                 }).catch(err => {
                     console.error('Failed to log analytics event:', err);
@@ -672,7 +683,7 @@ export default function PhotoUnscramblerPro() {
 
     const loadUnscrambledImage = async (filename) => {
         try {
-            const response = await fetch(`${Flask_API_URL}/download/${filename}`);
+            const response = await fetch(`${API_URL}/download/${filename}`);
             if (!response.ok) throw new Error('Failed to load unscrambled image');
 
             const blob = await response.blob();
@@ -711,7 +722,7 @@ export default function PhotoUnscramblerPro() {
         document.body.appendChild(a);
         a.click();
         document.body.removeChild(a);
-        success('Fingerprinted image downloaded!');
+        success('Image downloaded!');
     };
 
 
@@ -839,11 +850,11 @@ export default function PhotoUnscramblerPro() {
                 </Typography>
 
                 {/* Status indicators */}
-                <Box sx={{ display: 'flex', gap: 1, justifyContent: 'center', flexWrap: 'wrap' }}>
+                {/* <Box sx={{ display: 'flex', gap: 1, justifyContent: 'center', flexWrap: 'wrap' }}>
                     <Chip label="Server: localhost:5000" size="small" color="success" />
                     <Chip label="Format: PNG/JPG" size="small" />
                     <Chip label="Pro Features Enabled" size="small" color="primary" />
-                </Box>
+                </Box> */}
             </Box>
 
             {/* Main Unscramble Section */}

@@ -363,7 +363,7 @@ export default function VideoUnscramblerBasic() {
       const keyData = JSON.parse(decoded);
       if (keyData.type !== "video") {
         error('The loaded key file is not a valid video scramble key.');
-      } else if (keyData.version !== "Basic") {
+      } else if (keyData.version !== "Basic" && keyData.type !== "Free") {
         error('Use the ' + keyData.version + ' ' + keyData.type + ' scrambler to unscramble this file.');
         alert('The loaded key file will not work with this scrambler version, you must use the ' + keyData.version + ' ' + keyData.type + ' scrambler to unscramble this file.');
       }
@@ -496,6 +496,7 @@ export default function VideoUnscramblerBasic() {
 
     // Adjust source rectangles to exclude bottom 32 pixels watermark
     const videoHeightWithoutWatermark = video.videoHeight - tagOffset;
+    const TILE_GAP = 1; // 1px inset per side = 2px visible gap; read inner pixels, restore to full tile
 
     for (let origIdx = 0; origIdx < N; origIdx++) {
       const shuffledDestIdx = srcToDest[origIdx];
@@ -505,14 +506,18 @@ export default function VideoUnscramblerBasic() {
 
       // Only draw if the source rectangle doesn't extend into the watermark area
       if (sR.y + sR.h <= videoHeightWithoutWatermark) {
-        ctx.drawImage(video, sR.x, sR.y, sR.w, sR.h, dR.x, dR.y, dR.w, dR.h);
+        ctx.drawImage(video, sR.x + TILE_GAP, sR.y + TILE_GAP, sR.w - 2 * TILE_GAP, sR.h - 2 * TILE_GAP, dR.x, dR.y, dR.w, dR.h);
       }
     }
 
     // Draw bouncing watermarks (screensaver style)
     ctx.font = 'bold 18px Arial';
     
+
     watermarks.forEach((wm) => {
+
+      ctx.globalAlpha = 0.25;
+
       // Measure text for background
       const textMetrics = ctx.measureText(wm.text);
       const textWidth = textMetrics.width;
@@ -543,6 +548,8 @@ export default function VideoUnscramblerBasic() {
       ctx.shadowColor = 'rgba(0, 0, 0, 0.9)';
       ctx.fillStyle = 'rgba(255, 255, 255, 0.85)';
       ctx.fillText(wm.text, wm.x, wm.y);
+
+      ctx.globalAlpha = 1.0;
     });
     
     ctx.shadowBlur = 0;

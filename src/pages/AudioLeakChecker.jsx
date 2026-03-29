@@ -560,7 +560,7 @@ export default function AudioLeakChecker() {
         open={showResultInfoModal}
         onClose={() => setShowResultInfoModal(false)}
       >
-        <Box sx={{ p: 2, backgroundColor: '#3b3b3b' }}>
+        <Box sx={{ p: 2, backgroundColor: '#2a2a2a' }}>
           <DialogTitle>
             Leak Check In Progress
           </DialogTitle>
@@ -571,7 +571,7 @@ export default function AudioLeakChecker() {
           </DialogContent>
           <DialogActions>
             <Button onClick={() => setShowResultInfoModal(false)} autoFocus>
-              OK, got it
+              I understand.
             </Button>
           </DialogActions>
         </Box>

@@ -238,12 +238,14 @@ export default function VideoScramblerBasic() {
     const srcRects = cellRects(paddedWidth, paddedHeight, grid.n, grid.m);
     const destRects = cellRects(canvas.width, finalHeight, grid.n, grid.m);
 
+    const TILE_GAP = 1; // 1px inset per side = 2px visible gap between adjacent tiles
+
     for (let destIdx = 0; destIdx < N; destIdx++) {
       const srcIdx = permDestToSrc0[destIdx];
       const sR = srcRects[srcIdx];
       const dR = destRects[destIdx];
       if (!sR || !dR) continue;
-      ctx.drawImage(video, sR.x, sR.y, sR.w, sR.h, dR.x, dR.y, dR.w, dR.h);
+        ctx.drawImage(video, sR.x, sR.y, sR.w, sR.h, dR.x + TILE_GAP, dR.y + TILE_GAP, dR.w - 2 * TILE_GAP, dR.h - 2 * TILE_GAP);
     }
 
     let voffset = 32

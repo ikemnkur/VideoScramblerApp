@@ -42,7 +42,7 @@ import api from '../api/client';
 
 export default function VideoUnscramblerPro() {
   const API_URL = import.meta.env.VITE_API_SERVER_URL || 'http://localhost:3001';
-  const Flask_API_URL = import.meta.env.VITE_API_PY_SERVER_URL || import.meta.env.VITE_FLASK_API_URL || 'http://localhost:5000';
+  // const Flask_API_URL = import.meta.env.VITE_API_PY_SERVER_URL || import.meta.env.VITE_FLASK_API_URL || 'http://localhost:5000';
 
   const { success, error } = useToast();
 
@@ -446,7 +446,7 @@ export default function VideoUnscramblerPro() {
 
   const loadUnscrambledVideo = async () => {
     try {
-      const response = await fetch(`${Flask_API_URL}/download/${unscrambledFilename}`);
+      const response = await fetch(`${API_URL}/download/${unscrambledFilename}`);
       if (!response.ok) throw new Error('Failed to load unscrambled video');
 
       const blob = await response.blob();
@@ -470,7 +470,7 @@ export default function VideoUnscramblerPro() {
     }
 
     try {
-      const response = await fetch(`${Flask_API_URL}/download/${unscrambledFilename}`);
+      const response = await fetch(`${API_URL}/download/${unscrambledFilename}`);
       if (!response.ok) throw new Error('Download failed');
 
       const blob = await response.blob();
@@ -521,9 +521,9 @@ export default function VideoUnscramblerPro() {
     });
 
     if (result.success) {
-      error(`An error occurred during scrambling. ${result.message}`);
+      error(`An error occurred during unscrambling. ${result.message}`);
     } else {
-      error(`Scrambling failed. ${result.message}`);
+      error(`Unscrambling failed. ${result.message}`);
     }
   };
 
@@ -592,12 +592,12 @@ export default function VideoUnscramblerPro() {
         </Typography>
 
         {/* Status indicators */}
-        <Box sx={{ display: 'flex', gap: 1, justifyContent: 'center', flexWrap: 'wrap' }}>
+        {/* <Box sx={{ display: 'flex', gap: 1, justifyContent: 'center', flexWrap: 'wrap' }}>
           <Chip label="Format: MP4, AVI, MOV" size="small" />
           <Chip label="Serve Standardcessing" size="small" />
           <Chip label="Advanced Algorithms" size="small" />
           <Chip icon={<AutoAwesome />} label="Pro Version" color="secondary" size="small" />
-        </Box>
+        </Box> */}
       </Box>
 
       {/* Main Unscramble Section */}
@@ -822,7 +822,7 @@ export default function VideoUnscramblerPro() {
                   {unscrambledFilename ? (
                     <video
                       ref={unscrambledVideoRef}
-                      src={unscrambledFilename ? `${Flask_API_URL}/download/${unscrambledFilename}` : ''}
+                      src={unscrambledFilename ? `${API_URL}/download/${unscrambledFilename}` : ''}
                       alt="Scrambled"
                       controls
                       style={{

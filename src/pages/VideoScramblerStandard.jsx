@@ -43,7 +43,7 @@ import { replace } from 'react-router-dom';
 import { meta } from '@eslint/js';
 
 const API_URL = import.meta.env.VITE_API_SERVER_URL || 'http://localhost:3001'; // = 'http://localhost:5000';
-const Flask_API_URL = import.meta.env.VITE_API_PY_SERVER_URL || 'http://localhost:5000';
+// const Flask_API_URL = import.meta.env.VITE_API_PY_SERVER_URL || 'http://localhost:5000';
 
 
 export default function ScramblerVideosPro() {
@@ -379,7 +379,7 @@ export default function ScramblerVideosPro() {
 
   const loadScrambledVideo = async () => {
     try {
-      const response = await fetch(`${Flask_API_URL}/download/${scrambledFilename}`);
+      const response = await fetch(`${API_URL}/download/${scrambledFilename}`);
       // if (!response.ok) throw new Error('Failed to load scrambled video');
 
       const blob = await response.blob();
@@ -389,7 +389,7 @@ export default function ScramblerVideosPro() {
         scrambledVideoRef.current.src = url;
         console.log("SCRAMBLED VIDEO URL SET: " + url)
       }
-      // let url = `${Flask_API_URL}/download/${scrambledFilename}`;
+      // let url = `${API_URL}/download/${scrambledFilename}`;
       // if (url.includes("mp4")) {
       //   // if  "mp4" is the extenstion in the URL, change it to webm
       //   if (url.endsWith("mp4")) {
@@ -411,7 +411,7 @@ export default function ScramblerVideosPro() {
     }
 
     try {
-      const response = await fetch(`${Flask_API_URL}/download/${scrambledFilename}`);
+      const response = await fetch(`${API_URL}/download/${scrambledFilename}`);
       if (!response.ok) throw new Error('Download failed');
 
       const blob = await response.blob();
@@ -800,7 +800,7 @@ export default function ScramblerVideosPro() {
                     <>
                       <video
                         ref={scrambledVideoRef}
-                        src={scrambledFilename ? `${Flask_API_URL}/download/${scrambledFilename}` : ''}
+                        src={scrambledFilename ? `${API_URL}/download/${scrambledFilename}` : ''}
                         alt="Scrambled"
                         style={{
                           width: '100%',

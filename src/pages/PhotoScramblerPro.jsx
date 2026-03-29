@@ -40,7 +40,7 @@ import { refundCredits } from '../utils/creditUtils';
 import api from '../api/client';
 
 const API_URL = import.meta.env.VITE_API_SERVER_URL || 'http://localhost:3001'; // = 'http://localhost:3001/api';
-const Flask_API_URL = import.meta.env.VITE_API_PY_SERVER_URL || 'http://localhost:5000';
+// const Flask_API_URL = import.meta.env.VITE_API_PY_SERVER_URL || 'http://localhost:5000';
 
 export default function PhotoScramblerPro() {
     const { success, error, info } = useToast();
@@ -207,9 +207,10 @@ export default function PhotoScramblerPro() {
         });
 
         if (result.success) {
-            error(`An error occurred during scrambling. ${result.message}`);
+            error(`An error occurred during refunding. ${result.message}`);
         } else {
-            error(`Scrambling failed. ${result.message}`);
+            // error(`Scrambling failed. Your account has been refunded with ${getActualCost()} credits. ${result.message}`);
+            error(`Scrambling failed. Your account has been refunded any credits spent for this action.`);
         }
     };
 
@@ -377,7 +378,7 @@ export default function PhotoScramblerPro() {
 
             };
 
-                // Convert to PNG before sending, then build FormData
+            // Convert to PNG before sending, then build FormData
             const pngFile = await convertToPng(selectedFile);
             const formData = new FormData();
             formData.append('file', pngFile);
@@ -493,7 +494,7 @@ export default function PhotoScramblerPro() {
 
     const loadScrambledImage = async (filename) => {
         try {
-            const response = await fetch(`${Flask_API_URL}/download/${filename}`);
+            const response = await fetch(`${API_URL}/download/${filename}`);
             // if (!response.ok) throw new Error('Failed to load scrambled image');
 
             const blob = await response.blob();
@@ -514,7 +515,7 @@ export default function PhotoScramblerPro() {
         }
 
         try {
-            const response = await fetch(`${Flask_API_URL}/download/${scrambledFilename}`);
+            const response = await fetch(`${API_URL}/download/${scrambledFilename}`);
             if (!response.ok) throw new Error('Download failed');
 
             const blob = await response.blob();

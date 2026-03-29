@@ -327,17 +327,19 @@ export default function PhotoScrambler() {
     const srcRects = cellRects(paddedWidth, paddedHeight, grid.n, grid.m);
     const destRects = cellRects(paddedWidth, paddedHeight, grid.n, grid.m);
 
+    const TILE_GAP = 1; // 1px inset on each side = 2px visible gap between adjacent tiles
+
     for (let destIdx = 0; destIdx < N; destIdx++) {
       const srcIdx = permDestToSrc0[destIdx];
       const sR = srcRects[srcIdx];
       const dR = destRects[destIdx];
       if (!sR || !dR) continue;
 
-      // Draw scrambled pieces with offset to center them
+      // Draw scrambled pieces with offset to center them, shrunk by TILE_GAP on each side
       ctx.drawImage(
         tempCanvas,
         sR.x, sR.y, sR.w, sR.h,
-        dR.x + offsetX, dR.y + offsetY, dR.w, dR.h
+        dR.x + offsetX + TILE_GAP, dR.y + offsetY + TILE_GAP, dR.w - 2 * TILE_GAP, dR.h - 2 * TILE_GAP
       );
     }
 

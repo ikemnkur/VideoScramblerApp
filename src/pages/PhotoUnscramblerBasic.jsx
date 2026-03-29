@@ -439,9 +439,9 @@ export default function PhotoUnscrambler() {
     });
 
     if (result.success) {
-      error(`An error occurred during scrambling. ${result.message}`);
+      error(`An error occurred during unscrambling. ${result.message}`);
     } else {
-      error(`Scrambling failed. ${result.message}`);
+      error(`Unscrambling failed. ${result.message}`);
     }
   };
 

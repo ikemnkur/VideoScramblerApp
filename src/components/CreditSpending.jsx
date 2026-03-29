@@ -689,10 +689,10 @@ const CreditSpending = () => {
                     sx={{
                       fontWeight: 600,
                       fontSize: { xs: "0.75rem", sm: "0.875rem" },
-                      color: "#f44336",
+                      color: t.title === "refunded-credits" ? "#56f436" : "#df1717cf",
                     }}
                   >
-                    -{t.credits || 0} ₡
+                    {t.title === "refunded-credits" ? `+${t.credits || 0}` : `-${t.credits || 0}`} ₡
                   </TableCell>
 
                   <TableCell sx={{ color: "#e0e0e0" }}>

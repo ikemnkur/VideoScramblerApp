@@ -43,7 +43,7 @@ import api from '../api/client';
 import { replace } from 'react-router-dom';
 
 const API_URL = import.meta.env.VITE_API_SERVER_URL || 'http://localhost:3001'; // = 'http://localhost:5000';
-const Flask_API_URL = import.meta.env.VITE_API_PY_SERVER_URL || 'http://localhost:5000';
+// const Flask_API_URL = import.meta.env.VITE_API_PY_SERVER_URL || 'http://localhost:5000';
 
 
 export default function ScramblerVideosPro() {
@@ -76,8 +76,8 @@ export default function ScramblerVideosPro() {
   // Scrambling Parameters
   const [algorithm, setAlgorithm] = useState('hpf'); // hpf, position, color, rotation, mirror, intensity
   const [seed, setSeed] = useState(Math.floor(Math.random() * 1000000000));
-  const [rows, setRows] = useState(6);
-  const [cols, setCols] = useState(6);
+  const [rows, setRows] = useState(10);
+  const [cols, setCols] = useState(12);
   const [scramblingBlur, setscramblingBlur] = useState(50);
 
   // Algorithm-specific parameters
@@ -367,7 +367,7 @@ export default function ScramblerVideosPro() {
 
   const loadScrambledVideo = async () => {
     try {
-      const response = await fetch(`${Flask_API_URL}/download/${scrambledFilename}`);
+      const response = await fetch(`${API_URL}/download/${scrambledFilename}`);
       // if (!response.ok) throw new Error('Failed to load scrambled video');
 
       const blob = await response.blob();
@@ -377,7 +377,7 @@ export default function ScramblerVideosPro() {
         scrambledVideoRef.current.src = url;
         console.log("SCRAMBLED VIDEO URL SET: " + url)
       }
-      // let url = `${Flask_API_URL}/download/${scrambledFilename}`;
+      // let url = `${API_URL}/download/${scrambledFilename}`;
       // if (url.includes("mp4")) {
       //   // if  "mp4" is the extenstion in the URL, change it to webm
       //   if (url.endsWith("mp4")) {
@@ -400,7 +400,7 @@ export default function ScramblerVideosPro() {
     }
 
     try {
-      const response = await fetch(`${Flask_API_URL}/download/${scrambledFilename}`);
+      const response = await fetch(`${API_URL}/download/${scrambledFilename}`);
       // if (!response.ok) throw new Error('Download failed');
 
       const blob = await response.blob();
@@ -456,7 +456,8 @@ export default function ScramblerVideosPro() {
     if (result.success) {
       error(`An error occurred during refunding. ${result.message}`);
     } else {
-      error(`Scrambling failed. Your account has been refunded with ${getActualCost()} credits. ${result.message}`);
+      // error(`Scrambling failed. Your account has been refunded with ${getActualCost()} credits. ${result.message}`);
+      error(`Scrambling failed. Your account has been refunded any credits spent for this action.`);
     }
   };
 
@@ -825,7 +826,7 @@ export default function ScramblerVideosPro() {
                     <>
                       <video
                         ref={scrambledVideoRef}
-                        src={scrambledFilename ? `${Flask_API_URL}/download/${scrambledFilename}` : ''}
+                        src={scrambledFilename ? `${API_URL}/download/${scrambledFilename}` : ''}
                         alt="Scrambled"
                         style={{
                           width: '100%',

@@ -36,7 +36,7 @@ import { refundCredits } from '../utils/creditUtils';
 import api from '../api/client';
 
 const API_URL = import.meta.env.VITE_API_SERVER_URL || 'http://localhost:3001';
-const Flask_API_URL = import.meta.env.VITE_API_PY_SERVER_URL || 'http://localhost:5000';
+// const Flask_API_URL = import.meta.env.VITE_API_PY_SERVER_URL || 'http://localhost:5000';
 
 // ============================================================
 // FINGERPRINT TRANSFORM UTILITIES
@@ -82,9 +82,9 @@ function paramsFromB(B) {
     const seed = seedFromInt(B);
     const rnd = mulberry32(seed);
 
-    const angleDeg = (rnd() * 20) - 10;          // ±10°
+    const angleDeg = (rnd() * 4) - 2;          // ±2°
     const angle = angleDeg * Math.PI / 180;
-    const zoom = 1.05 + rnd() * 0.15;         // 1.05–1.20×
+    const zoom = 1.15 + rnd() * 0.15;         // 1.15–1.30×
     const shiftX = (rnd() * 2 - 1) * 30;        // ±30px
     const shiftY = (rnd() * 2 - 1) * 30;
     const cropTop = 16 + Math.floor(rnd() * 49);
@@ -219,9 +219,15 @@ export default function PhotoUnscramblerPro() {
     const [grid, setGrid] = useState({ n: 5, m: 5 });
     const [unscrambledFilename, setUnscrambledFilename] = useState('');
     const [keyCode, setKeyCode] = useState('');
-    const [decodedKey, setDecodedKey] = useState(null);
+    // const [decodedKey, setDecodedKey] = useState(null);
     const [referencedKeyData, setReferencedKeyData] = useState(null); // Store key data from loaded key file for analytics reference
-    const [keyValid, setKeyValid] = useState(false);
+    // const [keyValid, setKeyValid] = useState(false);
+    const [keyValid, _setKeyValid] = useState(null);
+    const keyValidRef = useRef(null);
+    const setKeyValid = (v) => { keyValidRef.current = v; _setKeyValid(v); };
+    const [decodedKey, _setDecodedKey] = useState(null);
+    const decodedKeyRef = useRef(null);
+    const setDecodedKey = (v) => { decodedKeyRef.current = v; _setDecodedKey(v); };
     const [previewUrl, setPreviewUrl] = useState('');
 
     const [watermark_idNumber, setWatermark_idNumber] = useState(Math.ceil(2 ** 16 * Math.random())); // Random ID for watermark (for analytics)
@@ -552,10 +558,10 @@ export default function PhotoUnscramblerPro() {
                 max_hue_shift: decodedKey.maxHueShift,
                 max_intensity_shift: decodedKey.maxIntensityShift,
 
-                scrambleLevel: scrambleLevel, 
-                
+                scrambleLevel: scrambleLevel,
+
                 watermark_idNumber: watermark_idNumber,
-                
+
 
                 "algorithm": decodedKey.scramble.algorithm,
                 "percentage": decodedKey.scramble.percentage,
@@ -571,7 +577,7 @@ export default function PhotoUnscramblerPro() {
                     timestamp: decodedKey.creator.timestamp || new Date().toISOString()
                 },
 
-               
+
                 metadata: decodedKey.metadata || {},
                 user_id: userData.id,
                 username: userData.username,
@@ -647,6 +653,7 @@ export default function PhotoUnscramblerPro() {
                     },
                     watermarkParams: {
                         watermark_idNumber: watermark_idNumber,
+                        fingerprintParams: fingerprintParams
                     }
                 }).catch(err => {
                     console.error('Failed to log analytics event:', err);
@@ -672,7 +679,7 @@ export default function PhotoUnscramblerPro() {
 
     const loadUnscrambledImage = async (filename) => {
         try {
-            const response = await fetch(`${Flask_API_URL}/download/${filename}`);
+            const response = await fetch(`${API_URL}/download/${filename}`);
             if (!response.ok) throw new Error('Failed to load unscrambled image');
 
             const blob = await response.blob();
@@ -711,7 +718,7 @@ export default function PhotoUnscramblerPro() {
         document.body.appendChild(a);
         a.click();
         document.body.removeChild(a);
-        success('Fingerprinted image downloaded!');
+        success('Image downloaded!');
     };
 
 
@@ -807,9 +814,10 @@ export default function PhotoUnscramblerPro() {
         });
 
         if (result.success) {
-            error(`An error occurred during scrambling. ${result.message}`);
+            error(`An error occurred during refunding. ${result.message}`);
         } else {
-            error(`Scrambling failed. ${result.message}`);
+            // error(`Scrambling failed. Your account has been refunded with ${getActualCost()} credits. ${result.message}`);
+            error(`Scrambling failed. Your account has been refunded any credits spent for this action.`);
         }
     };
 

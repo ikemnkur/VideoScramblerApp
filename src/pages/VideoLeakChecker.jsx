@@ -552,7 +552,7 @@ export default function VideoLeakChecker() {
         open={showResultInfoModal}
         onClose={() => setShowResultInfoModal(false)}
       >
-        <Box sx={{ p: 2, backgroundColor: '#3b3b3b' }}></Box>
+        <Box sx={{ p: 2, backgroundColor: '#252525' }}></Box>
         <DialogTitle>
           Leak Check In Progress
         </DialogTitle>
@@ -563,7 +563,7 @@ export default function VideoLeakChecker() {
         </DialogContent>
         <DialogActions>
           <Button onClick={() => setShowResultInfoModal(false)} autoFocus>
-            OK, got it
+            OK, Got it.
           </Button>
         </DialogActions>
         <Box />

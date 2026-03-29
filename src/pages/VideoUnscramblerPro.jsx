@@ -42,7 +42,7 @@ import api from '../api/client';
 
 export default function VideoUnscramblerPro() {
   const API_URL = import.meta.env.VITE_API_SERVER_URL || 'http://localhost:3001';
-  const Flask_API_URL = import.meta.env.VITE_API_PY_SERVER_URL || import.meta.env.VITE_FLASK_API_URL || 'http://localhost:5000';
+  // const Flask_API_URL = import.meta.env.VITE_API_PY_SERVER_URL || import.meta.env.VITE_FLASK_API_URL || 'http://localhost:5000';
 
   const { success, error } = useToast();
 
@@ -437,7 +437,7 @@ export default function VideoUnscramblerPro() {
 
   const loadUnscrambledVideo = async () => {
     try {
-      const response = await fetch(`${Flask_API_URL}/download/${unscrambledFilename}`);
+      const response = await fetch(`${API_URL}/download/${unscrambledFilename}`);
       // if (!response.ok) throw new Error('Failed to load unscrambled video');
 
       const blob = await response.blob();
@@ -449,7 +449,7 @@ export default function VideoUnscramblerPro() {
         // setVideoUrl(url);
       }
 
-      // let url = `${Flask_API_URL}/download/${unscrambledFilename}`;
+      // let url = `${API_URL}/download/${unscrambledFilename}`;
       // if (url.includes("mp4")) {
       //   // if  "mp4" is the extenstion in the URL, change it to webm
       //   if (url.endsWith("mp4")) {
@@ -475,7 +475,7 @@ export default function VideoUnscramblerPro() {
     }
 
     try {
-      const response = await fetch(`${Flask_API_URL}/download/${unscrambledFilename}`);
+      const response = await fetch(`${API_URL}/download/${unscrambledFilename}`);
       // if (!response.ok) throw new Error('Download failed');
 
       const blob = await response.blob();
@@ -524,9 +524,10 @@ export default function VideoUnscramblerPro() {
     });
 
     if (result.success) {
-      error(`An error occurred during scrambling. ${result.message}`);
+      error(`An error occurred during Unscrambling. ${result.message}`);
     } else {
-      error(`Scrambling failed. Your account has been refunded with ${getActualCost()} credits. ${result.message}`);
+      // error(`Scrambling failed. Your account has been refunded with ${getActualCost()} credits. ${result.message}`);
+      error(`Unscrambling failed. Your account has been refunded any credits spent for this action.`);
     }
   };
 
@@ -825,7 +826,7 @@ export default function VideoUnscramblerPro() {
                   {unscrambledFilename ? (
                     <video
                       ref={unscrambledVideoRef}
-                      src={unscrambledFilename ? `${Flask_API_URL}/download/${unscrambledFilename}` : ''}
+                      src={unscrambledFilename ? `${API_URL}/download/${unscrambledFilename}` : ''}
                       alt="Scrambled"
                       controls
                       style={{

@@ -284,7 +284,7 @@ export default function MainPage() {
                                 Credit Purchases
                             </Button>
 
-                             <Button
+                            <Button
                                 onClick={() => navigate("/credit-spending-history")}
                                 variant="outlined"
                                 sx={{
@@ -866,7 +866,7 @@ export default function MainPage() {
                             {hasAccessToTier('premium') && serviceMode === 'premium' && (
                                 <Card sx={{
                                     backgroundColor: '#2a2a2a',
-                                    border: '1px solid #2e7d32',
+                                    border: '1px solid #ff9800',
                                     borderRadius: 2,
                                     cursor: 'pointer',
                                     transition: 'all 0.3s ease',
@@ -878,7 +878,7 @@ export default function MainPage() {
                                 }}
                                     onClick={() => navigate("/photo-unscrambler-pro")}>
                                     <CardContent sx={{ p: 2 }}>
-                                        <Typography variant="h6" sx={{ color: '#2e7d32ff', mb: 1, fontWeight: 'bold' }}>
+                                        <Typography variant="h6" sx={{ color: '#ff9800', mb: 1, fontWeight: 'bold' }}>
                                             🔐📸 Unscramble Photo Pro
                                         </Typography>
                                         <Typography variant="body2" sx={{ color: '#ccc', lineHeight: 1.4 }}>
@@ -891,14 +891,14 @@ export default function MainPage() {
                             {hasAccessToTier('premium') && serviceMode === 'premium' && <Divider sx={{ my: 0, borderColor: '#444', gridColumn: '1 / -1' }} />}
 
 
-                            {hasAccessToTier('premium') && serviceMode === 'premium' && <Divider sx={{ my: 0, borderColor: '#444', gridColumn: '1 / -1' }} />}
+                            {/* {hasAccessToTier('premium') && serviceMode === 'premium' && <Divider sx={{ my: 0, borderColor: '#444', gridColumn: '1 / -1' }} />} */}
 
                             {/* Pro Scramble Video Service */}
                             {hasAccessToTier('premium') && serviceMode === 'premium' && (
 
                                 <Card sx={{
                                     backgroundColor: '#2a2a2a',
-                                    border: '1px solid #ff9800',
+                                    border: '1px solid #2e7d32',
                                     borderRadius: 2,
                                     cursor: 'pointer',
                                     transition: 'all 0.3s ease',
@@ -910,7 +910,7 @@ export default function MainPage() {
                                 }}
                                     onClick={() => navigate("/video-scrambler-pro")}>
                                     <CardContent sx={{ p: 2 }}>
-                                        <Typography variant="h6" sx={{ color: '#ff9800', mb: 1, fontWeight: 'bold' }}>
+                                        <Typography variant="h6" sx={{ color: '#2e7d32ff', mb: 1, fontWeight: 'bold' }}>
                                             🎬 Scramble Video Pro
                                         </Typography>
                                         <Typography variant="body2" sx={{ color: '#ccc', lineHeight: 1.4 }}>

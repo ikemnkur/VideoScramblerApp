@@ -60,11 +60,12 @@ export default function VideoScrambler() {
   const [user] = useState({ id: "demo-user-123", email: "demo@example.com" });
   const [userData] = useState(JSON.parse(localStorage.getItem("userdata")));
   const [isPro, setIsPro] = useState(userData?.accountType !== 'free'); // Mock subscription status based on user data (replace with real check)
-  
+
 
   const [selectedFile, setSelectedFile] = useState(null);
   const [selectedLevel, setSelectedLevel] = useState("med"); // low|med|high
   const [grid, setGrid] = useState({ n: 5, m: 5 });
+
   const [seed, setSeed] = useState(() => genRandomSeed());
   const [permDestToSrc0, setPermDestToSrc0] = useState([]);
   const [base64Key, setBase64Key] = useState("");
@@ -250,12 +251,14 @@ export default function VideoScrambler() {
     const srcRects = cellRects(paddedWidth, paddedHeight, grid.n, grid.m);
     const destRects = cellRects(canvas.width, finalHeight, grid.n, grid.m);
 
+    const TILE_GAP = 1; // 1px inset per side = 2px visible gap between adjacent tiles
+
     for (let destIdx = 0; destIdx < N; destIdx++) {
       const srcIdx = permDestToSrc0[destIdx];
       const sR = srcRects[srcIdx];
       const dR = destRects[destIdx];
       if (!sR || !dR) continue;
-      ctx.drawImage(video, sR.x, sR.y, sR.w, sR.h, dR.x, dR.y, dR.w, dR.h);
+      ctx.drawImage(video, sR.x, sR.y, sR.w, sR.h, dR.x + TILE_GAP, dR.y + TILE_GAP, dR.w - 2 * TILE_GAP, dR.h - 2 * TILE_GAP);
     }
 
     let voffset = 32
@@ -268,9 +271,9 @@ export default function VideoScrambler() {
     ctx.fillStyle = 'rgba(255, 255, 255, 0.5)';
     ctx.font = 'bold 12px Arial';
     // ctx.fillText('🔓 Scrambled Video', 10, canvas.height - 40);
-    ctx.fillText(`Scrambled by : ${userData.username}`, 10, canvas.height-8  );
+    ctx.fillText(`Scrambled by : ${userData.username}`, 10, canvas.height - 8);
     // ctx.fillText(`Scramblurr🔓`, canvas.width - 220, canvas.height);
-    ctx.fillText(`Scramblurr🔓`, canvas.width - canvas.width/10 - 60, canvas.height - 8);
+    ctx.fillText(`Scramblurr🔓`, canvas.width - canvas.width / 10 - 60, canvas.height - 8);
 
   }, [grid, permDestToSrc0]);
 
@@ -748,7 +751,7 @@ export default function VideoScrambler() {
       error("Warning: The scrambled video file is quite large and may take a while to download.");
     }
 
-     if (blob.size < 256 * 1024) { // 256KB
+    if (blob.size < 256 * 1024) { // 256KB
       error("Warning: The scrambled video file is quite small and may indicate an issue with the recording.");
       handleRefundCredits();
     }
@@ -803,43 +806,43 @@ export default function VideoScrambler() {
   };
 
 
-     const handleRefundCredits = async (actionCost) => {
-          // Generate noise seed
-          // const nSeed = genRandomSeed();
-          // setNoiseSeed(nSeed);
-  
-          const result = await refundCredits({
-              userId: userData.id,
-              username: userData.username,
-              email: userData.email,
-              // credits: actionCost,
-              credits: getActualCost(), // Refund the actual cost that was spent
-              currentCredits: userCredits,
-              password: localStorage.getItem('hashedPassword'),
-              action: 'scramble-video-lite',
-              params: {
-                  scrambleLevel: scrambleLevel,
-                  grid: { rows, cols },
-                  seed: seed,
-                  algorithm: algorithm,
-                  percentage: scramblingPercentage,
-                  scramble: shuffleParams,
-                  metadata: {
-                      username: userData.username || 'Anonymous',
-                      userId: userData.id || 'Unknown',
-                      timestamp: new Date().toISOString()
-                  },
-                  type: "video",
-                  version: "lite"
-              }
-          });
-  
-          if (result.success) {
-              error(`An error occurred during scrambling. ${result.message}`);
-          } else {
-              error(`Scrambling failed. ${result.message}`);
-          }
-      };
+  const handleRefundCredits = async (actionCost) => {
+    // Generate noise seed
+    // const nSeed = genRandomSeed();
+    // setNoiseSeed(nSeed);
+
+    const result = await refundCredits({
+      userId: userData.id,
+      username: userData.username,
+      email: userData.email,
+      // credits: actionCost,
+      credits: getActualCost(), // Refund the actual cost that was spent
+      currentCredits: userCredits,
+      password: localStorage.getItem('hashedPassword'),
+      action: 'scramble-video-lite',
+      params: {
+        scrambleLevel: scrambleLevel,
+        grid: { m: grid.m, n: grid.n },
+        seed: seed,
+        // algorithm: algorithm,
+        percentage: scramblingPercentage,
+        scramble: shuffleParams,
+        metadata: {
+          username: userData.username || 'Anonymous',
+          userId: userData.id || 'Unknown',
+          timestamp: new Date().toISOString()
+        },
+        type: "video",
+        version: "lite"
+      }
+    });
+
+    if (result.success) {
+      error(`An error occurred during scrambling. ${result.message}`);
+    } else {
+      error(`Scrambling failed. ${result.message}`);
+    }
+  };
 
   // =============================
   // RENDER

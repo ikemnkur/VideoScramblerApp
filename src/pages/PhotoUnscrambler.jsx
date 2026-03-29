@@ -506,17 +506,20 @@ export default function PhotoUnscrambler() {
     const centerDestRects = cellRects(centerWidth, centerHeight, n, m);
 
     // Unscramble only the center area
+    const TILE_GAP = 1; // matches the 1px inset used during scrambling
+
     for (let origIdx = 0; origIdx < N; origIdx++) {
       const shuffledDestIdx = inversePerm[origIdx];
       const sR = centerSrcRects[shuffledDestIdx];
       const dR = centerDestRects[origIdx];
       if (!sR || !dR) continue;
 
-      // Draw unscrambled pieces in the center area (offset by border)
+      // Source: read only the inner content of each tile (skip the gap border)
+      // Destination: restore to full tile size so the output has no gaps
       ctx.drawImage(
         img,
-        sR.x + border, sR.y + border, sR.w, sR.h,  // Source: from center area of scrambled image
-        dR.x + border, dR.y + border, dR.w, dR.h   // Destination: to center area, preserving borders
+        sR.x + border + TILE_GAP, sR.y + border + TILE_GAP, sR.w - 2 * TILE_GAP, sR.h - 2 * TILE_GAP,  // inner content of tile in scrambled image
+        dR.x + border, dR.y + border, dR.w, dR.h   // full tile size in output
       );
     }
 

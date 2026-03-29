@@ -40,7 +40,7 @@ import { refundCredits } from '../utils/creditUtils';
 import api from '../api/client';
 
 const API_URL = import.meta.env.VITE_API_SERVER_URL || 'http://localhost:3001'; // = 'http://localhost:3001/api';
-const Flask_API_URL = import.meta.env.VITE_API_PY_SERVER_URL || 'http://localhost:5000';
+// const Flask_API_URL = import.meta.env.VITE_API_PY_SERVER_URL || 'http://localhost:5000';
 
 export default function PhotoScramblerPro() {
     const { success, error, info } = useToast();
@@ -81,8 +81,8 @@ export default function PhotoScramblerPro() {
     // Scrambling Parameters
     const [algorithm, setAlgorithm] = useState('position'); // position, color, rotation, mirror, intensity
     const [seed, setSeed] = useState(Math.floor(Math.random() * 1000000000));
-    const [rows, setRows] = useState(6);
-    const [cols, setCols] = useState(6);
+    const [rows, setRows] = useState(8);
+    const [cols, setCols] = useState(8);
     const [scramblingPercentage, setScramblingPercentage] = useState(100);
 
     // noise seed
@@ -561,7 +561,7 @@ export default function PhotoScramblerPro() {
 
     const loadScrambledImage = async (filename) => {
         try {
-            const response = await fetch(`${Flask_API_URL}/download/${filename}`);
+            const response = await fetch(`${API_URL}/download/${filename}`);
             // if (!response.ok) throw new Error('Failed to load scrambled image');
 
             const blob = await response.blob();
@@ -582,7 +582,7 @@ export default function PhotoScramblerPro() {
         }
 
         try {
-            const response = await fetch(`${Flask_API_URL}/download/${scrambledFilename}`);
+            const response = await fetch(`${API_URL}/download/${scrambledFilename}`);
             if (!response.ok) throw new Error('Download failed');
 
             const blob = await response.blob();

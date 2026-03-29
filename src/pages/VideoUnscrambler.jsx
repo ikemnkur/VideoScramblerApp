@@ -73,7 +73,6 @@ export default function VideoUnscrambler() {
     duration: 0,
     volume: 100
   });
-  const [randomXY, setRandomXY] = useState({ x: 0, y: 0 });
   const [showAdModal, setShowAdModal] = useState(false);
   const [adProgress, setAdProgress] = useState(0);
   const [adCanClose, setAdCanClose] = useState(false);
@@ -93,13 +92,13 @@ export default function VideoUnscrambler() {
   const [rectsSrcFromShuffled, setRectsSrcFromShuffled] = useState([]);
   const [srcToDest, setSrcToDest] = useState([]);
 
+  // Bouncing watermark state (2 watermarks)
+  const [watermarks, setWatermarks] = useState([
+    { x: 50, y: 50, vx: 2, vy: 1.5, text: `🔓 Unscrambled by: ${userData?.username || 'User'}` },
+    { x: 200, y: 150, vx: -1.5, vy: 2.5, text: `ID: ${watermark_idNumber}` }
+  ]);
+  const watermarkAnimationRef = useRef(null);
 
-  useEffect(() => {    // Fetch user credits from API
-    const random = () => Math.random() * 10 * Math.random() * 10;
-    setInterval(() => {
-      setRandomXY({ x: random(), y: random() });
-    }, 500);
-  }, []);
 
   useEffect(() => {
     const fetchUserCredits = async () => {
@@ -133,6 +132,46 @@ export default function VideoUnscrambler() {
       fetchUserCredits();
     }
   }, [userData]);
+
+  // Animate watermarks (bouncing screensaver style)
+  useEffect(() => {
+    const animateWatermarks = () => {
+      setWatermarks(prevWatermarks => {
+        const canvas = unscrambleCanvasRef.current;
+        if (!canvas || canvas.width === 0) return prevWatermarks;
+
+        return prevWatermarks.map(wm => {
+          const ctx = canvas.getContext('2d');
+          ctx.font = 'bold 16px Arial';
+          const textWidth = ctx.measureText(wm.text).width;
+          const textHeight = 20;
+
+          let newX = wm.x + wm.vx;
+          let newY = wm.y + wm.vy;
+          let newVx = wm.vx;
+          let newVy = wm.vy;
+
+          if (newX <= 0 || newX + textWidth >= canvas.width) {
+            newVx = -newVx;
+            newX = Math.max(0, Math.min(newX, canvas.width - textWidth));
+          }
+          if (newY - textHeight <= 0 || newY >= canvas.height) {
+            newVy = -newVy;
+            newY = Math.max(textHeight, Math.min(newY, canvas.height));
+          }
+
+          return { ...wm, x: newX, y: newY, vx: newVx, vy: newVy };
+        });
+      });
+
+      watermarkAnimationRef.current = requestAnimationFrame(animateWatermarks);
+    };
+
+    watermarkAnimationRef.current = requestAnimationFrame(animateWatermarks);
+    return () => {
+      if (watermarkAnimationRef.current) cancelAnimationFrame(watermarkAnimationRef.current);
+    };
+  }, []);
 
   // ========== UTILITY FUNCTIONS ==========
 
@@ -443,6 +482,8 @@ export default function VideoUnscrambler() {
     const N = unscrambleParams.n * unscrambleParams.m;
 
     // Unscramble only the video content, excluding the bottom watermark bar
+    const TILE_GAP = 1; // 1px inset per side = 2px visible gap between adjacent tiles; read inner pixels, restore to full tile
+
     for (let origIdx = 0; origIdx < N; origIdx++) {
       const shuffledDestIdx = srcToDest[origIdx];
       const sR = rectsSrcFromShuffled[shuffledDestIdx];
@@ -469,7 +510,7 @@ export default function VideoUnscrambler() {
       if (adjustedSR.y + adjustedSR.h <= croppedVideoHeight) {
         ctx.drawImage(
           video,
-          adjustedSR.x, adjustedSR.y, adjustedSR.w, adjustedSR.h,
+          adjustedSR.x + TILE_GAP, adjustedSR.y + TILE_GAP, adjustedSR.w - 2 * TILE_GAP, adjustedSR.h - 2 * TILE_GAP,
           adjustedDR.x, adjustedDR.y, adjustedDR.w, adjustedDR.h
         );
       } else {
@@ -477,10 +518,10 @@ export default function VideoUnscrambler() {
         const overlapHeight = (adjustedSR.y + adjustedSR.h) - croppedVideoHeight;
         ctx.drawImage(
           video,
-          adjustedSR.x,
-          adjustedSR.y,
-          adjustedSR.w,
-          adjustedSR.h - overlapHeight,
+          adjustedSR.x + TILE_GAP,
+          adjustedSR.y + TILE_GAP,
+          adjustedSR.w - 2 * TILE_GAP,
+          adjustedSR.h - overlapHeight - 2 * TILE_GAP,
           adjustedDR.x,
           adjustedDR.y,
           adjustedDR.w,
@@ -503,12 +544,29 @@ export default function VideoUnscrambler() {
     // ctx.fillText(`Scramblurr🔓`, canvas.width - canvas.width/10, canvas.height - 10);
         ctx.fillText(`Scramblurr🔓`, canvas.width - canvas.width/10 - 60, canvas.height - 8);
 
-    // Adding transparent watermark overlay to indicate the user who unscrambled the video
-    ctx.fillStyle = 'rgba(255, 255, 255, 0.5)';
-    ctx.font = '12px Arial';
-    ctx.fillText(`🔓 Unscrambled by: ${userData.username}`, canvas.width / 2 - 150 + randomXY.x, canvas.height / 2 + Math.ceil(0.5 * randomXY.y));
+    // Adding bouncing watermark overlays
+    ctx.font = 'bold 18px Arial';
+    watermarks.forEach((wm) => {
+      const textMetrics = ctx.measureText(wm.text);
+      const textWidth = textMetrics.width;
+      const textHeight = 22;
+      const padding = 6;
 
-  }, [srcToDest, rectsSrcFromShuffled, rectsDest, unscrambleParams, randomXY, referencedKeyData, userData]);
+      ctx.fillStyle = 'rgba(0, 0, 0, 0.5)';
+      ctx.fillRect(wm.x - padding, wm.y - textHeight, textWidth + padding * 2, textHeight + padding);
+
+      ctx.strokeStyle = 'rgba(255, 255, 255, 0.3)';
+      ctx.lineWidth = 1;
+      ctx.strokeRect(wm.x - padding, wm.y - textHeight, textWidth + padding * 2, textHeight + padding);
+
+      ctx.shadowBlur = 4;
+      ctx.shadowColor = 'rgba(0, 0, 0, 0.9)';
+      ctx.fillStyle = 'rgba(255, 255, 255, 0.85)';
+      ctx.fillText(wm.text, wm.x, wm.y);
+    });
+    ctx.shadowBlur = 0;
+
+  }, [srcToDest, rectsSrcFromShuffled, rectsDest, unscrambleParams, watermarks, referencedKeyData, userData]);
 
 
 
@@ -620,9 +678,9 @@ export default function VideoUnscrambler() {
     });
 
     if (result.success) {
-      error(`An error occurred during scrambling. ${result.message}`);
+      error(`An error occurred during unscrambling. ${result.message}`);
     } else {
-      error(`Scrambling failed. ${result.message}`);
+      error(`Unscrambling failed. ${result.message}`);
     }
   };
 

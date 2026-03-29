@@ -70,6 +70,7 @@ import VideoUnscramblerPro from './pages/VideoUnscramblerPro';
 import PhotoLeakChecker from './pages/PhotoLeakChecker';
 import VideoLeakChecker from './pages/VideoLeakChecker';
 import AudioLeakChecker from './pages/AudioLeakChecker';
+import FingerprintRemover from './pages/FingerprintRemover';
 
 import Plans from './pages/Plans';
 
@@ -432,6 +433,8 @@ export default function App() {
                     <Route path="/video-leak-checker" element={<VideoLeakChecker />} />
 
                     <Route path="/audio-leak-checker" element={<AudioLeakChecker />} />
+
+                    <Route path="/fingerprint-remover" element={<FingerprintRemover />} />
                   </>
                 ) : null}
 
