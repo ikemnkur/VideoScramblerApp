@@ -97,6 +97,7 @@ export default function VideoUnscrambler() {
     { x: 50, y: 50, vx: 2, vy: 1.5, text: `🔓 Unscrambled by: ${userData?.username || 'User'}` },
     { x: 200, y: 150, vx: -1.5, vy: 2.5, text: `ID: ${watermark_idNumber}` }
   ]);
+  const watermarksRef = useRef(watermarks); // Ref mirror so drawUnscrambledFrame always reads latest positions
   const watermarkAnimationRef = useRef(null);
 
 
@@ -140,7 +141,7 @@ export default function VideoUnscrambler() {
         const canvas = unscrambleCanvasRef.current;
         if (!canvas || canvas.width === 0) return prevWatermarks;
 
-        return prevWatermarks.map(wm => {
+        const updated = prevWatermarks.map(wm => {
           const ctx = canvas.getContext('2d');
           ctx.font = 'bold 16px Arial';
           const textWidth = ctx.measureText(wm.text).width;
@@ -162,6 +163,8 @@ export default function VideoUnscrambler() {
 
           return { ...wm, x: newX, y: newY, vx: newVx, vy: newVy };
         });
+        watermarksRef.current = updated; // Keep ref in sync for stale-closure-safe access
+        return updated;
       });
 
       watermarkAnimationRef.current = requestAnimationFrame(animateWatermarks);
@@ -546,7 +549,7 @@ export default function VideoUnscrambler() {
 
     // Adding bouncing watermark overlays
     ctx.font = 'bold 18px Arial';
-    watermarks.forEach((wm) => {
+    watermarksRef.current.forEach((wm) => {
       const textMetrics = ctx.measureText(wm.text);
       const textWidth = textMetrics.width;
       const textHeight = 22;
@@ -566,7 +569,7 @@ export default function VideoUnscrambler() {
     });
     ctx.shadowBlur = 0;
 
-  }, [srcToDest, rectsSrcFromShuffled, rectsDest, unscrambleParams, watermarks, referencedKeyData, userData]);
+  }, [srcToDest, rectsSrcFromShuffled, rectsDest, unscrambleParams, referencedKeyData, userData]);
 
 
 
@@ -818,11 +821,11 @@ export default function VideoUnscrambler() {
         </Typography>
 
         {/* Status indicators */}
-        <Box sx={{ display: 'flex', gap: 1, justifyContent: 'center', flexWrap: 'wrap' }}>
+        {/* <Box sx={{ display: 'flex', gap: 1, justifyContent: 'center', flexWrap: 'wrap' }}>
           <Chip label="Canvas Export: WebM" size="small" color="success" />
           <Chip label="Grid: 25-100 cells" size="small" />
           <Chip label="Free Plan/Watermarks" size="small" color="primary" />
-        </Box>
+        </Box> */}
       </Box>
 
       {/* Main Unscramble Section */}
