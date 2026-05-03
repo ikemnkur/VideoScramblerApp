@@ -226,7 +226,7 @@ export default function Wallet() {
                 onClick={() => navigate('/bonus-credits')}
                 sx={{ width: '100%' }}
               >
-                Watch Ads for Free Credits
+                Watch Ads for Free Credits (Coming Soon)
               </Button>
             </Box>
 

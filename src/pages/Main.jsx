@@ -19,9 +19,12 @@ export default function MainPage() {
     const { success, info, error } = useToast();
 
     const userData = JSON.parse(localStorage.getItem("userdata"));
+    const [servicePlan, setServicePlan] = useState(localStorage.getItem('currentPlanSelection') || 'free');
     const [serviceMode, setServiceMode] = useState(localStorage.getItem('currentModeSelection') || 'free');
+    const [actionMode, setActionMode] = useState(localStorage.getItem('currentActionMode') || 'scramble');
     const [showModeModal, setShowModeModal] = useState(false);
     const [selectedMode, setSelectedMode] = useState(null);
+    const [selectedPlan, setSelectedPlan] = useState(null);
     // const [currentMode, setCurrentMode] = useState(null);
 
 
@@ -197,6 +200,7 @@ export default function MainPage() {
             if (response.data.success) {
                 setBalance(balance - cost);
                 setServiceMode(selectedMode);
+                setServicePlan(selectedPlan);
                 setDayPassMode(selectedMode);
                 setDayPassExpiry(new Date(new Date().getTime() + 24 * 60 * 60 * 1000).toISOString());
                 localStorage.setItem('dayPassMode', selectedMode);
@@ -312,11 +316,44 @@ export default function MainPage() {
                     borderRadius: 2
                 }}>
                     <CardContent>
-                        <Typography variant="h6" sx={{ color: '#ffd700', mb: 3 }}>What do you want to do?</Typography>
+                        <Typography variant="h6" sx={{ color: '#ffd700', mb: 2 }}>What do you want to do?</Typography>
+
+                         {/* Mode: Scramble or Unscramble */}
+                        <div style={{ display: 'flex', gap: '16px', marginBottom: '8px' }}>
+                            <Typography variant="h6" sx={{ color: '#ccc', alignSelf: 'center' }}>Mode:</Typography>
+                            <Button
+                                variant={actionMode === 'scramble' ? 'contained' : 'outlined'}
+                                sx={{
+                                    color: actionMode === 'scramble' ? '#0a0a0a' : '#ffd700',
+                                    borderColor: '#ffd700',
+                                    backgroundColor: actionMode === 'scramble' ? '#ffd700' : 'transparent',
+                                    '&:hover': {
+                                        backgroundColor: actionMode === 'scramble' ? '#e6c200' : 'rgba(255, 215, 0, 0.1)'
+                                    }
+                                }}
+                                onClick={() => { setActionMode('scramble'); localStorage.setItem('currentActionMode', 'scramble'); }}>
+                                🔐 Scramble
+                            </Button>
+                            <Button
+                                variant={actionMode === 'unscramble' ? 'contained' : 'outlined'}
+                                sx={{
+                                    color: actionMode === 'unscramble' ? '#0a0a0a' : '#ffd700',
+                                    borderColor: '#ffd700',
+                                    backgroundColor: actionMode === 'unscramble' ? '#ffd700' : 'transparent',
+                                    '&:hover': {
+                                        backgroundColor: actionMode === 'unscramble' ? '#e6c200' : 'rgba(255, 215, 0, 0.1)'
+                                    }
+                                }}
+                                onClick={() => { setActionMode('unscramble'); localStorage.setItem('currentActionMode', 'unscramble'); }}>
+                                🔓 Unscramble
+                            </Button>
+                        </div>
+
+                        <Divider sx={{ my: 2, borderColor: '#444' }} />
 
                         {/* create buttons for modes for services: free, basic, standard, premium */}
-                        <div style={{ display: 'flex', gap: '16px', mb: 2 }}>
-                            <Typography variant="h6" sx={{ color: '#ccc', alignSelf: 'center' }}>Mode:</Typography>
+                        <div style={{ display: 'flex', gap: '16px'}}>
+                            <Typography variant="h6" sx={{ color: '#ccc', alignSelf: 'center' }}>Plan:</Typography>
                             <Button
                                 variant={serviceMode === 'free' ? 'contained' : 'outlined'}
                                 sx={{
@@ -383,7 +420,7 @@ export default function MainPage() {
                             {/*------------------------- Free Services-------------------------- */}
 
                             {/* Free Scramble Photo Service */}
-                            {(hasAccessToTier('free') && serviceMode === 'free') && (
+                            {(hasAccessToTier('free') && serviceMode === 'free' && actionMode === 'scramble') && (
                                 <Card sx={{
                                     backgroundColor: '#2a2a2a',
                                     border: '1px solid #2e7d32',
@@ -409,7 +446,7 @@ export default function MainPage() {
                             )}
 
                             {/* Free Unscramble Photo Service */}
-                            {(hasAccessToTier('free') && serviceMode === 'free') && (
+                            {(hasAccessToTier('free') && serviceMode === 'free' && actionMode === 'unscramble') && (
                                 <Card sx={{
                                     backgroundColor: '#2a2a2a',
                                     border: '1px solid #ff9800',
@@ -444,7 +481,7 @@ export default function MainPage() {
 
 
                             {/* Free Scramble Video Service */}
-                            {(hasAccessToTier('free') && serviceMode === 'free') && (
+                            {(hasAccessToTier('free') && serviceMode === 'free' && actionMode === 'scramble') && (
                                 <Card sx={{
                                     backgroundColor: '#2a2a2a',
                                     border: '1px solid #2e7d32',
@@ -470,7 +507,7 @@ export default function MainPage() {
                             )}
 
                             {/* Free Unscramble Video Service */}
-                            {(hasAccessToTier('free') && serviceMode === 'free') && (
+                            {(hasAccessToTier('free') && serviceMode === 'free' && actionMode === 'unscramble') && (
                                 <Card sx={{
                                     backgroundColor: '#2a2a2a',
                                     border: '1px solid #ff9800',
@@ -499,7 +536,7 @@ export default function MainPage() {
                             {/*------------------------- Basic Services-------------------------- */}
 
                             {/* basic Scramble Video Service */}
-                            {(hasAccessToTier('basic') && serviceMode === 'basic') && (
+                            {(hasAccessToTier('basic') && serviceMode === 'basic' && actionMode === 'scramble') && (
                                 <Card sx={{
                                     backgroundColor: '#2a2a2a',
                                     border: '1px solid #2e7d32',
@@ -525,7 +562,7 @@ export default function MainPage() {
                             )}
 
                             {/* basic Unscramble Video Service */}
-                            {(hasAccessToTier('basic') && serviceMode === 'basic') && (
+                            {(hasAccessToTier('basic') && serviceMode === 'basic' && actionMode === 'unscramble') && (
                                 <Card sx={{
                                     backgroundColor: '#2a2a2a',
                                     border: '1px solid #ff9800',
@@ -555,7 +592,7 @@ export default function MainPage() {
                             )}
 
                             {/* basic Scramble Photo Service */}
-                            {(hasAccessToTier('basic') && serviceMode === 'basic') && (
+                            {(hasAccessToTier('basic') && serviceMode === 'basic' && actionMode === 'scramble') && (
                                 <Card sx={{
                                     backgroundColor: '#2a2a2a',
                                     border: '1px solid #2e7d32',
@@ -581,7 +618,7 @@ export default function MainPage() {
                             )}
 
                             {/* basic Unscramble Photo Service */}
-                            {(hasAccessToTier('basic') && serviceMode === 'basic') && (
+                            {(hasAccessToTier('basic') && serviceMode === 'basic' && actionMode === 'unscramble') && (
                                 <Card sx={{
                                     backgroundColor: '#2a2a2a',
                                     border: '1px solid #ff9800',
@@ -611,7 +648,7 @@ export default function MainPage() {
                             )}
 
                             {/* Basic  Service: Scramble Audio Service */}
-                            {(hasAccessToTier('basic') && serviceMode === 'basic') && (
+                            {(hasAccessToTier('basic') && serviceMode === 'basic' && actionMode === 'scramble') && (
                                 <Card sx={{
                                     backgroundColor: '#2a2a2a',
                                     border: '1px solid #2e7d32',
@@ -637,7 +674,7 @@ export default function MainPage() {
                             )}
 
                             {/* Basic Unscramble Audio Service */}
-                            {(hasAccessToTier('basic') && serviceMode === 'basic') && (
+                            {(hasAccessToTier('basic') && serviceMode === 'basic' && actionMode === 'unscramble') && (
                                 <Card sx={{
                                     backgroundColor: '#2a2a2a',
                                     border: '1px solid #ff9800',
@@ -665,7 +702,7 @@ export default function MainPage() {
                             {/*------------------------- standard Services-------------------------- */}
 
                             {/*  Scramble Photo Service */}
-                            {hasAccessToTier('standard') && serviceMode === 'standard' && (
+                            {hasAccessToTier('standard') && serviceMode === 'standard' && actionMode === 'scramble' && (
                                 <Card sx={{
                                     backgroundColor: '#2a2a2a',
                                     border: '1px solid #2e7d32',
@@ -692,7 +729,7 @@ export default function MainPage() {
 
 
                             {/* Pro Unscramble Photo Service */}
-                            {hasAccessToTier('standard') && serviceMode === 'standard' && (
+                            {hasAccessToTier('standard') && serviceMode === 'standard' && actionMode === 'unscramble' && (
 
                                 <Card sx={{
                                     backgroundColor: '#2a2a2a',
@@ -724,7 +761,7 @@ export default function MainPage() {
 
 
                             {/* Pro Scramble Video Service */}
-                            {hasAccessToTier('standard') && serviceMode === 'standard' && (
+                            {hasAccessToTier('standard') && serviceMode === 'standard' && actionMode === 'scramble' && (
                                 <Card sx={{
                                     backgroundColor: '#2a2a2a',
                                     border: '1px solid #2e7d32',
@@ -750,7 +787,7 @@ export default function MainPage() {
                             )}
 
                             {/* Standard Unscramble Video Service */}
-                            {hasAccessToTier('standard') && serviceMode === 'standard' && (
+                            {hasAccessToTier('standard') && serviceMode === 'standard' && actionMode === 'unscramble' && (
 
                                 <Card sx={{
                                     backgroundColor: '#2a2a2a',
@@ -781,7 +818,7 @@ export default function MainPage() {
                             )}
 
                             {/* Basic  Service: Scramble Audio Service */}
-                            {(hasAccessToTier('standard') && serviceMode === 'standard') && (
+                            {(hasAccessToTier('standard') && serviceMode === 'standard' && actionMode === 'scramble') && (
                                 <Card sx={{
                                     backgroundColor: '#2a2a2a',
                                     border: '1px solid #2e7d32',
@@ -807,7 +844,7 @@ export default function MainPage() {
                             )}
 
                             {/* Basic Unscramble Audio Service */}
-                            {(hasAccessToTier('standard') && serviceMode === 'standard') && (
+                            {(hasAccessToTier('standard') && serviceMode === 'standard' && actionMode === 'unscramble') && (
                                 <Card sx={{
                                     backgroundColor: '#2a2a2a',
                                     border: '1px solid #ff9800',
@@ -837,7 +874,7 @@ export default function MainPage() {
 
 
                             {/*  Scramble Photo Service */}
-                            {hasAccessToTier('premium') && serviceMode === 'premium' && (
+                            {hasAccessToTier('premium') && serviceMode === 'premium' && actionMode === 'scramble' && (
                                 <Card sx={{
                                     backgroundColor: '#2a2a2a',
                                     border: '1px solid #2e7d32',
@@ -862,8 +899,8 @@ export default function MainPage() {
                                 </Card>
                             )}
 
-                            {/*  Scramble Photo Service */}
-                            {hasAccessToTier('premium') && serviceMode === 'premium' && (
+                            {/*  Unscramble Photo Service */}
+                            {hasAccessToTier('premium') && serviceMode === 'premium' && actionMode === 'unscramble' && (
                                 <Card sx={{
                                     backgroundColor: '#2a2a2a',
                                     border: '1px solid #ff9800',
@@ -894,7 +931,7 @@ export default function MainPage() {
                             {/* {hasAccessToTier('premium') && serviceMode === 'premium' && <Divider sx={{ my: 0, borderColor: '#444', gridColumn: '1 / -1' }} />} */}
 
                             {/* Pro Scramble Video Service */}
-                            {hasAccessToTier('premium') && serviceMode === 'premium' && (
+                            {hasAccessToTier('premium') && serviceMode === 'premium' && actionMode === 'scramble' && (
 
                                 <Card sx={{
                                     backgroundColor: '#2a2a2a',
@@ -921,7 +958,7 @@ export default function MainPage() {
                             )}
 
                             {/* Pro Unscramble Video Service */}
-                            {hasAccessToTier('premium') && serviceMode === 'premium' && (
+                            {hasAccessToTier('premium') && serviceMode === 'premium' && actionMode === 'unscramble' && (
 
                                 <Card sx={{
                                     backgroundColor: '#2a2a2a',

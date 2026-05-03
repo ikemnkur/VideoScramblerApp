@@ -263,99 +263,104 @@ const AccountPage = () => {
         Account Settings
       </Typography>
 
-      <Grid container spacing={3}>
-        <Grid item xs={12} md={6}>
-          <Paper sx={{
-            p: 3,
-            backgroundColor: '#1a1a1a',
-            border: '1px solid #333',
-            borderRadius: 2,
-            boxShadow: '0 4px 12px rgba(0, 0, 0, 0.3)'
-          }}>
-            <Typography
-              variant="h6"
-              sx={{
-                mb: 3,
-                fontWeight: 700,
-                color: '#ffd700'
-              }}
-            >
-              Profile Information
-            </Typography>
+      {/* <Grid container spacing={3}> */}
 
-            {/* only show avatar for sellers */}
-            {JSON.parse(localStorage.getItem('userdata') || '{}').accountType === "seller" && (
-              <>
-                <Avatar
-                  src={userData.profilePicture || '/default-avatar.png'}
+      {
+        (false && (
+          <>
+
+            <Grid item xs={12} md={6}>
+              <Paper sx={{
+                p: 3,
+                backgroundColor: '#1a1a1a',
+                border: '1px solid #333',
+                borderRadius: 2,
+                boxShadow: '0 4px 12px rgba(0, 0, 0, 0.3)'
+              }}>
+                <Typography
+                  variant="h6"
                   sx={{
-                    width: 100,
-                    height: 100,
-                    mx: 'auto',
                     mb: 3,
-                    border: '3px solid #ffd700'
+                    fontWeight: 700,
+                    color: '#ffd700'
+                  }}
+                >
+                  Profile Information
+                </Typography>
+
+                {/* only show avatar for sellers */}
+                {JSON.parse(localStorage.getItem('userdata') || '{}').accountType === "seller" && (
+                  <>
+                    <Avatar
+                      src={userData.profilePicture || '/default-avatar.png'}
+                      sx={{
+                        width: 100,
+                        height: 100,
+                        mx: 'auto',
+                        mb: 3,
+                        border: '3px solid #ffd700'
+                      }}
+                    />
+                    <Box sx={{ textAlign: 'center', mb: 3 }}>
+                      <Button
+                        variant="contained"
+                        component="label"
+                        sx={{ backgroundColor: '#444', '&:hover': { backgroundColor: '#555' } }}
+                        disabled={uploading}
+                      >
+                        {uploading ? (
+                          <CircularProgress size={24} sx={{ color: '#ffd700' }} />
+                        ) : (
+                          'Change Profile Picture'
+                        )}
+                        <input
+                          type="file"
+                          hidden
+                          accept="image/*"
+                          onChange={handleProfilePicChange}
+                        />
+                      </Button>
+                    </Box>
+                  </>
+                )}
+
+                <TextField
+                  fullWidth
+                  label="First Name"
+                  value={userData.firstName}
+                  onChange={handleInputChange('firstName')}
+                  margin="normal"
+                  sx={{
+                    '& .MuiOutlinedInput-root': {
+                      backgroundColor: '#2a2a2a',
+                      color: '#fff',
+                      '& fieldset': { borderColor: '#555' },
+                      '&:hover fieldset': { borderColor: '#ffd700' },
+                      '&.Mui-focused fieldset': { borderColor: '#ffd700' }
+                    },
+                    '& .MuiInputLabel-root': { color: '#ccc' }
                   }}
                 />
-                <Box sx={{ textAlign: 'center', mb: 3 }}>
-                  <Button
-                    variant="contained"
-                    component="label"
-                    sx={{ backgroundColor: '#444', '&:hover': { backgroundColor: '#555' } }}
-                    disabled={uploading}
-                  >
-                    {uploading ? (
-                      <CircularProgress size={24} sx={{ color: '#ffd700' }} />
-                    ) : (
-                      'Change Profile Picture'
-                    )}
-                    <input
-                      type="file"
-                      hidden
-                      accept="image/*"
-                      onChange={handleProfilePicChange}
-                    />
-                  </Button>
-                </Box>
-              </>
-            )}
 
-            <TextField
-              fullWidth
-              label="First Name"
-              value={userData.firstName}
-              onChange={handleInputChange('firstName')}
-              margin="normal"
-              sx={{
-                '& .MuiOutlinedInput-root': {
-                  backgroundColor: '#2a2a2a',
-                  color: '#fff',
-                  '& fieldset': { borderColor: '#555' },
-                  '&:hover fieldset': { borderColor: '#ffd700' },
-                  '&.Mui-focused fieldset': { borderColor: '#ffd700' }
-                },
-                '& .MuiInputLabel-root': { color: '#ccc' }
-              }}
-            />
+                <TextField
+                  fullWidth
+                  label="Last Name"
+                  value={userData.lastName}
+                  onChange={handleInputChange('lastName')}
+                  margin="normal"
+                  sx={{
+                    '& .MuiOutlinedInput-root': {
+                      backgroundColor: '#2a2a2a',
+                      color: '#fff',
+                      '& fieldset': { borderColor: '#555' },
+                      '&:hover fieldset': { borderColor: '#ffd700' },
+                      '&.Mui-focused fieldset': { borderColor: '#ffd700' }
+                    },
+                    '& .MuiInputLabel-root': { color: '#ccc' }
+                  }}
+                />
 
-            <TextField
-              fullWidth
-              label="Last Name"
-              value={userData.lastName}
-              onChange={handleInputChange('lastName')}
-              margin="normal"
-              sx={{
-                '& .MuiOutlinedInput-root': {
-                  backgroundColor: '#2a2a2a',
-                  color: '#fff',
-                  '& fieldset': { borderColor: '#555' },
-                  '&:hover fieldset': { borderColor: '#ffd700' },
-                  '&.Mui-focused fieldset': { borderColor: '#ffd700' }
-                },
-                '& .MuiInputLabel-root': { color: '#ccc' }
-              }}
-            />
-
-            {/* <TextField
+                {/* <TextField
               fullWidth
               label="Email"
               value={userData.email}
@@ -373,152 +378,157 @@ const AccountPage = () => {
               }}
             /> */}
 
-            <TextField
-              fullWidth
-              label="Phone Number"
-              value={userData.phoneNumber}
-              onChange={handleInputChange('phoneNumber')}
-              margin="normal"
-              sx={{
-                '& .MuiOutlinedInput-root': {
-                  backgroundColor: '#2a2a2a',
-                  color: '#fff',
-                  '& fieldset': { borderColor: '#555' },
-                  '&:hover fieldset': { borderColor: '#ffd700' },
-                  '&.Mui-focused fieldset': { borderColor: '#ffd700' }
-                },
-                '& .MuiInputLabel-root': { color: '#ccc' }
-              }}
-            />
+                <TextField
+                  fullWidth
+                  label="Phone Number"
+                  value={userData.phoneNumber}
+                  onChange={handleInputChange('phoneNumber')}
+                  margin="normal"
+                  sx={{
+                    '& .MuiOutlinedInput-root': {
+                      backgroundColor: '#2a2a2a',
+                      color: '#fff',
+                      '& fieldset': { borderColor: '#555' },
+                      '&:hover fieldset': { borderColor: '#ffd700' },
+                      '&.Mui-focused fieldset': { borderColor: '#ffd700' }
+                    },
+                    '& .MuiInputLabel-root': { color: '#ccc' }
+                  }}
+                />
 
-            <TextField
-              fullWidth
-              label="Bio"
-              value={userData.bio}
-              onChange={handleInputChange('bio')}
-              multiline
-              rows={3}
-              margin="normal"
-              sx={{
-                '& .MuiOutlinedInput-root': {
-                  backgroundColor: '#2a2a2a',
-                  color: '#fff',
-                  '& fieldset': { borderColor: '#555' },
-                  '&:hover fieldset': { borderColor: '#ffd700' },
-                  '&.Mui-focused fieldset': { borderColor: '#ffd700' }
-                },
-                '& .MuiInputLabel-root': { color: '#ccc' }
-              }}
-            />
+                <TextField
+                  fullWidth
+                  label="Bio"
+                  value={userData.bio}
+                  onChange={handleInputChange('bio')}
+                  multiline
+                  rows={3}
+                  margin="normal"
+                  sx={{
+                    '& .MuiOutlinedInput-root': {
+                      backgroundColor: '#2a2a2a',
+                      color: '#fff',
+                      '& fieldset': { borderColor: '#555' },
+                      '&:hover fieldset': { borderColor: '#ffd700' },
+                      '&.Mui-focused fieldset': { borderColor: '#ffd700' }
+                    },
+                    '& .MuiInputLabel-root': { color: '#ccc' }
+                  }}
+                />
 
-            {/* Save Button */}
-            <Box sx={{ mt: 3, textAlign: 'center' }}>
-              <Button
-                variant="contained"
-                startIcon={<SaveIcon />}
-                onClick={handleSaveProfile}
-                disabled={saving}
-                sx={{
-                  backgroundColor: '#ffd700',
-                  color: '#000',
-                  fontWeight: 700,
-                  px: 4,
-                  py: 1.5,
-                  '&:hover': {
-                    backgroundColor: '#ffed4e'
-                  },
-                  '&:disabled': {
-                    backgroundColor: '#666',
-                    color: '#999'
-                  }
-                }}
-              >
-                {saving ? <CircularProgress size={20} sx={{ color: '#999' }} /> : 'Save Changes'}
-              </Button>
-            </Box>
-          </Paper>
-        </Grid>
+                {/* Save Button */}
+                <Box sx={{ mt: 3, textAlign: 'center' }}>
+                  <Button
+                    variant="contained"
+                    startIcon={<SaveIcon />}
+                    onClick={handleSaveProfile}
+                    disabled={saving}
+                    sx={{
+                      backgroundColor: '#ffd700',
+                      color: '#000',
+                      fontWeight: 700,
+                      px: 4,
+                      py: 1.5,
+                      '&:hover': {
+                        backgroundColor: '#ffed4e'
+                      },
+                      '&:disabled': {
+                        backgroundColor: '#666',
+                        color: '#999'
+                      }
+                    }}
+                  >
+                    {saving ? <CircularProgress size={20} sx={{ color: '#999' }} /> : 'Save Changes'}
+                  </Button>
+                </Box>
+              </Paper>
+            </Grid>
 
-        <Grid item xs={12} md={6}>
-          <Paper sx={{
-            p: 3,
-            backgroundColor: '#1a1a1a',
-            border: '1px solid #333',
-            borderRadius: 2,
-            boxShadow: '0 4px 12px rgba(0, 0, 0, 0.3)'
-          }}>
+          </>
+        ))
+
+      }
+
+      <Grid item xs={12} md={6}>
+        <Paper sx={{
+          p: 3,
+          backgroundColor: '#1a1a1a',
+          border: '1px solid #333',
+          borderRadius: 2,
+          boxShadow: '0 4px 12px rgba(0, 0, 0, 0.3)'
+        }}>
+          <Typography
+            variant="h6"
+            sx={{
+              mb: 3,
+              fontWeight: 700,
+              color: '#ffd700'
+            }}
+          >
+            Account Information
+          </Typography>
+
+          <Box sx={{ mb: 3 }}>
+            <Typography variant="body2" sx={{ color: '#ccc', mb: 0.5 }}>
+              Username
+            </Typography>
+            <Typography variant="h6" sx={{ color: '#fff' }}>
+              {userData.username}
+            </Typography>
+          </Box>
+
+          <Box sx={{ mb: 3 }}>
+            <Typography variant="body2" sx={{ color: '#ccc', mb: 0.5 }}>
+              Email
+            </Typography>
+            <Typography variant="h6" sx={{ color: '#fff' }}>
+              {userData.email}
+            </Typography>
+          </Box>
+
+          <Box sx={{ mb: 3 }}>
+            <Typography variant="body2" sx={{ color: '#ccc', mb: 0.5 }}>
+              Account Type
+            </Typography>
             <Typography
               variant="h6"
               sx={{
-                mb: 3,
-                fontWeight: 700,
-                color: '#ffd700'
+                color: userData.accountType === 'seller' ? '#4caf50' : '#2196f3',
+                textTransform: 'capitalize'
               }}
             >
-              Account Information
+              {userData.accountType}
             </Typography>
+          </Box>
 
-            <Box sx={{ mb: 3 }}>
-              <Typography variant="body2" sx={{ color: '#ccc', mb: 0.5 }}>
-                Username
-              </Typography>
-              <Typography variant="h6" sx={{ color: '#fff' }}>
-                {userData.username}
-              </Typography>
-            </Box>
+          <Box sx={{ mb: 3 }}>
+            <Typography variant="body2" sx={{ color: '#ccc', mb: 0.5 }}>
+              Account Status
+            </Typography>
+            <Typography
+              variant="h6"
+              sx={{
+                color: userData.isBanned === true ? '#f44336' : '#4caf50',
+                textTransform: 'capitalize'
+              }}
+            >
+              {userData.isBanned === true ? 'Banned' : 'Active'}
+            </Typography>
+          </Box>
 
-            <Box sx={{ mb: 3 }}>
-              <Typography variant="body2" sx={{ color: '#ccc', mb: 0.5 }}>
-                Email
-              </Typography>
-              <Typography variant="h6" sx={{ color: '#fff' }}>
-                {userData.email}
-              </Typography>
-            </Box>
-
-            <Box sx={{ mb: 3 }}>
-              <Typography variant="body2" sx={{ color: '#ccc', mb: 0.5 }}>
-                Account Type
-              </Typography>
-              <Typography
-                variant="h6"
-                sx={{
-                  color: userData.accountType === 'seller' ? '#4caf50' : '#2196f3',
-                  textTransform: 'capitalize'
-                }}
-              >
-                {userData.accountType}
-              </Typography>
-            </Box>
-
-            <Box sx={{ mb: 3 }}>
-              <Typography variant="body2" sx={{ color: '#ccc', mb: 0.5 }}>
-                Account Status
-              </Typography>
-              <Typography
-                variant="h6"
-                sx={{
-                  color: userData.isBanned === true ? '#f44336' : '#4caf50',
-                  textTransform: 'capitalize'
-                }}
-              >
-                {userData.isBanned === true ? 'Banned' : 'Active'}
-              </Typography>
-            </Box>
-
-            <Box sx={{ mb: 3 }}>
-              <Typography variant="body2" sx={{ color: '#ccc', mb: 0.5 }}>
-                Credits Balance
-              </Typography>
-              <Typography variant="h6" sx={{ color: '#ffd700' }}>
-                {userData.credits?.toLocaleString()} Credits
-              </Typography>
-            </Box>
-          </Paper>
+          <Box sx={{ mb: 3 }}>
+            <Typography variant="body2" sx={{ color: '#ccc', mb: 0.5 }}>
+              Credits Balance
+            </Typography>
+            <Typography variant="h6" sx={{ color: '#ffd700' }}>
+              {userData.credits?.toLocaleString()} Credits
+            </Typography>
+          </Box>
+        </Paper>
 
 
-        </Grid>
       </Grid>
+      {/* </Grid> */}
 
       <>
         {/* Verify Account */}
@@ -559,22 +569,22 @@ const AccountPage = () => {
                 Verify Account
               </Button>
 
-                <Button
-                  variant="contained"
-                  color="info"
-                  onClick={() => navigate('/verify-email')}
-                  sx={{
-                    fontWeight: 700,
-                    px: 4,
-                    py: 1.5,
-                    '&:hover': {
-                      backgroundColor: '#61e535'
-                    }
-                  }}
-                >
-                  Email Address
-                </Button>
-            
+              <Button
+                variant="contained"
+                color="info"
+                onClick={() => navigate('/verify-email')}
+                sx={{
+                  fontWeight: 700,
+                  px: 4,
+                  py: 1.5,
+                  '&:hover': {
+                    backgroundColor: '#61e535'
+                  }
+                }}
+              >
+                Email Address
+              </Button>
+
             </Box>
           </Box>
         </Paper>

@@ -89,7 +89,7 @@ export default function Purchase() {
         console.error('Currency not supported:', cryptoCurrency);
         return 0;
       }
-      
+
       const response = await fetch(`https://api.coingecko.com/api/v3/simple/price?ids=${coinId}&vs_currencies=usd`);
       const data = await response.json();
       return data[coinId]?.usd || 0;
@@ -101,8 +101,8 @@ export default function Purchase() {
     }
   };
 
-  useEffect(() => { 
-    load(); 
+  useEffect(() => {
+    load();
     // Fetch initial rate
     fetchCryptoRate(currency).then(setRate);
   }, []);
@@ -269,7 +269,7 @@ export default function Purchase() {
     // Only validate required fields (marked with asterisk)
     const requiredFields = ['name', 'email', 'walletAddress', 'transactionId'];
     const missingFields = requiredFields.filter(field => !userDetails[field]?.trim());
-    
+
     if (missingFields.length > 0) {
       setErrorMessage(`Please fill out all required fields: ${missingFields.join(', ')}`);
       return;
@@ -305,11 +305,11 @@ export default function Purchase() {
 
       // Simulate API call since validateCryptoTransaction is not imported
       console.log("Submitting order:", data);
-      
+
       setMessage('Order submitted successfully! Please wait for confirmation.');
       setOrderSubmitted(true);
       setErrorMessage('');
-      
+
       // Scroll to Step 5
       setTimeout(() => {
         document.querySelector('[data-step="5"]')?.scrollIntoView({ behavior: 'smooth' });
@@ -336,10 +336,10 @@ export default function Purchase() {
       // Simulate API call to validate transaction
       // In real implementation, this would check the blockchain
       // await new Promise(resolve => setTimeout(resolve, 3000)); // Simulate API delay
-      
+
       // Simulate different outcomes based on transaction ID length
       const isValid = userDetails.transactionId.length > 10;
-      
+
       if (isValid) {
         setTransactionStatus('confirmed');
         setValidationMessage('Transaction confirmed! Your credits will be added to your account within 10 minutes.');
@@ -359,7 +359,7 @@ export default function Purchase() {
   const getExpectedWaitTime = (currency) => {
     const waitTimes = {
       BTC: '10-30 minutes (1-3 confirmations)',
-      ETH: '5-15 minutes (12-35 confirmations)', 
+      ETH: '5-15 minutes (12-35 confirmations)',
       LTC: '5-15 minutes (6 confirmations)',
       SOL: '1-3 minutes (32 confirmations)',
       XMR: '20-40 minutes (10 confirmations)'
@@ -387,7 +387,7 @@ export default function Purchase() {
             <Typography variant="h4">Step 1</Typography>
             <Typography variant="h6">Choose Purchase Currency</Typography>
             <Typography variant="body2" sx={{ opacity: 0.8, mb: 2 }}>Select your preferred cryptocurrency to purchase credits.</Typography>
-            
+
             <div style={{
               display: 'grid',
               gridTemplateColumns: 'repeat(auto-fit, minmax(120px, 1fr))',
@@ -465,7 +465,7 @@ export default function Purchase() {
             <Typography variant="body2" sx={{ opacity: 0.8, mb: 2 }}>
               Select an amount of credits to purchase. Current selection: <strong>{parseInt(amount).toLocaleString()} credits</strong>
             </Typography>
-            
+
             <div style={{
               display: 'grid',
               gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))',
@@ -483,9 +483,9 @@ export default function Purchase() {
                 <div
                   key={index}
                   style={{
-                    background: package_.popular 
-                      ? 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)' 
-                      : amount == package_.amount 
+                    background: package_.popular
+                      ? 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)'
+                      : amount == package_.amount
                         ? 'linear-gradient(135deg, #ffd700 0%, #ffed4e 100%)'
                         : 'rgba(255, 255, 255, 0.1)',
                     color: package_.popular || amount == package_.amount ? 'white' : 'rgba(255, 255, 255, 0.9)',
@@ -524,7 +524,7 @@ export default function Purchase() {
                       MOST POPULAR
                     </div>
                   )}
-                  
+
                   {amount == package_.amount && (
                     <div style={{
                       position: 'absolute',
@@ -540,7 +540,7 @@ export default function Purchase() {
                       SELECTED
                     </div>
                   )}
-                  
+
                   <div style={{
                     fontSize: '32px',
                     fontWeight: 'bold',
@@ -604,7 +604,7 @@ export default function Purchase() {
 
             {errorMessage && <p style={styles.errorMessage}>{errorMessage}</p>}
             {message && <p style={styles.successMessage}>{message}</p>}
-            
+
             <div style={styles.walletInfo}>
               {/* Currency Display Card */}
               <div style={{
@@ -626,10 +626,10 @@ export default function Purchase() {
                 </div>
               </div>
 
-              <div style={{ 
-                backgroundColor: '#1a1a1a', 
-                padding: '20px', 
-                borderRadius: '12px', 
+              <div style={{
+                backgroundColor: '#1a1a1a',
+                padding: '20px',
+                borderRadius: '12px',
                 border: '2px solid #ffd700',
                 marginBottom: '20px'
               }}>
@@ -639,23 +639,23 @@ export default function Purchase() {
                 <p style={{ marginBottom: '15px', textAlign: 'center' }}>
                   Please send <strong style={{ color: '#ffd700' }}>{cryptoAmount} {currency}</strong> to the following wallet address:
                 </p>
-                
+
                 <div style={styles.walletAddressContainer}>
-                  <p style={{...styles.walletAddress, fontSize: '18px', fontWeight: 'bold'}}>
+                  <p style={{ ...styles.walletAddress, fontSize: '18px', fontWeight: 'bold' }}>
                     {cryptoAmount} {currency}
                   </p>
                   <button style={styles.button} onClick={handleCopyAmount}>
                     Copy Amount
                   </button>
                 </div>
-                
+
                 <div style={styles.walletAddressContainer}>
                   <p style={styles.walletAddress}>{walletAddress}</p>
                   <button style={styles.button} onClick={handleCopyAddress}>
                     Copy Address
                   </button>
                 </div>
-                
+
                 <div style={{
                   backgroundColor: '#2a2a2a',
                   padding: '15px',
@@ -680,7 +680,7 @@ export default function Purchase() {
             <Typography variant="h4">Step 4</Typography>
             <Typography variant="h6">Submit Transaction Details</Typography>
             <Typography variant="body2" sx={{ opacity: 0.8, mb: 2 }}>
-              After sending the cryptocurrency, please fill out the form below to log your order. 
+              After sending the cryptocurrency, please fill out the form below to log your order.
               Fields marked with <span style={{ color: '#ff6b6b', fontWeight: 'bold' }}>*</span> are required.
             </Typography>
 
@@ -781,9 +781,9 @@ export default function Purchase() {
                     style={{ ...styles.input, flex: 1 }}
                     placeholder="e.g., 12:15 PM"
                   />
-                  <button 
-                    type="button" 
-                    style={styles.time_button} 
+                  <button
+                    type="button"
+                    style={styles.time_button}
                     onClick={() => {
                       const currentTime = new Date();
                       let hours = currentTime.getHours();
@@ -928,168 +928,172 @@ export default function Purchase() {
             </form>
 
             <Divider sx={{ my: 2 }} />
-            <Typography variant="h4" data-step="5">Step 5</Typography>
-            <Typography variant="h6">Transaction Status & Validation</Typography>
-            <Typography variant="body2" sx={{ opacity: 0.8, mb: 2 }}>
-              {orderSubmitted 
-                ? 'Your order has been logged. Use the tools below to check your transaction status.'
-                : 'After submitting your order details, you can validate your transaction here.'
-              }
-            </Typography>
+            {0 && (
+              <>
+                <Typography variant="h4" data-step="5">Step 5</Typography>
+                <Typography variant="h6">Transaction Status & Validation</Typography>
+                <Typography variant="body2" sx={{ opacity: 0.8, mb: 2 }}>
+                  {orderSubmitted
+                    ? 'Your order has been logged. Use the tools below to check your transaction status.'
+                    : 'After submitting your order details, you can validate your transaction here.'
+                  }
+                </Typography>
 
-            {/* Transaction Validation Section */}
-            <div style={{
-              backgroundColor: '#1a1a1a',
-              padding: '25px',
-              borderRadius: '12px',
-              border: '2px solid #667eea',
-              marginBottom: '20px'
-            }}>
-              <h4 style={{ color: '#667eea', marginBottom: '20px', textAlign: 'center' }}>
-                Transaction Validation
-              </h4>
-              
-              {/* Expected Wait Time */}
-              <div style={{
-                backgroundColor: '#2a2a2a',
-                padding: '15px',
-                borderRadius: '8px',
-                marginBottom: '20px',
-                border: '1px solid #444'
-              }}>
-                <p style={{ margin: '5px 0', fontSize: '14px' }}>
-                  <strong style={{ color: '#ffd700' }}>Expected confirmation time for {currency}:</strong>
-                </p>
-                <p style={{ margin: '5px 0', fontSize: '16px', color: '#4caf50' }}>
-                  {getExpectedWaitTime(currency)}
-                </p>
-                <p style={{ margin: '5px 0', fontSize: '12px', opacity: 0.7 }}>
-                  Times may vary based on network congestion and fees paid
-                </p>
-              </div>
+                {/* Transaction Validation Section */}
+                <div style={{
+                  backgroundColor: '#1a1a1a',
+                  padding: '25px',
+                  borderRadius: '12px',
+                  border: '2px solid #667eea',
+                  marginBottom: '20px'
+                }}>
+                  <h4 style={{ color: '#667eea', marginBottom: '20px', textAlign: 'center' }}>
+                    Transaction Validation
+                  </h4>
 
-              {/* Validation Button */}
-              <div style={{ textAlign: 'center', marginBottom: '20px' }}>
-                <button
-                  type="button"
-                  onClick={handleValidateTransaction}
-                  disabled={transactionStatus === 'validating'}
-                  style={{
-                    ...styles.button,
-                    backgroundColor: transactionStatus === 'validating' ? '#666' : '#667eea',
-                    cursor: transactionStatus === 'validating' ? 'not-allowed' : 'pointer',
-                    fontSize: '16px',
-                    padding: '15px 30px'
-                  }}
-                >
-                  {transactionStatus === 'validating' ? (
-                    <>
-                      <span style={{ marginRight: '10px' }}>⏳</span>
-                      Validating Transaction...
-                    </>
+                  {/* Expected Wait Time */}
+                  <div style={{
+                    backgroundColor: '#2a2a2a',
+                    padding: '15px',
+                    borderRadius: '8px',
+                    marginBottom: '20px',
+                    border: '1px solid #444'
+                  }}>
+                    <p style={{ margin: '5px 0', fontSize: '14px' }}>
+                      <strong style={{ color: '#ffd700' }}>Expected confirmation time for {currency}:</strong>
+                    </p>
+                    <p style={{ margin: '5px 0', fontSize: '16px', color: '#4caf50' }}>
+                      {getExpectedWaitTime(currency)}
+                    </p>
+                    <p style={{ margin: '5px 0', fontSize: '12px', opacity: 0.7 }}>
+                      Times may vary based on network congestion and fees paid
+                    </p>
+                  </div>
+
+                  {/* Validation Button */}
+                  <div style={{ textAlign: 'center', marginBottom: '20px' }}>
+                    <button
+                      type="button"
+                      onClick={handleValidateTransaction}
+                      disabled={transactionStatus === 'validating'}
+                      style={{
+                        ...styles.button,
+                        backgroundColor: transactionStatus === 'validating' ? '#666' : '#667eea',
+                        cursor: transactionStatus === 'validating' ? 'not-allowed' : 'pointer',
+                        fontSize: '16px',
+                        padding: '15px 30px'
+                      }}
+                    >
+                      {transactionStatus === 'validating' ? (
+                        <>
+                          <span style={{ marginRight: '10px' }}>⏳</span>
+                          Validating Transaction...
+                        </>
+                      ) : (
+                        <>
+                          <span style={{ marginRight: '10px' }}>🔍</span>
+                          Validate Transaction
+                        </>
+                      )}
+                    </button>
+                  </div>
+
+                  {/* Validation Results */}
+                  {validationMessage && (
+                    <div style={{
+                      padding: '15px',
+                      borderRadius: '8px',
+                      textAlign: 'center',
+                      backgroundColor: transactionStatus === 'confirmed' ? '#1b5e20' :
+                        transactionStatus === 'failed' ? '#b71c1c' : '#1a1a1a',
+                      border: `1px solid ${transactionStatus === 'confirmed' ? '#4caf50' :
+                        transactionStatus === 'failed' ? '#f44336' : '#667eea'}`,
+                      color: transactionStatus === 'confirmed' ? '#81c784' :
+                        transactionStatus === 'failed' ? '#ef5350' : '#90caf9'
+                    }}>
+                      <p style={{ margin: '0', fontSize: '16px', fontWeight: '500' }}>
+                        {transactionStatus === 'confirmed' && '✅ '}
+                        {transactionStatus === 'failed' && '❌ '}
+                        {transactionStatus === 'validating' && '⏳ '}
+                        {validationMessage}
+                      </p>
+                    </div>
+                  )}
+
+                  {/* Transaction Summary */}
+                  {orderSubmitted && (
+                    <div style={{
+                      backgroundColor: '#2a2a2a',
+                      padding: '20px',
+                      borderRadius: '8px',
+                      marginTop: '20px',
+                      border: '1px solid #444'
+                    }}>
+                      <h5 style={{ color: '#ffd700', marginBottom: '15px' }}>Transaction Summary</h5>
+                      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px', fontSize: '14px' }}>
+                        <p><strong>Amount:</strong> {parseInt(amount).toLocaleString()} credits</p>
+                        <p><strong>Value:</strong> ${((parseInt(amount) / 1000) || 0).toFixed(2)} USD</p>
+                        <p><strong>Currency:</strong> {currency}</p>
+                        <p><strong>Crypto Amount:</strong> {cryptoAmount} {currency}</p>
+                        <p><strong>Rate:</strong> ${rate?.toLocaleString() || '...'} USD</p>
+                        <p><strong>Status:</strong> <span style={{ color: transactionStatus === 'confirmed' ? '#4caf50' : '#ff9800' }}>
+                          {transactionStatus === 'confirmed' ? 'Confirmed' : 'Pending Review'}
+                        </span></p>
+                      </div>
+                    </div>
+                  )}
+                </div>
+
+                {/* Action Buttons */}
+                <div style={{
+                  display: 'flex',
+                  gap: '15px',
+                  justifyContent: 'center',
+                  flexWrap: 'wrap'
+                }}>
+                  {transactionStatus === 'confirmed' ? (
+                    <button
+                      onClick={() => navigate('/wallet')}
+                      style={{
+                        ...styles.button,
+                        backgroundColor: '#4caf50',
+                        fontSize: '16px',
+                        padding: '15px 30px'
+                      }}
+                    >
+                      <span style={{ marginRight: '10px' }}>🎉</span>
+                      Go to Wallet
+                    </button>
                   ) : (
                     <>
-                      <span style={{ marginRight: '10px' }}>🔍</span>
-                      Validate Transaction
+                      <button
+                        onClick={() => window.location.reload()}
+                        style={{
+                          ...styles.button,
+                          backgroundColor: '#ff9800',
+                          fontSize: '14px',
+                          padding: '12px 24px'
+                        }}
+                      >
+                        Start New Purchase
+                      </button>
+                      <button
+                        onClick={() => navigate('/wallet')}
+                        style={{
+                          ...styles.cancel_button,
+                          fontSize: '14px',
+                          padding: '12px 24px'
+                        }}
+                      >
+                        Back to Wallet
+                      </button>
                     </>
                   )}
-                </button>
-              </div>
-
-              {/* Validation Results */}
-              {validationMessage && (
-                <div style={{
-                  padding: '15px',
-                  borderRadius: '8px',
-                  textAlign: 'center',
-                  backgroundColor: transactionStatus === 'confirmed' ? '#1b5e20' : 
-                                  transactionStatus === 'failed' ? '#b71c1c' : '#1a1a1a',
-                  border: `1px solid ${transactionStatus === 'confirmed' ? '#4caf50' : 
-                                      transactionStatus === 'failed' ? '#f44336' : '#667eea'}`,
-                  color: transactionStatus === 'confirmed' ? '#81c784' : 
-                         transactionStatus === 'failed' ? '#ef5350' : '#90caf9'
-                }}>
-                  <p style={{ margin: '0', fontSize: '16px', fontWeight: '500' }}>
-                    {transactionStatus === 'confirmed' && '✅ '}
-                    {transactionStatus === 'failed' && '❌ '}
-                    {transactionStatus === 'validating' && '⏳ '}
-                    {validationMessage}
-                  </p>
                 </div>
-              )}
-
-              {/* Transaction Summary */}
-              {orderSubmitted && (
-                <div style={{
-                  backgroundColor: '#2a2a2a',
-                  padding: '20px',
-                  borderRadius: '8px',
-                  marginTop: '20px',
-                  border: '1px solid #444'
-                }}>
-                  <h5 style={{ color: '#ffd700', marginBottom: '15px' }}>Transaction Summary</h5>
-                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px', fontSize: '14px' }}>
-                    <p><strong>Amount:</strong> {parseInt(amount).toLocaleString()} credits</p>
-                    <p><strong>Value:</strong> ${((parseInt(amount) / 1000) || 0).toFixed(2)} USD</p>
-                    <p><strong>Currency:</strong> {currency}</p>
-                    <p><strong>Crypto Amount:</strong> {cryptoAmount} {currency}</p>
-                    <p><strong>Rate:</strong> ${rate?.toLocaleString() || '...'} USD</p>
-                    <p><strong>Status:</strong> <span style={{ color: transactionStatus === 'confirmed' ? '#4caf50' : '#ff9800' }}>
-                      {transactionStatus === 'confirmed' ? 'Confirmed' : 'Pending Review'}
-                    </span></p>
-                  </div>
-                </div>
-              )}
-            </div>
-
-            {/* Action Buttons */}
-            <div style={{
-              display: 'flex',
-              gap: '15px',
-              justifyContent: 'center',
-              flexWrap: 'wrap'
-            }}>
-              {transactionStatus === 'confirmed' ? (
-                <button
-                  onClick={() => navigate('/wallet')}
-                  style={{
-                    ...styles.button,
-                    backgroundColor: '#4caf50',
-                    fontSize: '16px',
-                    padding: '15px 30px'
-                  }}
-                >
-                  <span style={{ marginRight: '10px' }}>🎉</span>
-                  Go to Wallet
-                </button>
-              ) : (
-                <>
-                  <button
-                    onClick={() => window.location.reload()}
-                    style={{
-                      ...styles.button,
-                      backgroundColor: '#ff9800',
-                      fontSize: '14px',
-                      padding: '12px 24px'
-                    }}
-                  >
-                    Start New Purchase
-                  </button>
-                  <button
-                    onClick={() => navigate('/wallet')}
-                    style={{
-                      ...styles.cancel_button,
-                      fontSize: '14px',
-                      padding: '12px 24px'
-                    }}
-                  >
-                    Back to Wallet
-                  </button>
-                </>
-              )}
-            </div>
+              </>
 
 
+            )}
 
             {/* <PaymentButton amountUSD={10} onError={onPaymentError}>Add $10 in Credits</PaymentButton> */}
           </CardContent>

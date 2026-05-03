@@ -846,12 +846,12 @@ export default function PhotoUnscramblerPro() {
                     Restore scrambled images using your unscramble key
                 </Typography>
 
-                {/* Status indicators */}
+                {/* Status indicators
                 <Box sx={{ display: 'flex', gap: 1, justifyContent: 'center', flexWrap: 'wrap' }}>
                     <Chip label="Server: localhost:5000" size="small" color="success" />
                     <Chip label="Format: PNG/JPG" size="small" />
                     <Chip label="Pro Features Enabled" size="small" color="primary" />
-                </Box>
+                </Box> */}
             </Box>
 
             {/* Main Unscramble Section */}
@@ -986,11 +986,11 @@ export default function PhotoUnscramblerPro() {
                                 <Typography variant="body2">
                                     • Seed: <strong>{decodedKey.seed}</strong>
                                 </Typography> */}
-                                {decodedKey.rows && (
+                                {/* {decodedKey.rows && (
                                     <Typography variant="body2">
                                         • Grid: <strong>{decodedKey.rows} × {decodedKey.cols}</strong>
                                     </Typography>
-                                )}
+                                )} */}
                                 {/* <Typography variant="body2">
                                     • Scrambling: <strong>{decodedKey.percentage}%</strong>
                                 </Typography> */}
@@ -1001,9 +1001,9 @@ export default function PhotoUnscramblerPro() {
                                     Expires: {new Date(decodedKey.timestamp + 7 * 24 * 60 * 60 * 1000).toLocaleString()}
                                 </Typography>
                                 {/* for testing purposes */}
-                                <Typography variant="body2" sx={{ mt: 1, fontSize: '0.75rem', opacity: 0.8 }}>
+                                {/* <Typography variant="body2" sx={{ mt: 1, fontSize: '0.75rem', opacity: 0.8 }}>
                                     Unscrambles: {Math.floor(Math.random() * 1000)}
-                                </Typography>
+                                </Typography> */}
                             </Alert>
                         )}
                     </Box>

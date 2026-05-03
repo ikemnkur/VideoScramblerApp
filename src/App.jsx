@@ -117,8 +117,6 @@ function TrackPageViews() {
   return null;
 }
 
-
-
 export default function App() {
   // Initialize with localStorage data synchronously
   const getInitialUserData = () => {
@@ -358,7 +356,7 @@ export default function App() {
                 {/* ) : null} */}
 
                 {/* Basic Services Rules */}
-                {accountType === "basic" || accountType === "standard" || accountType === "premium" || ((dayPassMode === 'basic' || dayPassMode === 'standard' || dayPassMode === 'premium') && new Date(dayPassExpiry) > new Date()) ? (
+                {(accountType === "basic" || accountType === "standard" || accountType === "premium" || ((dayPassMode === 'basic' || dayPassMode === 'standard' || dayPassMode === 'premium') && new Date(dayPassExpiry) > new Date())) ? (
                   <>
                     {/* Video Editor */}
 
@@ -389,7 +387,7 @@ export default function App() {
                 ) : null}
 
                 {/* Standard Services */}
-                {accountType === "standard" || accountType === 'premium' || ((dayPassMode === 'standard' || dayPassMode === 'premium') && new Date(dayPassExpiry) > new Date()) ? (
+                {(accountType === "standard" || accountType === 'premium' || ((dayPassMode === 'standard' || dayPassMode === 'premium') && new Date(dayPassExpiry) > new Date())) ? (
                   <>
 
                     <Route path="/photo-scrambler-standard" element={<PhotoScramblerStandard />} />
@@ -415,7 +413,7 @@ export default function App() {
                 ) : null}
 
                 {/* Premium Services */}
-                {accountType === 'premium' || (dayPassMode === 'premium' && new Date(dayPassExpiry) > new Date()) ? (
+                {(accountType === 'premium' || (dayPassMode === 'premium' && new Date(dayPassExpiry) > new Date())) ? (
                   <>
 
                     <Route path="/video-scrambler-pro" element={<VideoScramblerPro />} />

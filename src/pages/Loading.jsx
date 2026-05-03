@@ -103,18 +103,18 @@ export default function LoadingPage({ loading = false, error = null, retry = nul
                         //     py: 1.5
                         // }}
                         >
-                            Hard Reload
+                            Retry
                         </button>
 
                         {/* {retry && ( */}
-                        <button
+                        {/* <button
                             style={{ ...styles.button, marginLeft: 8 }}
                             onClick={() => {
                                 retry();
                             }}
                         >
                             Retry
-                        </button>
+                        </button> */}
                         {/* )} */}
                     </div>
 

@@ -6,7 +6,7 @@ from time import time
 from flask import Flask, send_from_directory, current_app, request, jsonify, redirect, url_for
 from flask_cors import CORS
 from werkzeug.utils import secure_filename
-from config import UPLOAD_FOLDER
+from exprimentation.config import UPLOAD_FOLDER
 import secrets
 from dataclasses import dataclass
 from typing import List, Dict, Any, Tuple
