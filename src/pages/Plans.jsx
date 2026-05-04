@@ -5,8 +5,6 @@ import {
   Typography,
   Card,
   CardContent,
-  Divider,
-  Skeleton,
   Box,
   Grid,
   Paper,
@@ -18,706 +16,671 @@ import {
   Alert,
   Chip,
   CircularProgress,
+  Divider,
 } from '@mui/material';
 import {
   CreditCard,
-  AccountBalanceWallet,
-  CurrencyBitcoin,
-  Payment,
   Star,
-  Timer,
   AttachMoney,
-  Warning, OpenInNew, LocalOffer
+  Warning,
+  OpenInNew,
+  Cancel,
+  Settings,
+  CheckCircle,
+  ArrowDownward,
+  ArrowUpward,
 } from '@mui/icons-material';
-import PaymentButton from '../components/PaymentButton';
 import api from '../api/client';
 import { useToast } from '../contexts/ToastContext';
 import { fetchUserData } from '../utils/fetchUserData';
 
-export default function Wallet() {
-  const [balance, setBalance] = useState(null);
+// ─── Constants ───────────────────────────────────────────────────────────────
+
+const PLAN_HIERARCHY = { free: 0, basic: 1, standard: 2, premium: 3 };
+
+const PLANS = {
+  free: {
+    title: 'Free',
+    priceLabel: 'Free',
+    color: '#757575',
+    features: [
+      'Ads displayed',
+      'Limited file sizes',
+      'Limited video and photo scrambling modes',
+      'Simple un/scrambler algorithms',
+      'Annoying watermarks',
+      'Longest wait times',
+    ],
+  },
+  basic: {
+    title: 'Basic',
+    priceLabel: '$2.50',
+    color: '#009cde',
+    features: [
+      'No ads',
+      'Standard quality video',
+      'No watermarks',
+      'Normal unscrambling',
+      'File size limits apply',
+      'Audio scrambling/unscrambling',
+      'Standard wait times',
+    ],
+  },
+  standard: {
+    title: 'Standard',
+    priceLabel: '$5',
+    color: '#93b2f0',
+    features: [
+      'Faster processing',
+      'Longer videos',
+      'Content leak prevention',
+      'Advanced photo scrambling',
+      'HD videos',
+      'Larger file size limits',
+    ],
+  },
+  premium: {
+    title: 'Premium',
+    priceLabel: '$10',
+    color: '#5ad64e',
+    features: [
+      'No wait times',
+      'Advanced video scrambling',
+      'Content leak prevention & detection',
+      'Full HD and 4K videos',
+      'Largest file size limits (250 MB)',
+      'Priority support',
+    ],
+  },
+};
+
+const STRIPE_CHECKOUT_URLS = {
+  basic: 'https://buy.stripe.com/test_bJedR9fh54Xrd40f645AQ02',
+  standard: 'https://buy.stripe.com/test_6oU7sLfh53Tn1li0ba5AQ01',
+  premium: 'https://buy.stripe.com/test_7sYcN58SH61v7JG9LK5AQ00',
+};
+
+async function fetchUserIP() {
+  try {
+    const res = await fetch('https://api.ipify.org?format=json');
+    const data = await res.json();
+    return data.ip;
+  } catch {
+    return null;
+  }
+}
+
+
+export default function Plans() {
   const { success, error } = useToast();
-  // const [userdata, setUserdata] = useState(JSON.parse(localStorage.getItem('userData')) || {});
-  // const userdata = JSON.parse(localStorage.getItem('userdata')) || {};
-  const [userdata, setUserData] = useState(fetchUserData());
-  const [selected, setSelected] = useState(null);
+
+  const [userdata, setUserData] = useState({});
   const [selectedPlan, setSelectedPlan] = useState('premium');
-  const [message, setMessage] = useState(null);
-  const [showModal, setShowModal] = useState(false);
+
+  // Upgrade flow
+  const [showUpgradeModal, setShowUpgradeModal] = useState(false);
   const [pendingPlan, setPendingPlan] = useState(null);
   const [startTimestamp, setStartTimestamp] = useState(null);
-  const [isVerifying, setIsVerifying] = useState(false);
   const [isWaitingForReturn, setIsWaitingForReturn] = useState(false);
+  const [isVerifying, setIsVerifying] = useState(false);
   const paymentWindowRef = useRef(null);
   const checkIntervalRef = useRef(null);
 
-  const stripeCheckoutUrl_Basic = `https://buy.stripe.com/test_bJedR9fh54Xrd40f645AQ02?client_reference_id=${userdata.id}`; //`https://buy.stripe.com/test_14k14g6SH4bA7JG9AA`;
-  const stripeCheckoutUrl_Standard = `https://buy.stripe.com/test_6oU7sLfh53Tn1li0ba5AQ01?client_reference_id=${userdata.id}`;
-  const stripeCheckoutUrl_Premium = `https://buy.stripe.com/test_7sYcN58SH61v7JG9LK5AQ00?client_reference_id=${userdata.id}`;
+  // Cancel / Downgrade flow
+  const [showCancelModal, setShowCancelModal] = useState(false);
+  const [showDowngradeModal, setShowDowngradeModal] = useState(false);
+  const [isCanceling, setIsCanceling] = useState(false);
+  const [isDowngrading, setIsDowngrading] = useState(false);
 
-  const plans = {
-    free: {
-      title: 'Free',
-      priceLabel: 'Free',
-      features: [
-        'Ads',
-        'Limits on file sizes',
-        'Limited video and photo scrambling modes',
-        'Simple un/scrambler algorithms',
-        'Annoying watermarks',
-        "file size limits",
-        "Longest wait times"
+  const [message, setMessage] = useState(null);
+  const [messageType, setMessageType] = useState('success');
 
-      ]
-    },
-    basic: {
-      title: 'Basic',
-      priceLabel: '$2.50',
-      features: [
-        'No ads',
-        'Standard quality video',
-        'No Annoying Watermarks',
-        'Normal unscrambling',
-        "File size limits",
-        'Audio scrambling/unscrambling',
-        "Standard wait times"
-      ]
-    },
-    standard: {
-      title: 'Standard',
-      priceLabel: '$5',
-      features: [
-        'Faster processing',
-        'Longer videos',
-        'Content leak prevention',
-        'Advanced scrambling for photos',
-        'HD videos',
-        "Larger file size limits"
-      ]
-    },
-    premium: {
-      title: 'Premium',
-      priceLabel: '$10',
-      features: [
-        'No wait times',
-        'Advanced video scrambling',
-        'Content leak prevention and detections',
-        'Full HD and 4K videos',
-        'Largest file size limits (250MB)',
-        'Priority support'
-      ]
-    }
-  };
+  const currentPlan = userdata?.accountType || 'free';
+  const p = PLANS[selectedPlan];
 
-  const p = plans[selectedPlan];
-
-  // Fetch fresh user data on mount
+  // ─── Load user data on mount ──────────────────────────────────────────────
   useEffect(() => {
-    const loadUserData = async () => {
-      const freshUserData = await fetchUserData();
-      if (freshUserData) {
-        setUserData(freshUserData);
-        console.log("Fetched user data on mount:", freshUserData);
-        setTimeout(() => {
-          load();
-        }, 1000);
-      }
-      
+    const load = async () => {
+      const fresh = await fetchUserData();
+      if (fresh) setUserData(fresh);
     };
-
-    loadUserData();
+    load();
   }, []);
 
-  function handleCancelPayment() {
-    setShowModal(false);
-    setPendingPlan(null);
-    console.log("Payment cancelled by user");
-  }
+  // ─── Cleanup on unmount ───────────────────────────────────────────────────
+  useEffect(() => {
+    return () => {
+      if (checkIntervalRef.current) clearInterval(checkIntervalRef.current);
+    };
+  }, []);
 
-  function handleOpenStripeSubscriptionPage() {
-    setMessage(null);
-    setPendingPlan(p);
-    setShowModal(true);
-  }
+  // ─── Upgrade flow ─────────────────────────────────────────────────────────
 
-
-  const load = async () => {
-    try {
-      const { data } = await api.post(`/api/wallet/balance/${userdata.username}`, { password: userdata.password, email: userdata.email });
-
-      setBalance(data?.balance ?? 0);
-    } catch (e) {
-      console.error(e);
-      setBalance(1001); // demo fallback
+  function handleSubscribeClick() {
+    if (currentPlan === selectedPlan) {
+      error('You are already on this plan.');
+      return;
     }
-  };
+    setPendingPlan(PLANS[selectedPlan]);
+    setMessage(null);
+    if (PLAN_HIERARCHY[selectedPlan] < PLAN_HIERARCHY[currentPlan]) {
+      setShowDowngradeModal(true);
+    } else {
+      setShowUpgradeModal(true);
+    }
+  }
 
+  function handleCancelUpgrade() {
+    setShowUpgradeModal(false);
+    setPendingPlan(null);
+  }
 
-
-
-  function handleConfirmPayment() {
+  function handleConfirmUpgrade() {
     if (!pendingPlan) return;
-
-    // Record start timestamp
+    const stripeUrl = STRIPE_CHECKOUT_URLS[selectedPlan];
+    if (!stripeUrl) {
+      error('No payment URL configured for this plan.');
+      setShowUpgradeModal(false);
+      return;
+    }
     const timestamp = Date.now();
     setStartTimestamp(timestamp);
-    console.log("Subscription Payment Start Timestamp (Unix epoch ms):", timestamp);
-    console.log("Subscription Payment Start Time:", new Date(timestamp).toISOString());
-
-    // Open Stripe subscription page in new window based on selected plan
-    let stripeUrl = '';
-    if (selectedPlan === 'basic') stripeUrl = stripeCheckoutUrl_Basic;
-    else if (selectedPlan === 'standard') stripeUrl = stripeCheckoutUrl_Standard;
-    else if (selectedPlan === 'premium') stripeUrl = stripeCheckoutUrl_Premium;
-
-    // check if user is already on the given plan, dont open stripe page if the user is already on the given plan
-    const currentPlan = userdata?.accountType || 'free';
-    if (currentPlan === selectedPlan) {
-      alert( `You are already on the ${selectedPlan} plan, no payment is necessary.`);
-      error("Unable to open payment page. Please try again.");
-      setShowModal(false);
-      return;
-    }
-
-    // check if user is accidentally trying to select a lower plan than current plan
-    const planHierarchy = { free: 0, basic: 1, standard: 2, premium: 3 };
-    if (planHierarchy[selectedPlan] < planHierarchy[currentPlan]) {
-      alert( `You are already on the ${currentPlan} plan, please select a higher plan than your current plan.`);
-      error("Unable to open payment page. Please try again.");
-      setShowModal(false);
-      return;
-    }
-
-    if (stripeUrl) {
-      paymentWindowRef.current = window.open(stripeUrl, '_blank');
-      console.log("Opening Stripe subscription page for:", selectedPlan, pendingPlan);
-
-      // Start checking if window is closed
-      // startWindowCheck();
-
-      // Show waiting state
-      setIsWaitingForReturn(true);
-    }
-
-    setSelected(pendingPlan);
-    setShowModal(false);
+    paymentWindowRef.current = window.open(
+      `${stripeUrl}?client_reference_id=${userdata.id || ''}`,
+      '_blank'
+    );
+    setIsWaitingForReturn(true);
+    setShowUpgradeModal(false);
   }
 
- 
-  // function startWindowCheck() {
-  //   // Check every 1 second if the payment window was closed
-  //   checkIntervalRef.current = setInterval(() => {
-  //     try {
-  //       // Only trigger if the window is actually closed, not just inaccessible
-  //       if (paymentWindowRef.current && paymentWindowRef.current.closed) {
-  //         // Double-check by trying to access the window
-  //         // If it throws, it might be cross-origin but still open
-  //         try {
-  //           const stillOpen = !paymentWindowRef.current.closed;
-  //           if (!stillOpen) {
-  //             handlePaymentWindowClosed();
-  //           }
-  //         } catch (e) {
-  //           // Cross-origin error means window is likely still open
-  //           // Only close if we're certain it's closed
-  //           if (paymentWindowRef.current.closed) {
-  //             handlePaymentWindowClosed();
-  //           }
-  //         }
-  //       }
-  //     } catch (error) {
-  //       // If we can't access the window at all, it's likely still open but cross-origin
-  //       console.log("Window check error (window likely still open):", error);
-  //     }
-  //   }, 1000);
-  // }
-
-  // function handlePaymentWindowClosed() {
-  //   // Clear the interval
-  //   if (checkIntervalRef.current) {
-  //     clearInterval(checkIntervalRef.current);
-  //     checkIntervalRef.current = null;
-  //   }
-
-  //   // Record end timestamp
-  //   const endTimestamp = Date.now();
-  //   console.log("Payment End Timestamp (Unix epoch ms):", endTimestamp);
-  //   console.log("Payment End Time:", new Date(endTimestamp).toISOString());
-  //   console.log("Time Range:", {
-  //     start: startTimestamp,
-  //     end: endTimestamp,
-  //     duration: `${((endTimestamp - startTimestamp) / 1000).toFixed(2)} seconds`
-  //   });
-
-  //   // Verify payment with backend
-  //   verifyPayment(startTimestamp, endTimestamp);
-  // }
-
-  // async function fetchUserIP() {
-  //   // Simple function to fetch user's IP address
-  //   // In production, consider using a more reliable method or service
-  //   return fetch('https://api.ipify.org?format=json')
-  //     .then(response => response.json())
-  //     .then(data => data.ip)
-  //     .catch(error => {
-  //       console.error("Error fetching user IP:", error);
-  //       return null;
-  //     });
-  // }
-  
+  function handleReturnFromPayment() {
+    const endTimestamp = Date.now();
+    if (checkIntervalRef.current) {
+      clearInterval(checkIntervalRef.current);
+      checkIntervalRef.current = null;
+    }
+    setIsWaitingForReturn(false);
+    verifyPayment(startTimestamp, endTimestamp);
+  }
 
   async function verifyPayment(startTime, endTime) {
     if (!pendingPlan) return;
-
     setIsVerifying(true);
-
     try {
-      // Get user data from localStorage
-      const userData = JSON.parse(localStorage.getItem('userdata') || '{}');
-
-      // Extract price from priceLabel (e.g., "$10" -> 10)
-      const planPrice = pendingPlan.priceLabel === 'Free' ? 0 : parseFloat(pendingPlan.priceLabel.replace('$', ''));
+      const planPrice =
+        pendingPlan.priceLabel === 'Free'
+          ? 0
+          : parseFloat(pendingPlan.priceLabel.replace('$', ''));
 
       const paymentData = {
-        timeRange: {
-          start: startTime,
-          end: endTime
-        },
+        timeRange: { start: startTime, end: endTime },
         subscriptionData: {
-          amount: Math.ceil(planPrice * 100), // in cents
+          amount: Math.ceil(planPrice * 100),
           dollars: planPrice,
           plan: pendingPlan.title,
-          planType: selectedPlan
+          planType: selectedPlan,
         },
         user: {
-          id: userData.id || '',
-          email: userData.email || '',
-          username: userData.username || '',
-          phone: userData.phoneNumber || '',
-          name: (userData.firstname || '') + " " + (userData.lastname || ''),
-          ip: await fetchUserIP() || '',
-          userAgent: navigator.userAgent || ''
-        }
+          id: userdata.id || '',
+          email: userdata.email || '',
+          username: userdata.username || '',
+          phone: userdata.phoneNumber || '',
+          name: `${userdata.firstName || ''} ${userdata.lastName || ''}`.trim(),
+          ip: (await fetchUserIP()) || '',
+          userAgent: navigator.userAgent || '',
+        },
       };
 
-      console.log("Sending subscription verification to backend:", paymentData);
-
-      // Send to backend for verification
       const response = await api.post('/api/verify-stripe-subscription', paymentData);
-
-      if (response.data && response.data.success) {
-        setMessage(`Subscription verified! Your ${pendingPlan.title} plan is now active.`);
-        console.log("Subscription verification successful:", response.data);
-        // Reload user data to reflect new subscription
-        const updatedUserData = await fetchUserData();
-        setUserData(updatedUserData);
+      if (response.data && response.data.success !== false) {
+        showMessage(`${pendingPlan.title} plan activated! Welcome aboard.`, 'success');
+        success(`${pendingPlan.title} plan activated!`);
+        const updated = await fetchUserData();
+        if (updated) setUserData(updated);
       } else {
-        setMessage("Subscription verification pending. Please check your account or contact support if your plan doesn't activate within 5 minutes.");
-        console.log("Subscription verification response:", response.data);
+        showMessage(
+          "Subscription verification pending. If your plan doesn't activate within 5 minutes, contact support.",
+          'warning'
+        );
       }
-    } catch (error) {
-      console.error("Subscription verification error:", error);
-      setMessage("Unable to verify subscription automatically. Please contact support with your transaction time: " + new Date(startTime).toISOString());
+    } catch (err) {
+      console.error('Subscription verification error:', err);
+      showMessage(
+        `Unable to verify automatically. Contact support with your transaction time: ${new Date(startTime).toISOString()}`,
+        'error'
+      );
     } finally {
       setIsVerifying(false);
-      setIsWaitingForReturn(false);
       setPendingPlan(null);
       setStartTimestamp(null);
       paymentWindowRef.current = null;
     }
   }
 
-  function handleCancelPayment() {
-    setShowModal(false);
-    setPendingPlan(null);
-    console.log("Payment cancelled by user");
-  }
+  // ─── Cancel flow ──────────────────────────────────────────────────────────
 
-  function handleReturnFromPayment() {
-    // User manually confirms they've returned
-    const endTimestamp = Date.now();
-    console.log("User returned from payment (manual confirmation)");
-    console.log("Payment End Timestamp (Unix epoch ms):", endTimestamp);
-    console.log("Payment End Time:", new Date(endTimestamp).toISOString());
-    console.log("Time Range:", {
-      start: startTimestamp,
-      end: endTimestamp,
-      duration: `${((endTimestamp - startTimestamp) / 1000).toFixed(2)} seconds`
-    });
-
-    // Clear interval and verify
-    if (checkIntervalRef.current) {
-      clearInterval(checkIntervalRef.current);
-      checkIntervalRef.current = null;
-    }
-
-    setIsWaitingForReturn(false);
-    verifyPayment(startTimestamp, endTimestamp);
-  }
-
-  // Cleanup on unmount
-  useEffect(() => {
-    return () => {
-      if (checkIntervalRef.current) {
-        clearInterval(checkIntervalRef.current);
+  async function handleConfirmCancel() {
+    setIsCanceling(true);
+    try {
+      const response = await api.post('/api/subscription/cancel', { userId: userdata.id });
+      if (response.data?.success) {
+        showMessage(
+          'Your subscription is set to cancel at the end of the billing period. Your account will revert to the Free plan.',
+          'success'
+        );
+        success('Subscription cancellation scheduled.');
+        const updated = await fetchUserData();
+        if (updated) setUserData(updated);
+      } else {
+        error(response.data?.message || 'Failed to cancel subscription.');
       }
-    };
-  }, []);
+    } catch (err) {
+      console.error('Cancel subscription error:', err);
+      error('Failed to cancel subscription. Please try again.');
+    } finally {
+      setIsCanceling(false);
+      setShowCancelModal(false);
+    }
+  }
 
+  // ─── Downgrade flow ───────────────────────────────────────────────────────
 
-  function handleSuccess(sessionOrResult) {
-    // Called after successful payment (whatever your Stripe.jsx returns).
-    setMessage("Payment successful — credits will appear in your account shortly.");
-    setSelected(null);
-    // TODO: call your backend to grant credits using sessionOrResult metadata
+  async function handleConfirmDowngrade() {
+    setIsDowngrading(true);
+    try {
+      const response = await api.post('/api/subscription/change-plan', {
+        userId: userdata.id,
+        newPlanType: selectedPlan,
+      });
+      if (response.data?.success) {
+        showMessage(
+          `Plan downgraded to ${PLANS[selectedPlan].title}. Changes take effect immediately.`,
+          'success'
+        );
+        success(`Downgraded to ${PLANS[selectedPlan].title} plan.`);
+        const updated = await fetchUserData();
+        if (updated) setUserData(updated);
+      } else {
+        error(response.data?.message || 'Failed to downgrade plan.');
+      }
+    } catch (err) {
+      console.error('Downgrade error:', err);
+      error('Failed to downgrade plan. Please try again.');
+    } finally {
+      setIsDowngrading(false);
+      setShowDowngradeModal(false);
+      setPendingPlan(null);
+    }
+  }
+
+  // ─── Stripe Customer Portal ───────────────────────────────────────────────
+
+  async function handleManageSubscription() {
+    try {
+      const response = await api.post('/api/subscription/portal', {
+        userId: userdata.id,
+        returnUrl: window.location.href,
+      });
+      if (response.data?.url) {
+        window.open(response.data.url, '_blank');
+      } else {
+        error('Unable to open subscription portal.');
+      }
+    } catch (err) {
+      console.error('Portal error:', err);
+      error('Unable to open subscription portal. Please try again.');
+    }
+  }
+
+  // ─── Helpers ──────────────────────────────────────────────────────────────
+
+  function showMessage(text, type = 'success') {
+    setMessage(text);
+    setMessageType(type);
+  }
+
+  function getPlanActionLabel() {
+    if (currentPlan === selectedPlan) return `Already on ${p.title}`;
+    if (selectedPlan === 'free') return 'Cancel Subscription (Go Free)';
+    if (PLAN_HIERARCHY[selectedPlan] < PLAN_HIERARCHY[currentPlan])
+      return `Downgrade to ${p.title} — ${p.priceLabel}/mo`;
+    return `Subscribe — ${p.title} ${p.priceLabel}/mo`;
+  }
+
+  function getPlanActionIcon() {
+    if (PLAN_HIERARCHY[selectedPlan] < PLAN_HIERARCHY[currentPlan]) return <ArrowDownward />;
+    if (PLAN_HIERARCHY[selectedPlan] > PLAN_HIERARCHY[currentPlan]) return <ArrowUpward />;
+    return <CheckCircle />;
   }
 
 
-  const onPaymentError = () => error('Payment could not be started');
+  // ─── Render ───────────────────────────────────────────────────────────────
 
   return (
     <Container sx={{ py: 4 }}>
-      <Stack spacing={2}>
-        <Typography variant="h4" color="secondary.main">Account Membership Overview</Typography>
+      <Stack spacing={3}>
+        <Typography variant="h4" color="secondary.main">
+          Account Membership
+        </Typography>
+
+        {/* ── Current Plan Banner ── */}
         <Card variant="outlined">
-          <CardContent>
-            {/* <Typography variant="h6">Current Account Tier</Typography>
-
-            {
-
-            <Typography variant="h3" sx={{ fontWeight: 800, color: 'primary.main' }}>
-              {String(userdata?.accountType ?? localStorage.getItem("userdata")?.accountType ?? '').toUpperCase()}
-            </Typography>
-            
-            <Divider sx={{ my: 2 }} /> */}
-
-            {/* Subscription Plans Section */}
-            <Box sx={{ mb: 4 }}>
-              <Typography variant="h5" sx={{ mb: 2, display: 'flex', alignItems: 'center', gap: 1 }}>
-                <Star color="primary" />
-                Subscribe & Save
+          <CardContent
+            sx={{
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              flexWrap: 'wrap',
+              gap: 2,
+              py: 2,
+            }}
+          >
+            <Box>
+              <Typography variant="overline" sx={{ color: '#9e9e9e' }}>
+                Current Plan
               </Typography>
-
-              <Grid container spacing={2}>
-
-                {(() => {
-                  const PlanSelector = () => {
-
-                    // const [selectedPlan, setSelectedPlan] = useState('premium');
-
-                    const plans = {
-                      free: {
-                        title: 'Free',
-                        priceLabel: 'Free',
-                        features: [
-                          'Ads',
-                          'Limits on file sizes',
-                          'Limited video and photo scrambling modes',
-                          'Simple un/scrambler algorithms',
-                          'Annoying watermarks',
-                          "file size limits",
-                          "Longest wait times"
-
-                        ]
-                      },
-                      basic: {
-                        title: 'Basic',
-                        priceLabel: '$2.50',
-                        features: [
-                          'No ads',
-                          'Standard quality video',
-                          'No Annoying Watermarks',
-                          'Normal unscrambling',
-                          "File size limits",
-                          'Audio scrambling/unscrambling',
-                          "Standard wait times"
-                        ]
-                      },
-                      standard: {
-                        title: 'Standard',
-                        priceLabel: '$5',
-                        features: [
-                          'Faster processing',
-                          'Longer videos',
-                          'Content leak prevention',
-                          'Advanced scrambling for photos',
-                          'HD videos',
-                          "Larger file size limits"
-                        ]
-                      },
-                      premium: {
-                        title: 'Premium',
-                        priceLabel: '$10',
-                        features: [
-                          'No wait times',
-                          'Advanced video scrambling',
-                          'Content leak prevention and detections',
-                          'Full HD and 4K videos',
-                          'Largest file size limits (250MB)',
-                          'Priority support'
-                        ]
-                      }
-                    };
-
-                    const p = plans[selectedPlan];
-
-                    return (
-                      <>
-                        <Grid item xs={12} md={6}>
-                          <Paper elevation={2} sx={{ p: 2, border: '2px solid', borderColor: 'primary.main', backgroundColor: '#424242' }}>
-                            <Typography variant="h6" sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1, color: 'white' }}>
-                              <CreditCard color="primary" />
-                              Stripe
-                            </Typography>
-                            <Typography variant="body2" sx={{ mb: 2, color: '#e0e0e0' }}>
-                              Subscribe with Stripe and get bonus credits monthly!
-                            </Typography>
-                            <Stack spacing={1}>
-
-                              <Button
-                                // amountUSD={10}
-                                onError={onPaymentError}
-                                onClick={() => setSelectedPlan('premium')}
-                                sx={{
-                                  backgroundColor: '#635bff',
-                                  color: 'white',
-                                  '&:hover': { backgroundColor: '#5248e8' },
-                                  fontWeight: 'bold'
-                                }}
-                              >
-                                Premium Plan - $10/month
-                              </Button>
-                              <Button
-                                // amountUSD={5}
-                                onError={onPaymentError}
-                                onClick={() => setSelectedPlan('standard')}
-                                sx={{
-                                  backgroundColor: '#4f46e5',
-                                  color: 'white',
-                                  '&:hover': { backgroundColor: '#4338ca' },
-                                  fontWeight: 'bold'
-                                }}
-                              >
-                                Standard Plan - $5/month
-                              </Button>
-
-                              <Button
-                                // amountUSD={2.5}
-                                onError={onPaymentError}
-                                onClick={() => setSelectedPlan('basic')}
-                                sx={{
-                                  backgroundColor: '#009cde',
-                                  color: 'white',
-                                  '&:hover': { backgroundColor: '#0087c7' },
-                                  fontWeight: 'bold'
-                                }}
-                              >
-                                Basic Plan - $2.50/month
-                              </Button>
-
-                              <Button
-                                // amountUSD={0}
-                                onError={onPaymentError}
-                                onClick={() => setSelectedPlan('free')}
-                                sx={{
-                                  backgroundColor: '#de1a00ff',
-                                  color: 'white',
-                                  '&:hover': { backgroundColor: '#c72b00ff' },
-                                  fontWeight: 'bold'
-                                }}
-                              >
-                                Free Plan (Lite) - $0/month (ADs)
-                              </Button>
-
-                              <Paper elevation={0} sx={{ mt: 1, p: 1, backgroundColor: 'transparent' }}>
-                                <Typography variant="caption" sx={{ color: '#bdbdbd' }}>
-                                  Tip: Click a plan to preview its details before completing payment.
-                                </Typography>
-                              </Paper>
-                            </Stack>
-                          </Paper>
-                        </Grid>
-
-                        <Grid item xs={12} md={6}>
-                          {/* Show plan details */}
-                          <Paper elevation={2} sx={{ p: 2, border: '2px solid', borderColor: 'primary.main', backgroundColor: '#424242' }}>
-                            <Typography variant="h6" sx={{ mb: 1, color: 'white' }}>
-                              Choose Plan: {p.title}{p.priceLabel && p.priceLabel !== 'Free' ? ` - ${p.priceLabel}/month` : p.priceLabel === 'Free' ? ' - Free' : ''}
-                            </Typography>
-                            <Stack spacing={1}>
-                              {p.features.map((f, i) => (
-                                <Typography key={i} variant="body2" sx={{ color: '#e0e0e0' }}>
-                                  • {f}
-                                </Typography>
-                              ))}
-                            </Stack>
-                          </Paper>
-
-
-                          <Divider sx={{ my: 2 }} />
-                          {/* Subscribe button, opens stripe checkout page*/}
-                          <Paper elevation={2} sx={{ p: 2, border: '2px solid', borderColor: 'primary.main', backgroundColor: '#424242' }}>
-                            <Typography variant="h6" sx={{ mb: 1, color: 'white' }}>
-                              Subscribe to {p.title} Plan
-                            </Typography>
-                            <Typography variant="body2" sx={{ mb: 2, color: '#e0e0e0' }}>
-                              You will be redirected to Stripe to complete your subscription. Your plan will renew automatically each month until you cancel.
-                            </Typography>
-
-                            {/* <PaymentButton
-                              amountUSD={p.priceLabel === 'Free' ? 0 : parseFloat(p.priceLabel.replace('$', ''))}
-                              onError={onPaymentError}
-                              onClick={() => handleOpenStripeSubscriptionPage({ plans })}
-                              sx={{
-                                backgroundColor: 'primary.main',
-                                color: 'white',
-                                '&:hover': { backgroundColor: 'primary.dark' },
-                                fontWeight: 'bold',
-                                width: '100%'
-                              }}
-                            >
-                              Subscribe to {p.title} Plan
-                            </PaymentButton> */}
-                            <Button
-                              onClick={() => handleOpenStripeSubscriptionPage()}
-                              sx={{
-                                backgroundColor: 'primary.main',
-                                color: 'white',
-                                '&:hover': { backgroundColor: 'primary.dark' },
-                                fontWeight: 'bold',
-                                width: '100%'
-                              }}
-                            >
-                              Subscribe to {p.title} Plan
-                            </Button>
-                          </Paper>
-                        </Grid>
-                      </>
-                    );
-                  };
-
-                  return <PlanSelector />;
-                })()}
-              </Grid>
-
-            </Box>
-            <Box sx={{ mt: 4 }}>
-              <Typography variant="h5" sx={{ mb: 2, display: 'flex', alignItems: 'center', gap: 1 }}>
-                <AttachMoney color="secondary" />
-                Unsubscribe from Plans
-              </Typography>
-              <Typography variant="body2" sx={{ mb: 2, color: '#e0e0e0' }}>
-                To unsubscribe from your current subscription plan, please visit the respective payment provider's website (Stripe or PayPal) and manage your subscriptions there.
-                Inactive account's (60 days) subscriptions will not renew automatically, and will be deleted in 90 days.
-              </Typography>
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                <Typography
+                  variant="h5"
+                  sx={{ fontWeight: 800, color: PLANS[currentPlan]?.color }}
+                >
+                  {PLANS[currentPlan]?.title || currentPlan.toUpperCase()}
+                </Typography>
+                {currentPlan !== 'free' && (
+                  <Chip
+                    label="Active"
+                    size="small"
+                    sx={{ backgroundColor: '#2e7d32', color: 'white', fontSize: 11 }}
+                  />
+                )}
+              </Box>
+              {currentPlan !== 'free' && PLANS[currentPlan]?.priceLabel && (
+                <Typography variant="body2" sx={{ color: '#bdbdbd', mt: 0.5 }}>
+                  {PLANS[currentPlan].priceLabel}/month — renews automatically
+                </Typography>
+              )}
             </Box>
 
+            {currentPlan !== 'free' && (
+              <Stack direction="row" spacing={1} flexWrap="wrap">
+                <Button
+                  variant="outlined"
+                  size="small"
+                  startIcon={<Settings />}
+                  onClick={handleManageSubscription}
+                  sx={{ borderColor: '#4f46e5', color: '#7c6ff7' }}
+                >
+                  Manage Billing
+                </Button>
+                <Button
+                  variant="outlined"
+                  size="small"
+                  color="error"
+                  startIcon={<Cancel />}
+                  onClick={() => setShowCancelModal(true)}
+                >
+                  Cancel Plan
+                </Button>
+              </Stack>
+            )}
           </CardContent>
         </Card>
+
+        {/* ── Plan Selection ── */}
+        <Card variant="outlined">
+          <CardContent>
+            <Typography
+              variant="h5"
+              sx={{ mb: 2, display: 'flex', alignItems: 'center', gap: 1 }}
+            >
+              <Star color="primary" />
+              Choose a Plan
+            </Typography>
+
+            <Grid container spacing={2}>
+              {/* Plan Buttons */}
+              <Grid item xs={12} md={6}>
+                <Paper
+                  elevation={2}
+                  sx={{
+                    p: 2,
+                    border: '2px solid',
+                    borderColor: 'primary.main',
+                    backgroundColor: '#424242',
+                  }}
+                >
+                  <Typography
+                    variant="h6"
+                    sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 2, color: 'white' }}
+                  >
+                    <CreditCard color="primary" />
+                    Subscription Plans
+                  </Typography>
+
+                  <Stack spacing={1}>
+                    {['premium', 'standard', 'basic', 'free'].map((planKey) => {
+                      const plan = PLANS[planKey];
+                      const isCurrent = currentPlan === planKey;
+                      const isSelected = selectedPlan === planKey;
+
+                      return (
+                        <Button
+                          key={planKey}
+                          onClick={() => setSelectedPlan(planKey)}
+                          variant={isSelected ? 'contained' : 'outlined'}
+                          sx={{
+                            backgroundColor: isSelected ? plan.color : 'transparent',
+                            borderColor: plan.color,
+                            color: isSelected ? 'white' : plan.color,
+                            fontWeight: 'bold',
+                            justifyContent: 'flex-start',
+                            '&:hover': {
+                              backgroundColor: plan.color,
+                              color: 'white',
+                              opacity: 0.9,
+                            },
+                          }}
+                        >
+                          {plan.title}
+                          {plan.priceLabel !== 'Free' ? ` — ${plan.priceLabel}/mo` : ' — Free'}
+                          {isCurrent && (
+                            <Chip
+                              label="Current"
+                              size="small"
+                              sx={{
+                                ml: 1,
+                                height: 18,
+                                fontSize: 10,
+                                backgroundColor: 'rgba(255,255,255,0.25)',
+                                color: 'white',
+                              }}
+                            />
+                          )}
+                        </Button>
+                      );
+                    })}
+
+                    <Typography variant="caption" sx={{ color: '#9e9e9e', mt: 0.5 }}>
+                      Click a plan to preview its features before subscribing.
+                    </Typography>
+                  </Stack>
+                </Paper>
+              </Grid>
+
+              {/* Plan Details + Action */}
+              <Grid item xs={12} md={6}>
+                <Stack spacing={2}>
+                  <Paper
+                    elevation={2}
+                    sx={{
+                      p: 2,
+                      border: '2px solid',
+                      borderColor: p.color,
+                      backgroundColor: '#424242',
+                    }}
+                  >
+                    <Typography variant="h6" sx={{ mb: 1, color: 'white' }}>
+                      {p.title} Plan
+                      {p.priceLabel !== 'Free' && (
+                        <Typography
+                          component="span"
+                          variant="body2"
+                          sx={{ ml: 1, color: '#bdbdbd' }}
+                        >
+                          {p.priceLabel}/month
+                        </Typography>
+                      )}
+                    </Typography>
+                    <Stack spacing={0.5}>
+                      {p.features.map((f, i) => (
+                        <Typography key={i} variant="body2" sx={{ color: '#e0e0e0' }}>
+                          • {f}
+                        </Typography>
+                      ))}
+                    </Stack>
+                  </Paper>
+
+                  <Button
+                    variant="contained"
+                    fullWidth
+                    size="large"
+                    onClick={
+                      selectedPlan === 'free' && currentPlan !== 'free'
+                        ? () => setShowCancelModal(true)
+                        : handleSubscribeClick
+                    }
+                    disabled={currentPlan === selectedPlan}
+                    startIcon={getPlanActionIcon()}
+                    sx={{
+                      backgroundColor:
+                        currentPlan === selectedPlan
+                          ? '#555'
+                          : selectedPlan === 'free'
+                          ? '#c62828'
+                          : p.color,
+                      color: 'white',
+                      fontWeight: 'bold',
+                      py: 1.5,
+                      '&:hover': { opacity: 0.9 },
+                      '&.Mui-disabled': { color: '#aaa' },
+                    }}
+                  >
+                    {getPlanActionLabel()}
+                  </Button>
+                </Stack>
+              </Grid>
+            </Grid>
+          </CardContent>
+        </Card>
+
+        {/* ── Billing Info ── */}
+        <Card variant="outlined">
+          <CardContent>
+            <Typography
+              variant="h6"
+              sx={{ mb: 1, display: 'flex', alignItems: 'center', gap: 1 }}
+            >
+              <AttachMoney color="secondary" />
+              Billing & Subscription Info
+            </Typography>
+            <Typography variant="body2" sx={{ color: '#e0e0e0' }}>
+              Subscriptions renew automatically each month. Use{' '}
+              <strong>Manage Billing</strong> to update your payment method, view
+              invoices, or make other changes directly in the Stripe portal. Accounts
+              inactive for 60+ days will not auto-renew and are deleted after 90 days.
+            </Typography>
+          </CardContent>
+        </Card>
+
+        {/* ── Status message ── */}
+        {message && (
+          <Alert
+            severity={messageType}
+            onClose={() => setMessage(null)}
+            sx={
+              messageType === 'success'
+                ? {
+                    backgroundColor: '#2e7d32',
+                    color: 'white',
+                    '& .MuiAlert-icon': { color: 'white' },
+                  }
+                : {}
+            }
+          >
+            {message}
+          </Alert>
+        )}
       </Stack>
 
-      {/* Checkout Section */}
-      {selected && 0 && (
-        <Paper elevation={4} sx={{ p: 4, backgroundColor: '#424242', color: 'white' }}>
-          <Typography variant="h4" sx={{ mb: 2, color: 'white', fontWeight: 'bold', display: 'flex', alignItems: 'center', gap: 1 }}>
-            <CreditCard />
-            Checkout — {selected.dollars.toFixed(2)} USD
-          </Typography>
-
-          <Typography variant="body1" sx={{ mb: 3, color: '#e0e0e0' }}>
-            You're buying <strong style={{ color: selected.color }}>{selected.credits.toLocaleString()}</strong> credits
-            {selected.bonusCredits > 0 && <> (includes <strong style={{ color: selected.color }}>+{selected.bonusCredits.toLocaleString()} bonus</strong>)</>}
-            .
-          </Typography>
-
-          {/* Stripe component */}
-          <Box sx={{ mb: 3 }}>
-            <Stripe
-              credits={selected.credits}
-              amount={Math.round(selected.dollars * 100)} // cents
-              currency="usd"
-              description={`${selected.credits} credits`}
-              metadata={{ credits: selected.credits }}
-              priceId={selected.priceId}
-              onSuccess={handleSuccess}
-            />
-          </Box>
-
-          <Typography variant="body2" sx={{ color: '#bdbdbd' }}>
-            After payment you'll be redirected back. If you need invoices or support, contact support.
-          </Typography>
-        </Paper>
-      )}
-
-      {/* Payment Confirmation Modal */}
+      {/* ═══════════════════════════════════════════════════════
+          UPGRADE CONFIRMATION MODAL
+      ═══════════════════════════════════════════════════════ */}
       <Dialog
-        open={showModal}
-        onClose={(event, reason) => {
-          // Prevent closing on backdrop click or escape key
-          if (reason === 'backdropClick' || reason === 'escapeKeyDown') {
-            return;
-          }
-          handleCancelPayment();
-        }}
+        open={showUpgradeModal}
+        onClose={handleCancelUpgrade}
         maxWidth="sm"
         fullWidth
         disableEscapeKeyDown
       >
-        <DialogTitle sx={{ backgroundColor: '#424242', color: 'white', display: 'flex', alignItems: 'center', gap: 1 }}>
+        <DialogTitle
+          sx={{
+            backgroundColor: '#424242',
+            color: 'white',
+            display: 'flex',
+            alignItems: 'center',
+            gap: 1,
+          }}
+        >
           <Warning sx={{ color: '#ff9800' }} />
-          Payment Window Notice
+          Confirm Subscription
         </DialogTitle>
         <DialogContent sx={{ backgroundColor: '#424242', color: 'white', pt: 3 }}>
-          <Box sx={{ mb: 2 }}>
-            <Typography variant="body1" sx={{ mb: 2 }}>
-              A new window will open to complete your payment securely through Stripe.
-            </Typography>
-            <Typography variant="body2" sx={{ mb: 2, color: '#e0e0e0' }}>
-              Please do not close this page until your payment is complete.
-            </Typography>
-            {pendingPlan && (
+          {pendingPlan && (
+            <Box>
+              <Typography variant="body1" sx={{ mb: 2 }}>
+                A new tab will open to complete payment securely through Stripe.
+                Please do not close this page until your payment is complete.
+              </Typography>
               <Paper sx={{ p: 2, backgroundColor: '#353535', mb: 2 }}>
-                <Typography variant="subtitle2" sx={{ color: '#bdbdbd', mb: 1 }}>
-                  Subscription Details:
-                </Typography>
-                <Typography variant="h6" sx={{ color: 'primary.main', fontWeight: 'bold' }}>
+                <Typography
+                  variant="h6"
+                  sx={{ color: 'primary.main', fontWeight: 'bold' }}
+                >
                   {pendingPlan.title} Plan
                 </Typography>
-                <Typography variant="body1" sx={{ color: 'white', mb: 2 }}>
-                  {pendingPlan.priceLabel === 'Free' ? 'Free' : `${pendingPlan.priceLabel}/month`}
+                <Typography variant="body1" sx={{ color: 'white', mb: 1 }}>
+                  {pendingPlan.priceLabel === 'Free'
+                    ? 'Free'
+                    : `${pendingPlan.priceLabel}/month`}
                 </Typography>
-                <Typography variant="subtitle2" sx={{ color: '#bdbdbd', mb: 1 }}>
-                  Features:
-                </Typography>
-                <Box sx={{ pl: 1 }}>
-                  {pendingPlan.features.slice(0, 3).map((feature, idx) => (
-                    <Typography key={idx} variant="body2" sx={{ color: '#e0e0e0', mb: 0.5 }}>
-                      • {feature}
-                    </Typography>
-                  ))}
-                  {pendingPlan.features.length > 3 && (
-                    <Typography variant="body2" sx={{ color: '#bdbdbd' }}>
-                      + {pendingPlan.features.length - 3} more features
-                    </Typography>
-                  )}
-                </Box>
+                {pendingPlan.features.slice(0, 3).map((f, i) => (
+                  <Typography key={i} variant="body2" sx={{ color: '#e0e0e0' }}>
+                    • {f}
+                  </Typography>
+                ))}
+                {pendingPlan.features.length > 3 && (
+                  <Typography variant="body2" sx={{ color: '#bdbdbd' }}>
+                    + {pendingPlan.features.length - 3} more features
+                  </Typography>
+                )}
               </Paper>
-            )}
-            <Alert severity="info" sx={{ backgroundColor: '#1976d2', color: 'white' }}>
-              After completing payment, return to this page. Your subscription will be verified and activated automatically.
-            </Alert>
-          </Box>
+              <Alert severity="info">
+                After completing payment, return here and click "I've Completed
+                Payment" to activate your plan.
+              </Alert>
+            </Box>
+          )}
         </DialogContent>
         <DialogActions sx={{ backgroundColor: '#424242', p: 2 }}>
           <Button
-            onClick={handleCancelPayment}
+            onClick={handleCancelUpgrade}
             variant="outlined"
             sx={{ color: '#bdbdbd', borderColor: '#bdbdbd' }}
           >
             Cancel
           </Button>
           <Button
-            onClick={handleConfirmPayment}
+            onClick={handleConfirmUpgrade}
             variant="contained"
             startIcon={<OpenInNew />}
             sx={{ backgroundColor: '#4caf50', color: 'white', fontWeight: 'bold' }}
@@ -727,31 +690,40 @@ export default function Wallet() {
         </DialogActions>
       </Dialog>
 
-      {/* Waiting for Return from Payment Modal */}
+      {/* ═══════════════════════════════════════════════════════
+          WAITING FOR RETURN MODAL
+      ═══════════════════════════════════════════════════════ */}
       <Dialog
         open={isWaitingForReturn && !isVerifying}
         maxWidth="sm"
         fullWidth
         disableEscapeKeyDown
-        onClose={(event, reason) => {
-          // Prevent closing on backdrop click or escape key
-          if (reason === 'backdropClick' || reason === 'escapeKeyDown') {
-            return;
-          }
+        onClose={(_, reason) => {
+          if (reason === 'backdropClick' || reason === 'escapeKeyDown') return;
         }}
       >
-        <DialogTitle sx={{ backgroundColor: '#424242', color: 'white', display: 'flex', alignItems: 'center', gap: 1, justifyContent: 'center' }}>
+        <DialogTitle
+          sx={{
+            backgroundColor: '#424242',
+            color: 'white',
+            textAlign: 'center',
+            pb: 1,
+          }}
+        >
           <OpenInNew sx={{ fontSize: 40, color: '#4caf50' }} />
         </DialogTitle>
-        <DialogContent sx={{ backgroundColor: '#424242', color: 'white', pt: 3, textAlign: 'center' }}>
+        <DialogContent
+          sx={{ backgroundColor: '#424242', color: 'white', pt: 2, textAlign: 'center' }}
+        >
           <Typography variant="h5" sx={{ mb: 2, fontWeight: 'bold' }}>
             Complete Your Payment
           </Typography>
-          <Typography variant="body1" sx={{ color: '#e0e0e0', mb: 3 }}>
-            A payment window has been opened. After you complete your subscription payment, click the button below to verify and activate your plan.
+          <Typography variant="body1" sx={{ color: '#e0e0e0', mb: 2 }}>
+            A payment tab has been opened. After completing your subscription, click
+            the button below to verify and activate your plan.
           </Typography>
-          <Alert severity="info" sx={{ backgroundColor: '#1976d2', color: 'white', mb: 2 }}>
-            Haven't completed payment yet? The payment window should still be open in another tab.
+          <Alert severity="info" sx={{ mb: 1, textAlign: 'left' }}>
+            Haven't completed payment yet? The payment window should still be open.
           </Alert>
         </DialogContent>
         <DialogActions sx={{ backgroundColor: '#424242', p: 2, justifyContent: 'center' }}>
@@ -759,40 +731,185 @@ export default function Wallet() {
             variant="contained"
             size="large"
             onClick={handleReturnFromPayment}
-            sx={{ backgroundColor: '#4caf50', color: 'white', fontWeight: 'bold', px: 4, py: 1.5 }}
+            sx={{
+              backgroundColor: '#4caf50',
+              color: 'white',
+              fontWeight: 'bold',
+              px: 4,
+              py: 1.5,
+            }}
           >
             I've Completed Payment
           </Button>
         </DialogActions>
       </Dialog>
 
-      {/* Verification Progress */}
+      {/* ═══════════════════════════════════════════════════════
+          VERIFICATION PROGRESS SNACKBAR
+      ═══════════════════════════════════════════════════════ */}
       {isVerifying && (
-        <Paper elevation={4} sx={{ p: 3, backgroundColor: '#424242', color: 'white', mb: 3, textAlign: 'center' }}>
-          <CircularProgress sx={{ color: '#4caf50', mb: 2 }} />
-          <Typography variant="h6" sx={{ mb: 1 }}>
-            Verifying Payment...
-          </Typography>
-          <Typography variant="body2" sx={{ color: '#e0e0e0' }}>
-            Please wait while we confirm your subscription and activate your plan.
-          </Typography>
+        <Paper
+          elevation={6}
+          sx={{
+            position: 'fixed',
+            bottom: 24,
+            right: 24,
+            p: 2,
+            backgroundColor: '#424242',
+            color: 'white',
+            display: 'flex',
+            alignItems: 'center',
+            gap: 2,
+            zIndex: 1400,
+            borderRadius: 2,
+          }}
+        >
+          <CircularProgress size={24} sx={{ color: '#4caf50' }} />
+          <Typography variant="body2">Verifying subscription…</Typography>
         </Paper>
       )}
 
-      {/* Success Message */}
-      {message && (
-        <Alert
-          severity="success"
+      {/* ═══════════════════════════════════════════════════════
+          CANCEL SUBSCRIPTION MODAL
+      ═══════════════════════════════════════════════════════ */}
+      <Dialog
+        open={showCancelModal}
+        onClose={() => setShowCancelModal(false)}
+        maxWidth="sm"
+        fullWidth
+      >
+        <DialogTitle
           sx={{
-            mt: 3,
-            backgroundColor: '#2e7d32',
+            backgroundColor: '#424242',
             color: 'white',
-            '& .MuiAlert-icon': { color: 'white' }
+            display: 'flex',
+            alignItems: 'center',
+            gap: 1,
           }}
         >
-          {message}
-        </Alert>
-      )}
+          <Cancel sx={{ color: '#f44336' }} />
+          Cancel Subscription
+        </DialogTitle>
+        <DialogContent sx={{ backgroundColor: '#424242', color: 'white', pt: 3 }}>
+          <Typography variant="body1" sx={{ mb: 2 }}>
+            Are you sure you want to cancel your{' '}
+            <strong>{PLANS[currentPlan]?.title}</strong> subscription?
+          </Typography>
+          <Alert severity="warning" sx={{ mb: 2 }}>
+            Your subscription will stay active until the end of the current billing
+            period. After that, your account reverts to the Free plan.
+          </Alert>
+          <Typography variant="body2" sx={{ color: '#bdbdbd' }}>
+            You can re-subscribe at any time — all your data will be preserved.
+          </Typography>
+        </DialogContent>
+        <DialogActions sx={{ backgroundColor: '#424242', p: 2 }}>
+          <Button
+            onClick={() => setShowCancelModal(false)}
+            variant="outlined"
+            sx={{ color: '#bdbdbd', borderColor: '#bdbdbd' }}
+          >
+            Keep My Plan
+          </Button>
+          <Button
+            onClick={handleConfirmCancel}
+            variant="contained"
+            color="error"
+            disabled={isCanceling}
+            startIcon={
+              isCanceling ? (
+                <CircularProgress size={16} color="inherit" />
+              ) : (
+                <Cancel />
+              )
+            }
+          >
+            {isCanceling ? 'Cancelling…' : 'Cancel Subscription'}
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* ═══════════════════════════════════════════════════════
+          DOWNGRADE MODAL
+      ═══════════════════════════════════════════════════════ */}
+      <Dialog
+        open={showDowngradeModal}
+        onClose={() => {
+          setShowDowngradeModal(false);
+          setPendingPlan(null);
+        }}
+        maxWidth="sm"
+        fullWidth
+      >
+        <DialogTitle
+          sx={{
+            backgroundColor: '#424242',
+            color: 'white',
+            display: 'flex',
+            alignItems: 'center',
+            gap: 1,
+          }}
+        >
+          <ArrowDownward sx={{ color: '#ff9800' }} />
+          Downgrade Plan
+        </DialogTitle>
+        <DialogContent sx={{ backgroundColor: '#424242', color: 'white', pt: 3 }}>
+          <Typography variant="body1" sx={{ mb: 2 }}>
+            You are downgrading from{' '}
+            <strong style={{ color: PLANS[currentPlan]?.color }}>
+              {PLANS[currentPlan]?.title}
+            </strong>{' '}
+            to{' '}
+            <strong style={{ color: PLANS[selectedPlan]?.color }}>
+              {PLANS[selectedPlan]?.title}
+            </strong>
+            .
+          </Typography>
+          <Alert severity="warning" sx={{ mb: 2 }}>
+            The downgrade takes effect immediately. You will lose access to features
+            exclusive to your current plan.
+          </Alert>
+          <Paper sx={{ p: 2, backgroundColor: '#353535' }}>
+            <Typography variant="subtitle2" sx={{ color: '#bdbdbd', mb: 1 }}>
+              New plan features:
+            </Typography>
+            {PLANS[selectedPlan]?.features.map((f, i) => (
+              <Typography key={i} variant="body2" sx={{ color: '#e0e0e0' }}>
+                • {f}
+              </Typography>
+            ))}
+          </Paper>
+        </DialogContent>
+        <DialogActions sx={{ backgroundColor: '#424242', p: 2 }}>
+          <Button
+            onClick={() => {
+              setShowDowngradeModal(false);
+              setPendingPlan(null);
+            }}
+            variant="outlined"
+            sx={{ color: '#bdbdbd', borderColor: '#bdbdbd' }}
+          >
+            Keep Current Plan
+          </Button>
+          <Button
+            onClick={handleConfirmDowngrade}
+            variant="contained"
+            disabled={isDowngrading}
+            startIcon={
+              isDowngrading ? (
+                <CircularProgress size={16} color="inherit" />
+              ) : (
+                <ArrowDownward />
+              )
+            }
+            sx={{ backgroundColor: '#ff9800', color: 'white', fontWeight: 'bold' }}
+          >
+            {isDowngrading
+              ? 'Downgrading…'
+              : `Downgrade to ${PLANS[selectedPlan]?.title}`}
+          </Button>
+        </DialogActions>
+      </Dialog>
     </Container>
   );
 }

@@ -261,22 +261,35 @@ const CreditPurchases = () => {
         // Transform credit purchases to transaction format
         const creditTransactions = uniqueData
           .map((credit) => {
-            if (!credit.transactionHash) return null;
+            const txId = credit.transactionHash || credit.stripePaymentIntentId || credit.stripeCheckoutSessionId || credit.id;
+            if (!txId) return null;
+
+            const dateStr = credit.created_at
+              ? new Date(credit.created_at).toISOString()
+              : credit.date
+              ? new Date(Number(credit.date)).toISOString()
+              : new Date().toISOString();
+
+            const paymentLabel = credit.paymentMethod === 'stripe'
+              ? 'Stripe'
+              : (credit.currency || credit.paymentMethod || 'N/A');
 
             return {
               id: `credit_${credit.id}`,
               transaction_type: "Credit Purchase",
               credits: credit.credits,
-              amount_usd: credit.amount,
-              title: credit.package + " via " + credit.paymentMethod,
+              amount_usd: credit.amountPaid || credit.amount,
+              title: (credit.package || 'custom') + " via " + paymentLabel,
               buyer_username: credit.username,
               status: credit.status,
-              created_at: new Date(credit.date).toISOString(),
-              message: `Credit Purchase: ${credit.credits} credits via ${credit.currency}`,
+              created_at: dateStr,
+              message: `Credit Purchase: ${credit.credits} credits via ${paymentLabel}`,
               payment_method: credit.paymentMethod,
               payout_method: credit.currency,
               commission_rate: null,
               paymentMethod: credit.paymentMethod,
+              stripePaymentIntentId: credit.stripePaymentIntentId,
+              transactionHash: credit.transactionHash,
             };
           })
           .filter((t) => t !== null);

@@ -166,8 +166,8 @@ const Auth = ({ isLogin, onLoginSuccess }) => {
     setCaptchaFailed(false);
 
     // Proceed to submit the authentication request after CAPTCHA is passed
-    // try {
-    console.log('🚀 Starting authentication process...');
+    try {
+      console.log('🚀 Starting authentication process...');
     if (isLogin) {
       console.log('📝 Processing login for email:', email);
 
@@ -340,11 +340,13 @@ const Auth = ({ isLogin, onLoginSuccess }) => {
 
 
     // } catch (error) {
-    //   console.error('Auth error:', error || 'An error occurred');
-    //   alert(error.message || 'An error occurred during authentication.');
-    //   // Reset CAPTCHA state to allow the user to try again
-    //   setCaptchaPassed(false);
-    //   setShowCaptcha(false);
+    } catch (error) {
+      console.error('Auth error:', error);
+      setAuthError(error.message || 'An error occurred during authentication. Please try again.');
+      // Reset CAPTCHA state to allow the user to try again
+      setCaptchaPassed(false);
+      setShowCaptcha(false);
+    }
     // }
   }, [email, password, username, name, birthday, accountType, isLogin, navigate, onLoginSuccess]);
 

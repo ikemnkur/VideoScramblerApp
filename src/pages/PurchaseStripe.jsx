@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef, use } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import {
   Container,
   Typography,
@@ -14,7 +14,8 @@ import {
   DialogTitle,
   DialogContent,
   DialogActions,
-  CircularProgress
+  CircularProgress,
+  LinearProgress
 } from '@mui/material';
 import {
   CreditCard,
@@ -22,8 +23,55 @@ import {
   TrendingUp,
   CheckCircle,
   OpenInNew,
-  Warning
+  Warning,
+  Timer,
+  CheckCircleOutline
 } from '@mui/icons-material';
+
+const VERIFICATION_WINDOW_SECONDS = 5 * 60; // 5 minutes
+
+function CountdownTimer({ secondsRemaining, totalSeconds }) {
+  const mins = Math.floor(secondsRemaining / 60);
+  const secs = secondsRemaining % 60;
+  const progress = (secondsRemaining / totalSeconds) * 100;
+  const isUrgent = secondsRemaining <= 60;
+  const expired = secondsRemaining <= 0;
+
+  return (
+    <Box sx={{ width: '100%', mt: 2, mb: 1 }}>
+      <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 1, mb: 1 }}>
+        <Timer sx={{ color: isUrgent ? '#f44336' : '#ff9800', fontSize: 20 }} />
+        <Typography
+          variant="h5"
+          sx={{
+            fontFamily: 'monospace',
+            fontWeight: 'bold',
+            color: expired ? '#9e9e9e' : isUrgent ? '#f44336' : '#ff9800',
+            letterSpacing: 2,
+          }}
+        >
+          {expired ? '0:00' : `${mins}:${String(secs).padStart(2, '0')}`}
+        </Typography>
+      </Box>
+      <LinearProgress
+        variant="determinate"
+        value={Math.max(0, progress)}
+        sx={{
+          height: 6,
+          borderRadius: 3,
+          backgroundColor: '#555',
+          '& .MuiLinearProgress-bar': {
+            backgroundColor: expired ? '#9e9e9e' : isUrgent ? '#f44336' : '#ff9800',
+            transition: 'width 1s linear',
+          },
+        }}
+      />
+      <Typography variant="caption" sx={{ color: '#9e9e9e', display: 'block', textAlign: 'center', mt: 0.5 }}>
+        {expired ? 'Automatic window closed — manual verification will be used' : `The server actively listens for new transactions for ${mins}m ${String(secs).padStart(2, '0')}s`}
+      </Typography>
+    </Box>
+  );
+}
 import Stripe from "../components/Stripe";
 import api from '../api/client';
 
@@ -60,8 +108,10 @@ export default function PurchaseStripe() {
   const [startTimestamp, setStartTimestamp] = useState(null);
   const [isVerifying, setIsVerifying] = useState(false);
   const [isWaitingForReturn, setIsWaitingForReturn] = useState(false);
+  const [countdown, setCountdown] = useState(VERIFICATION_WINDOW_SECONDS);
   const paymentWindowRef = useRef(null);
   const checkIntervalRef = useRef(null);
+  const countdownIntervalRef = useRef(null);
 
   const [userData, setUserData] = useState(() => {
     const stored = localStorage.getItem('userdata');
@@ -85,10 +135,15 @@ export default function PurchaseStripe() {
     setSelected(pkgInfo);
   }
 
-  const stripeCheckoutUrl_2_5 = `https://buy.stripe.com/test_14A9ATed1blP9RO8HG5AQ03?client_reference_id=${userData.id}`;
-  const stripeCheckoutUrl_5 = `https://buy.stripe.com/test_28E4gz0mb61v5By1fe5AQ04?client_reference_id=${userData.id}`;
-  const stripeCheckoutUrl_10 = `https://buy.stripe.com/test_bJefZh7ODdtXbZWe205AQ05?client_reference_id=${userData.id}`;
-  const stripeCheckoutUrl_20 = `https://buy.stripe.com/test_3cIeVded14XraVS9LK5AQ06?client_reference_id=${userData.id}`;
+  // const stripeCheckoutUrl_2_5 = `https://buy.stripe.com/test_14A9ATed1blP9RO8HG5AQ03?client_reference_id=${userData.id}`;
+  // const stripeCheckoutUrl_5 = `https://buy.stripe.com/test_28E4gz0mb61v5By1fe5AQ04?client_reference_id=${userData.id}`;
+  // const stripeCheckoutUrl_10 = `https://buy.stripe.com/test_bJefZh7ODdtXbZWe205AQ05?client_reference_id=${userData.id}`;
+  // const stripeCheckoutUrl_20 = `https://buy.stripe.com/test_3cIeVded14XraVS9LK5AQ06?client_reference_id=${userData.id}`;
+
+  const stripeCheckoutUrl_2_5 = `https://buy.stripe.com/test_00w14g0hReVYenH5YZ0sU08?client_reference_id=${userData.id}`;
+  const stripeCheckoutUrl_5 = `https://buy.stripe.com/test_6oUbIUd4D6psbbvdrr0sU06?client_reference_id=${userData.id}`;
+  const stripeCheckoutUrl_10 = `https://buy.stripe.com/test_4gM28kd4D3dgbbv4UV0sU07?client_reference_id=${userData.id}`;
+  const stripeCheckoutUrl_20 = `https://buy.stripe.com/test_4gMdR2aWv0141AV0EF0sU05?client_reference_id=${userData.id}`;
 
   function handleOpenStripePaymentPage(pkgInfo) {
     setMessage(null);
@@ -139,6 +194,12 @@ export default function PurchaseStripe() {
       // Start checking if window is closed
       startWindowCheck();
 
+      // Start 5-minute countdown
+      setCountdown(VERIFICATION_WINDOW_SECONDS);
+      countdownIntervalRef.current = setInterval(() => {
+        setCountdown(prev => (prev > 0 ? prev - 1 : 0));
+      }, 1000);
+
       // Show waiting state
       setIsWaitingForReturn(true);
     }
@@ -176,10 +237,14 @@ export default function PurchaseStripe() {
   }
 
   function handlePaymentWindowClosed() {
-    // Clear the interval
+    // Clear the intervals
     if (checkIntervalRef.current) {
       clearInterval(checkIntervalRef.current);
       checkIntervalRef.current = null;
+    }
+    if (countdownIntervalRef.current) {
+      clearInterval(countdownIntervalRef.current);
+      countdownIntervalRef.current = null;
     }
 
     // Record end timestamp
@@ -282,10 +347,14 @@ export default function PurchaseStripe() {
       duration: `${((endTimestamp - startTimestamp) / 1000).toFixed(2)} seconds`
     });
 
-    // Clear interval and verify
+    // Clear intervals and verify
     if (checkIntervalRef.current) {
       clearInterval(checkIntervalRef.current);
       checkIntervalRef.current = null;
+    }
+    if (countdownIntervalRef.current) {
+      clearInterval(countdownIntervalRef.current);
+      countdownIntervalRef.current = null;
     }
 
     setIsWaitingForReturn(false);
@@ -295,9 +364,8 @@ export default function PurchaseStripe() {
   // Cleanup on unmount
   useEffect(() => {
     return () => {
-      if (checkIntervalRef.current) {
-        clearInterval(checkIntervalRef.current);
-      }
+      if (checkIntervalRef.current) clearInterval(checkIntervalRef.current);
+      if (countdownIntervalRef.current) clearInterval(countdownIntervalRef.current);
     };
   }, []);
 
@@ -544,16 +612,37 @@ export default function PurchaseStripe() {
       {isWaitingForReturn && !isVerifying && (
         <Paper elevation={4} sx={{ p: 3, backgroundColor: '#424242', color: 'white', mb: 3, textAlign: 'center' }}>
           <OpenInNew sx={{ fontSize: 60, color: '#4caf50', mb: 2 }} />
-          <Typography variant="h5" sx={{ mb: 2, fontWeight: 'bold' }}>
+          <Typography variant="h5" sx={{ mb: 1, fontWeight: 'bold' }}>
             Complete Your Payment
           </Typography>
-          <Typography variant="body1" sx={{ color: '#e0e0e0', mb: 3 }}>
-            A payment window has been opened. After you complete your payment, click the button below to verify and credit your account.
+          <Typography variant="body1" sx={{ color: '#e0e0e0', mb: 2 }}>
+            A payment window has been opened. After completing payment, return here and click the button below.
           </Typography>
+
+          {/* Countdown timer */}
+          <Paper sx={{ p: 2, mb: 2, backgroundColor: '#353535', borderRadius: 2 }}>
+            <Typography variant="subtitle2" sx={{ color: '#bdbdbd', mb: 0.5, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 0.5 }}>
+              <Timer fontSize="small" />
+              Automatic Verification Window
+            </Typography>
+            <Typography variant="body2" sx={{ color: '#e0e0e0', mb: 1 }}>
+              You have <strong style={{ color: '#ff9800' }}>5 minutes</strong> to complete the transaction for
+              automatic verification. After that, manual verification will be performed.
+            </Typography>
+            <CountdownTimer secondsRemaining={countdown} totalSeconds={VERIFICATION_WINDOW_SECONDS} />
+          </Paper>
+
+          {countdown === 0 && (
+            <Alert severity="warning" sx={{ mb: 2, textAlign: 'left' }}>
+              The automatic verification window has closed. You can still click below — manual verification will be used to confirm your payment.
+            </Alert>
+          )}
+
           <Button
             variant="contained"
             size="large"
             onClick={handleReturnFromPayment}
+            startIcon={<CheckCircleOutline />}
             sx={{ backgroundColor: '#4caf50', color: 'white', fontWeight: 'bold', px: 4, py: 1.5 }}
           >
             I've Completed Payment
