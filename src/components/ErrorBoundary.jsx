@@ -132,7 +132,7 @@ class ErrorBoundary extends React.Component {
             </Box>
 
             {/* Show stack trace in development mode */}
-            {process.env.NODE_ENV === 'development' && this.state.errorInfo && (
+            {import.meta.env.DEV && this.state.errorInfo && (
               <Box sx={{ mt: 4, textAlign: 'left' }}>
                 <Typography variant="h6" sx={{ mb: 2, color: '#ff9800' }}>
                   Error Details (Development Mode)

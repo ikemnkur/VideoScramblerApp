@@ -95,9 +95,9 @@ const PLANS = {
 };
 
 const STRIPE_CHECKOUT_URLS = {
-  basic: process.env.BASIC_PLAN+`?client_reference_id=${userData.id}` || `https://buy.stripe.com/test_5kQ3co2pZg021AVbjj0sU0b?client_reference_id=${userData.id}`,
-  standard: process.env.STANDARD_PLAN+`?client_reference_id=${userData.id}` || `https://buy.stripe.com/test_aFa3cod4D29cgvP9bb0sU0a?client_reference_id=${userData.id}`,
-  premium: process.env.PREMIUM_PLAN+`?client_reference_id=${userData.id}` || `https://buy.stripe.com/test_eVq5kw2pZ6ps7Zj8770sU09?client_reference_id=${userData.id}`,
+  basic: import.meta.env.VITE_BASIC_PLAN || 'https://buy.stripe.com/test_5kQ3co2pZg021AVbjj0sU0b',
+  standard: import.meta.env.VITE_STANDARD_PLAN || 'https://buy.stripe.com/test_aFa3cod4D29cgvP9bb0sU0a',
+  premium: import.meta.env.VITE_PREMIUM_PLAN || 'https://buy.stripe.com/test_eVq5kw2pZ6ps7Zj8770sU09',
 };
 
 async function fetchUserIP() {
