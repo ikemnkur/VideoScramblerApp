@@ -40,7 +40,7 @@ api.interceptors.response.use(
     // const subPage = window.location.pathname.startsWith('/sub');
 
     // Check if the current path is the info page
-    let paths = ["/info", "/help", "/ads", "/unlock", "/sub", '/login', '/register', '/', '/info', '/create-ad', "/ad-analytics", "/ad-help", '/ads', '/display-ad', '/preview-ad', "/ads-service", "/test-ad", "/ads", "/ads-join", "/ads-login", "/preview/pending-ad"]
+    let paths = ["/info", "/help", "/ads", "/unlock", "/sub", '/login', '/register', '/', '/info', '/create-ad', "/ad-analytics", "/ad-help", '/ads', '/display-ad', '/preview-ad', "/ads-service", "/test-ad", "/ads", "/ads-join", "/ads-login", "/preview/pending-ad", "/purchase-stripe", "/purchase-crypto", "/purchase-paypal", "/purchase-cashapp", "/stripe/success", "/plans"]
 
     // Check if current path starts with '/unlock', to handle dynamic unlock paths like '/unlock/:itemid'
     const isExempted = paths.some(path => location.pathname.startsWith(path));
