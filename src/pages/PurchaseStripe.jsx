@@ -143,7 +143,7 @@ export default function PurchaseStripe() {
   const stripeCheckoutUrl_2_5 = `https://buy.stripe.com/test_00w14g0hReVYenH5YZ0sU08?client_reference_id=${userData.id}`;
   const stripeCheckoutUrl_5 = `https://buy.stripe.com/test_6oUbIUd4D6psbbvdrr0sU06?client_reference_id=${userData.id}`;
   const stripeCheckoutUrl_10 = `https://buy.stripe.com/test_4gM28kd4D3dgbbv4UV0sU07?client_reference_id=${userData.id}`;
-  const stripeCheckoutUrl_20 = `https://buy.stripe.com/test_4gMdR2aWv0141AV0EF0sU05?client_reference_id=${userData.id}`;
+  const stripeCheckoutUrl_20 = `https://buy.stripe.com/test_fZu6oAggP1580wR4UV0sU0c?client_reference_id=${userData.id}`;
 
   function handleOpenStripePaymentPage(pkgInfo) {
     setMessage(null);
