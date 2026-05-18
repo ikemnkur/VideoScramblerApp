@@ -12,22 +12,12 @@ import {
   Select,
   MenuItem,
   Divider,
-  Chip,
-  Card,
-  CardContent,
-  Stack,
-  IconButton,
-  alpha,
+  Table,
+  TableHead,
+  TableRow,
+  TableCell,
+  TableBody,
 } from "@mui/material";
-import LockIcon from "@mui/icons-material/Lock";
-import PhotoCameraIcon from "@mui/icons-material/PhotoCamera";
-import VideocamIcon from "@mui/icons-material/Videocam";
-import Music from "@mui/icons-material/MusicNote";
-import SearchIcon from "@mui/icons-material/Search";
-import FeedbackIcon from "@mui/icons-material/Feedback";
-import PlayCircleOutlineIcon from "@mui/icons-material/PlayCircleOutline";
-import ArrowForwardIcon from "@mui/icons-material/ArrowForward";
-import NewReleasesIcon from "@mui/icons-material/NewReleases";
 
 
 const Info = () => {
@@ -631,526 +621,701 @@ const Info = () => {
     console.log("Searching FAQ with:", faqSearch);
   };
 
-  const GOLD = "#c2a800";
-  const GREEN = "#00e676";
-  const BG = "#0a0a0a";
-  const SURFACE = "#111111";
-  const SURFACE2 = "#181818";
-
-  const glassCard = {
-    background: `linear-gradient(135deg, rgba(255,255,255,0.04) 0%, rgba(255,255,255,0.01) 100%)`,
-    backdropFilter: "blur(12px)",
-    border: `1px solid rgba(255,255,255,0.08)`,
-    borderRadius: 3,
-    overflow: "hidden",
-  };
-
-  const inputSx = (accent = GOLD) => ({
-    mb: 2,
-    "& .MuiInputLabel-root": { color: "rgba(255,255,255,0.45)" },
-    "& .MuiInputLabel-root.Mui-focused": { color: accent },
-    "& .MuiOutlinedInput-root": {
-      backgroundColor: "rgba(255,255,255,0.04)",
-      color: "#fff",
-      borderRadius: 2,
-      "& fieldset": { borderColor: "rgba(255,255,255,0.12)" },
-      "&:hover fieldset": { borderColor: accent },
-      "&.Mui-focused fieldset": { borderColor: accent },
-    },
-  });
-
   if (isLoading) {
     return (
-      <Box sx={{ display: "flex", justifyContent: "center", alignItems: "center", minHeight: "60vh" }}>
-        <CircularProgress sx={{ color: GOLD }} />
+      <Box sx={{ display: "flex", justifyContent: "center", mt: 4 }}>
+        <CircularProgress />
       </Box>
     );
   }
 
   if (error) {
-    return (
-      <Box sx={{ display: "flex", justifyContent: "center", mt: 8 }}>
-        <Typography color="error">{error}</Typography>
-      </Box>
-    );
+    return <Typography color="error">{error}</Typography>;
   }
 
-  const features = [
-    { icon: <VideocamIcon sx={{ fontSize: 28 }} />, label: "Video Scrambler", desc: "Tile-scramble your videos so only key holders can view them." },
-    { icon: <PhotoCameraIcon sx={{ fontSize: 28 }} />, label: "Photo Scrambler", desc: "Scramble photos into unreadable mosaics with one click." },
-     { icon: <Music sx={{ fontSize: 28 }} />, label: "Audio Scrambler", desc: "Scramble audio into shuffled and noisy patterns with one click." },
-    // { icon: <LockIcon sx={{ fontSize: 28 }} />, label: "Encryption Keys", desc: "End-to-end key management — you control who unlocks your content." },
-    { icon: <SearchIcon sx={{ fontSize: 28 }} />, label: "Leak Detector", desc: "Track and detect if your scrambled content has leaked anywhere online." },
-  ];
-
-  const howToChapters = [
-    { label: "Using the Scramblers", time: 60, sub: [
-      { label: "Photos", time: 10 },
-      { label: "Videos", time: 25 },
-      { label: "Audio", time: 45 },
-    ]},
-    { label: "Unscrambling", time: 60, sub: [
-      { label: "Photo / Videos / Audio", time: 60 },
-      { label: "Using the Leak Detector", time: 120 },
-    ]},
-  ];
-
   return (
-    <Box sx={{ backgroundColor: BG, minHeight: "100vh", color: "#fff", pb: 10 }}>
-
-      {/* ── Hero ─────────────────────────────────────── */}
-      <Box
+    <Box
+      sx={{
+        p: { xs: 2, md: 4 },
+        maxWidth: "1200px",
+        mx: "auto",
+        display: "flex",
+        flexDirection: "column",
+        gap: 4,
+        minHeight: "100vh",
+        backgroundColor: "#0a0a0a", // Deep black background
+        color: "#ffffff", // White text
+      }}
+    >
+      <Typography
+        variant="h4"
+        align="center"
+        gutterBottom
         sx={{
-          position: "relative",
-          overflow: "hidden",
-          pt: { xs: 8, md: 12 },
-          pb: { xs: 8, md: 12 },
-          px: { xs: 3, md: 6 },
-          textAlign: "center",
-          "&::before": {
-            content: '""',
-            position: "absolute",
-            inset: 0,
-            background: `radial-gradient(ellipse 80% 60% at 50% 0%, ${alpha(GOLD, 0.18)} 0%, transparent 70%)`,
-            pointerEvents: "none",
-          },
+          color: "#ffd700", // Gold/yellow text
+          fontWeight: "bold",
+          textShadow: "0 0 10px rgba(255, 215, 0, 0.5)",
+          mb: 4,
         }}
       >
-        <Chip
-          label="Now Live"
-          size="small"
-          icon={<NewReleasesIcon sx={{ fontSize: "14px !important", color: `${GREEN} !important` }} />}
+        Welcome to Scramblurr!
+      </Typography>
+
+      {/* Main Sections */}
+      <Box
+        sx={{
+          display: "flex",
+          flexDirection: { xs: "column", md: "row" },
+          gap: 3,
+        }}
+      >
+        {/* Explanation Section */}
+        <Paper
           sx={{
-            mb: 3,
-            backgroundColor: alpha(GREEN, 0.12),
-            color: GREEN,
-            border: `1px solid ${alpha(GREEN, 0.3)}`,
-            fontWeight: 700,
-            fontSize: 12,
-            letterSpacing: 0.5,
-          }}
-        />
-        <Typography
-          variant="h2"
-          sx={{
-            fontWeight: 900,
-            fontSize: { xs: "2.4rem", md: "3.6rem" },
-            lineHeight: 1.1,
-            mb: 2,
-            background: `linear-gradient(135deg, #ffffff 30%, ${GOLD} 100%)`,
-            WebkitBackgroundClip: "text",
-            WebkitTextFillColor: "transparent",
+            flex: 1,
+            p: 3,
+            backgroundColor: "#1a1a1a", // Dark background
+            color: "#ffffff", // White text
+            border: "1px solid #ffd700", // Gold border
+            boxShadow: "0 4px 20px rgba(255, 215, 0, 0.2)",
           }}
         >
-          Scramble. Protect. Control.
-        </Typography>
-        <Typography
-          variant="h6"
-          sx={{ color: "rgba(255,255,255,0.5)", fontWeight: 400, maxWidth: 560, mx: "auto", mb: 5, fontSize: { xs: "1rem", md: "1.15rem" } }}
-        >
-          Scramblurr lets creators lock exclusive content behind scrambling
-          algorithms — no more leaks, total control over who sees what.
-        </Typography>
-        <Stack direction={{ xs: "column", sm: "row" }} spacing={2} justifyContent="center">
-          {!localStorage.getItem("userdata") ? (
-            <Button
-              variant="contained"
-              size="large"
-              endIcon={<ArrowForwardIcon />}
-              onClick={() => navigate("/login")}
-              sx={{
-                backgroundColor: GOLD,
-                color: "#000",
-                px: 4,
-                py: 1.5,
-                fontSize: "1rem",
-                "&:hover": { backgroundColor: "#d4b800", boxShadow: `0 0 24px ${alpha(GOLD, 0.5)}` },
-              }}
-            >
-              Get Started
-            </Button>
-          ) : (
-            <Button
-              variant="contained"
-              size="large"
-              endIcon={<ArrowForwardIcon />}
-              onClick={() => (window.location.href = "/dashboard")}
-              sx={{
-                backgroundColor: GREEN,
-                color: "#000",
-                px: 4,
-                py: 1.5,
-                fontSize: "1rem",
-                "&:hover": { backgroundColor: "#00c853", boxShadow: `0 0 24px ${alpha(GREEN, 0.5)}` },
-              }}
-            >
-              Go to Dashboard
-            </Button>
-          )}
-          <Button
-            variant="outlined"
-            size="large"
-            onClick={handleOpenSupportModal}
+          <Typography
+            variant="h5"
+            gutterBottom
             sx={{
-              borderColor: "rgba(255,255,255,0.18)",
-              color: "rgba(255,255,255,0.7)",
-              px: 4,
-              py: 1.5,
-              fontSize: "1rem",
-              "&:hover": { borderColor: "rgba(255,255,255,0.4)", backgroundColor: "rgba(255,255,255,0.05)" },
+              color: "#00e676", // Green accent for headings
+              fontWeight: "bold",
+              mb: 3,
             }}
           >
-            Give Feedback
-          </Button>
-        </Stack>
-      </Box>
-
-      {/* ── Feature Cards ────────────────────────────── */}
-      <Box sx={{ maxWidth: 1100, mx: "auto", px: { xs: 2, md: 4 }, mb: 8 }}>
-        <Box
-          sx={{
-            display: "grid",
-            gridTemplateColumns: { xs: "1fr 1fr", md: "repeat(4, 1fr)" },
-            gap: 2,
-          }}
-        >
-          {features.map((f) => (
-            <Box key={f.label} sx={{ ...glassCard, p: 3 }}>
-              <Box
-                sx={{
-                  width: 52,
-                  height: 52,
-                  borderRadius: 2,
-                  backgroundColor: alpha(GOLD, 0.12),
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "center",
-                  color: GOLD,
-                  mb: 2,
-                }}
-              >
-                {f.icon}
-              </Box>
-              <Typography variant="subtitle1" sx={{ fontWeight: 700, color: "#fff", mb: 0.5 }}>
-                {f.label}
-              </Typography>
-              <Typography variant="body2" sx={{ color: "rgba(255,255,255,0.45)", lineHeight: 1.5 }}>
-                {f.desc}
-              </Typography>
-            </Box>
-          ))}
-        </Box>
-      </Box>
-
-      {/* ── Main Content Row ──────────────────────────── */}
-      <Box
-        sx={{
-          maxWidth: 1100,
-          mx: "auto",
-          px: { xs: 2, md: 4 },
-          display: "grid",
-          gridTemplateColumns: { xs: "1fr", md: "1fr 1fr 1fr" },
-          gap: 3,
-          mb: 8,
-          alignItems: "start",
-        }}
-      >
-        {/* What is Scramblurr */}
-        <Box sx={{ ...glassCard, gridColumn: { xs: "1", md: "1 / 2" } }}>
-          <Box sx={{ p: 3 }}>
-            <Typography variant="overline" sx={{ color: GOLD, letterSpacing: 2, fontWeight: 700, fontSize: 11 }}>
-              About
-            </Typography>
-            <Typography variant="h5" sx={{ fontWeight: 800, color: "#fff", mt: 0.5, mb: 2 }}>
-              What is Scramblurr?
-            </Typography>
-            <Typography variant="body2" sx={{ color: "rgba(255,255,255,0.55)", lineHeight: 1.75, mb: 3 }}>
-              Scramblurr is a platform that lets content creators upload videos or
-              images and scramble them to hide exclusive content — solely for their
-              subscribers or followers. No more worrying about leaks; our scrambling
-              algorithms have you covered.
-            </Typography>
-          </Box>
-          <Box sx={{ position: "relative", paddingBottom: "56.25%", height: 0, overflow: "hidden" }}>
+            What is Scramblurr
+          </Typography>
+          <Typography
+            variant="body1"
+            sx={{
+              mb: 2,
+              color: "#e0e0e0", // Light gray text for readability
+              lineHeight: 1.6,
+            }}
+          >
+            Scramblurr is a platform that allows content creators to upload
+            videos or images and scramble them up to hide/obscure exclusive
+            content solely for their subscribers or followers. Stop, no more
+            worrying about leaks, scrambling algoritms have you covered.
+          </Typography>
+          <Box
+            sx={{
+              position: "relative",
+              paddingBottom: "56.25%",
+              height: 0,
+              overflow: "hidden",
+              mb: 2,
+            }}
+          >
             <iframe
               src="https://www.youtube.com/embed/FMVZezVXhoo?si=ZVhyeAhF5NsRPT_Y"
               title="Intro Video"
               allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
               allowFullScreen
-              style={{ position: "absolute", top: 0, left: 0, width: "100%", height: "100%", border: 0 }}
-            />
+              style={{
+                position: "absolute",
+                top: 0,
+                left: 0,
+                width: "100%",
+                height: "100%",
+                border: 0,
+              }}
+            ></iframe>
           </Box>
-        </Box>
+          <Box
+            sx={{
+              display: "flex",
+              flexWrap: "wrap",
+              gap: 1,
+              justifyContent: "center",
+            }}
+          >
+            {/* if the user is not logged in */}
+            {localStorage.getItem("userdata") ? null : (
+              <Button
+                variant="outlined"
+                onClick={() => navigate("/login")}
+                sx={{
+                  borderColor: "#ffd700",
+                  color: "#ffd700",
+                  "&:hover": {
+                    borderColor: "#ffed4e",
+                    backgroundColor: "rgba(255, 215, 0, 0.1)",
+                    color: "#ffed4e",
+                  },
+                }}
+              >
+                Log In to Scramblurr
+              </Button>
+            )}
 
-        {/* News */}
-        <Box sx={{ ...glassCard }}>
-          <Box sx={{ p: 3 }}>
-            <Typography variant="overline" sx={{ color: GREEN, letterSpacing: 2, fontWeight: 700, fontSize: 11 }}>
-              Updates
-            </Typography>
-            <Typography variant="h5" sx={{ fontWeight: 800, color: "#fff", mt: 0.5, mb: 3 }}>
-              News
-            </Typography>
-            <Stack spacing={2.5}>
-              {[
-                { label: "We just launched!", body: "Enjoy the service — new scrambling filters and algorithms are coming soon!", tag: "Live" },
-                { label: "PWA coming soon", body: "We plan to release a web-app version you can install on your phone.", tag: "Upcoming" },
-                { label: "Audio Scrambler", body: "Audio Scrambler mode coming soon for Basic Plan members and higher.", tag: "Upcoming" },
-                { label: "Better Leak Detection", body: "Improved Leak Detector modes coming soon for Premium Plan members.", tag: "Upcoming" },
-              ].map((item) => (
-                <Box key={item.label} sx={{ display: "flex", gap: 2, alignItems: "flex-start" }}>
-                  <Chip
-                    label={item.tag}
-                    size="small"
-                    sx={{
-                      mt: 0.25,
-                      flexShrink: 0,
-                      height: 20,
-                      fontSize: 10,
-                      fontWeight: 700,
-                      backgroundColor: item.tag === "Live" ? alpha(GREEN, 0.15) : alpha(GOLD, 0.12),
-                      color: item.tag === "Live" ? GREEN : GOLD,
-                      border: `1px solid ${item.tag === "Live" ? alpha(GREEN, 0.3) : alpha(GOLD, 0.3)}`,
-                    }}
-                  />
-                  <Box>
-                    <Typography variant="subtitle2" sx={{ fontWeight: 700, color: "#fff", lineHeight: 1.3 }}>
-                      {item.label}
-                    </Typography>
-                    <Typography variant="body2" sx={{ color: "rgba(255,255,255,0.45)", lineHeight: 1.55, mt: 0.3 }}>
-                      {item.body}
-                    </Typography>
-                  </Box>
-                </Box>
-              ))}
-            </Stack>
-          </Box>
-        </Box>
+            {/* if the user is logged in */}
+            {!localStorage.getItem("userdata") ? null : (
+              <Button
+                variant="outlined"
+                onClick={() => window.location.href = "/dashboard"}
+                sx={{
+                  borderColor: "#00e676",
+                  color: "#00e676",
+                  "&:hover": {
+                    borderColor: "#00c853",
+                    backgroundColor: "rgba(0, 230, 118, 0.1)",
+                    color: "#00c853",
+                  },
+                }}
+              >
+                Go to Dashboard
+              </Button>
+            )}
 
-        {/* How to Use */}
-        <Box sx={{ ...glassCard }}>
-          <Box sx={{ p: 3 }}>
-            <Typography variant="overline" sx={{ color: GREEN, letterSpacing: 2, fontWeight: 700, fontSize: 11 }}>
-              Tutorial
-            </Typography>
-            <Typography variant="h5" sx={{ fontWeight: 800, color: "#fff", mt: 0.5, mb: 2 }}>
-              How to Use
-            </Typography>
-            <Typography variant="body2" sx={{ color: "rgba(255,255,255,0.45)", mb: 2, lineHeight: 1.65 }}>
-              Watch the quick tutorial below. Jump to any chapter with the buttons.
-            </Typography>
           </Box>
-          <Box sx={{ position: "relative", paddingBottom: "56.25%", height: 0, overflow: "hidden" }}>
-            <iframe
-              ref={howToVideoRef}
-              src="https://www.youtube.com/embed/FMVZezVXhoo?si=ZVhyeAhF5NsRPT_Y"
-              title="How-to Video"
-              allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-              allowFullScreen
-              style={{ position: "absolute", top: 0, left: 0, width: "100%", height: "100%", border: 0 }}
-            />
-          </Box>
-          <Box sx={{ p: 3 }}>
-            {howToChapters.map((chapter, ci) => (
-              <Box key={chapter.label} sx={{ mb: ci < howToChapters.length - 1 ? 2.5 : 0 }}>
-                <Box sx={{ display: "flex", alignItems: "center", gap: 1, mb: 1 }}>
-                  <Button
-                    variant="contained"
-                    size="small"
-                    onClick={() => handleSeekTo(chapter.time)}
-                    sx={{
-                      minWidth: 0,
-                      px: 1.5,
-                      py: 0.25,
-                      fontSize: 11,
-                      height: 24,
-                      backgroundColor: GOLD,
-                      color: "#000",
-                      "&:hover": { backgroundColor: "#d4b800" },
-                    }}
-                  >
-                    Go
-                  </Button>
-                  <Typography variant="subtitle2" sx={{ fontWeight: 700, color: "#fff" }}>
-                    {chapter.label}
-                  </Typography>
-                </Box>
-                <Stack spacing={0.75} sx={{ pl: 1.5, borderLeft: `2px solid rgba(255,255,255,0.07)` }}>
-                  {chapter.sub.map((s) => (
-                    <Box key={s.label} sx={{ display: "flex", alignItems: "center", gap: 1 }}>
-                      <Button
-                        variant="text"
-                        size="small"
-                        onClick={() => handleSeekTo(s.time)}
-                        sx={{
-                          minWidth: 0,
-                          px: 1,
-                          py: 0,
-                          fontSize: 11,
-                          height: 22,
-                          color: GREEN,
-                          "&:hover": { backgroundColor: alpha(GREEN, 0.08) },
-                        }}
-                      >
-                        Go
-                      </Button>
-                      <Typography variant="body2" sx={{ color: "rgba(255,255,255,0.45)" }}>
-                        {s.label}
-                      </Typography>
-                    </Box>
-                  ))}
-                </Stack>
-                {ci < howToChapters.length - 1 && (
-                  <Divider sx={{ mt: 2, borderColor: "rgba(255,255,255,0.06)" }} />
-                )}
-              </Box>
-            ))}
-          </Box>
-        </Box>
-      </Box>
+        </Paper>
 
-      {/* ── Feedback CTA ─────────────────────────────── */}
-      <Box sx={{ maxWidth: 1100, mx: "auto", px: { xs: 2, md: 4 } }}>
-        <Box
+        {/* News Section */}
+        <Paper
           sx={{
-            position: "relative",
-            overflow: "hidden",
-            borderRadius: 4,
-            border: `1px solid rgba(255,255,255,0.08)`,
-            p: { xs: 4, md: 6 },
-            textAlign: "center",
-            "&::before": {
-              content: '""',
-              position: "absolute",
-              inset: 0,
-              background: `radial-gradient(ellipse 70% 80% at 50% 50%, ${alpha(GREEN, 0.1)} 0%, transparent 70%)`,
-              pointerEvents: "none",
-            },
+            flex: 1,
+            p: 3,
+            backgroundColor: "#1a1a1a",
+            color: "#ffffff",
+            border: "1px solid #ffd700",
+            boxShadow: "0 4px 20px rgba(255, 215, 0, 0.2)",
           }}
         >
-          <FeedbackIcon sx={{ fontSize: 40, color: GREEN, mb: 2, opacity: 0.8 }} />
-          <Typography variant="h4" sx={{ fontWeight: 800, color: "#fff", mb: 1 }}>
-            Help us improve
+          <Typography
+            variant="h6"
+            gutterBottom
+            sx={{
+              color: "#00e676",
+              fontWeight: "bold",
+              mb: 2,
+            }}
+          >
+            News
           </Typography>
-          <Typography variant="body1" sx={{ color: "rgba(255,255,255,0.45)", mb: 4, maxWidth: 440, mx: "auto" }}>
-            Share bugs, ideas, or anything on your mind. Every piece of feedback shapes what we build next.
+          <Typography
+            variant="body1"
+            sx={{
+              mb: 2,
+              color: "#e0e0e0",
+              lineHeight: 1.6,
+            }}
+          >
+            {/* <strong> Welcome to our News & Info page! </strong> */}
+            We just launched, enjoy the service, new features are coming soon
+            (new scrambling filters and algorithms)!!! Be sure to leave you
+            opinion coming soon.
+            {/* <strong>• Next steps: </strong> */}
+            <p>
+              {" "}
+              <strong>Next steps: </strong>
+              We plan to release a web-app version that you can download on your
+              phone.
+            </p>
+            <p>
+              Audio Scrambler mode coming soon (for Basic Plan members and higher)
+            </p>
+
+            Better Leak Detector modes coming soon (for Premium Plan members)
+          </Typography>
+          <Box
+            sx={{
+              position: "relative",
+              paddingBottom: "56.25%",
+              height: 0,
+              overflow: "hidden",
+            }}
+          >
+            <iframe
+              src="https://www.youtube.com/embed/FMVZezVXhoo?si=ZVhyeAhF5NsRPT_Y"
+              title="News Video"
+              allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+              allowFullScreen
+              style={{
+                position: "absolute",
+                top: 0,
+                left: 0,
+                width: "100%",
+                height: "100%",
+                border: 0,
+              }}
+            ></iframe>
+          </Box>
+        </Paper>
+
+        {/* How to Use Section */}
+        <Paper
+          sx={{
+            flex: 1,
+            p: 3,
+            backgroundColor: "#1a1a1a",
+            color: "#ffffff",
+            border: "1px solid #ffd700",
+            boxShadow: "0 4px 20px rgba(255, 215, 0, 0.2)",
+          }}
+        >
+          <Typography
+            variant="h6"
+            gutterBottom
+            sx={{
+              color: "#00e676",
+              fontWeight: "bold",
+              mb: 2,
+            }}
+          >
+            How to Use
+          </Typography>
+          <Box sx={{ display: "flex", flexDirection: "column", gap: 1 }}>
+            <Typography
+              variant="body1"
+              sx={{
+                mb: 1,
+                color: "#e0e0e0",
+                lineHeight: 1.6,
+              }}
+            >
+              Below is a quick tutorial video on how to use Scramblurr. You
+              can click "Go" next to each section to jump to that part of the
+              video.
+            </Typography>
+
+            <Box
+              sx={{
+                position: "relative",
+                paddingBottom: "56.25%",
+                height: 0,
+                overflow: "hidden",
+                mt: 2,
+              }}
+            >
+              <iframe
+                ref={howToVideoRef}
+                src="https://www.youtube.com/embed/FMVZezVXhoo?si=ZVhyeAhF5NsRPT_Y"
+                title="How-to Video"
+                allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                allowFullScreen
+                style={{
+                  position: "absolute",
+                  top: 0,
+                  left: 0,
+                  width: "100%",
+                  height: "100%",
+                  border: 0,
+                }}
+              ></iframe>
+            </Box>
+            <Divider sx={{ backgroundColor: "#ffd700", opacity: 0.7 }} />
+            <Typography
+              variant="h6"
+              sx={{ color: "#ffd700", fontWeight: "bold" }}
+            >
+              <Button
+                variant="text"
+                onClick={() => handleSeekTo(60)}
+                sx={{
+                  color: "#00e676",
+                  fontWeight: "bold",
+                  "&:hover": { backgroundColor: "rgba(0, 230, 118, 0.1)" },
+                }}
+              >
+                Go
+              </Button>{" "}
+              • Using the Scramblers
+            </Typography>
+            {/* List of sections with "Go" buttons */}
+            <Typography variant="body2" sx={{ color: "#e0e0e0" }}>
+              <Button
+                variant="text"
+                onClick={() => handleSeekTo(10)}
+                sx={{
+                  color: "#00e676",
+                  "&:hover": { backgroundColor: "rgba(0, 230, 118, 0.1)" },
+                }}
+              >
+                Go
+              </Button>{" "}
+              • Photos
+            </Typography>
+
+            <Typography variant="body2" sx={{ color: "#e0e0e0" }}>
+              <Button
+                variant="text"
+                onClick={() => handleSeekTo(35)}
+                sx={{
+                  color: "#00e676",
+                  "&:hover": { backgroundColor: "rgba(0, 230, 118, 0.1)" },
+                }}
+              >
+                Go
+              </Button>{" "}
+              • Videos
+            </Typography>
+
+            <Divider sx={{ backgroundColor: "#ffd700", opacity: 0.7 }} />
+            <Typography
+              variant="h6"
+              sx={{ color: "#ffd700", fontWeight: "bold" }}
+            >
+              <Button
+                variant="text"
+                onClick={() => handleSeekTo(60)}
+                sx={{
+                  color: "#00e676",
+                  fontWeight: "bold",
+                  "&:hover": { backgroundColor: "rgba(0, 230, 118, 0.1)" },
+                }}
+              >
+                Go
+              </Button>{" "}
+              • Unscrambling
+            </Typography>
+            {/* <Divider sx={{ backgroundColor: '#ffd700', opacity: 0.7 }} /> */}
+            <Typography variant="body2" sx={{ color: "#e0e0e0" }}>
+              <Button
+                variant="text"
+                onClick={() => handleSeekTo(45)}
+                sx={{
+                  color: "#00e676",
+                  "&:hover": { backgroundColor: "rgba(0, 230, 118, 0.1)" },
+                }}
+              >
+                Go
+              </Button>{" "}
+              • Photo/Videos
+            </Typography>
+            <Typography variant="body2" sx={{ color: "#e0e0e0" }}>
+              <Button
+                variant="text"
+                onClick={() => handleSeekTo(20)}
+                sx={{
+                  color: "#00e676",
+                  "&:hover": { backgroundColor: "rgba(0, 230, 118, 0.1)" },
+                }}
+              >
+                Go
+              </Button>{" "}
+              • Using the Leak Detector
+            </Typography>
+          </Box>
+        </Paper>
+      </Box>
+
+      {/* Support Section */}
+      <Box
+        sx={{
+          textAlign: "center",
+          backgroundColor: "#1a1a1a",
+          p: 4,
+          borderRadius: 2,
+          border: "1px solid #ffd700",
+          boxShadow: "0 4px 20px rgba(255, 215, 0, 0.2)",
+        }}
+      >
+        <Typography
+          variant="h4"
+          gutterBottom
+          sx={{
+            color: "#ffd700",
+            fontWeight: "bold",
+            textShadow: "0 0 10px rgba(255, 215, 0, 0.5)",
+            mb: 3,
+          }}
+        >
+          Tell us what you think! Give us Feedback?
+        </Typography>
+        <Box
+          sx={{
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            gap: 2,
+          }}
+        >
+          <Typography variant="body1" sx={{ color: "#e0e0e0" }}>
+            Submit a feedback ticket
           </Typography>
           <Button
             variant="contained"
-            size="large"
             onClick={handleOpenSupportModal}
-            endIcon={<FeedbackIcon />}
             sx={{
-              backgroundColor: GREEN,
-              color: "#000",
-              px: 5,
-              py: 1.5,
-              fontSize: "1rem",
-              "&:hover": { backgroundColor: "#00c853", boxShadow: `0 0 28px ${alpha(GREEN, 0.45)}` },
+              backgroundColor: "#00e676",
+              color: "#000000",
+              fontWeight: "bold",
+              "&:hover": {
+                backgroundColor: "#00c853",
+                boxShadow: "0 0 15px rgba(0, 230, 118, 0.5)",
+              },
             }}
           >
-            Send Feedback
+            Feedback
           </Button>
         </Box>
       </Box>
 
-      {/* ── Support Ticket Modal ──────────────────────── */}
-      <Modal open={openSupportModal} onClose={handleCloseSupportModal} aria-labelledby="support-modal-title">
+      {/* Advertisement Section */}
+      {/* <Paper
+        elevation={1}
+        sx={{
+          p: 0, // Remove padding to let AdObject handle its own spacing
+          mt: 2,
+          overflow: 'hidden', // Prevent content overflow
+          borderRadius: 2
+        }}
+      >
+        <Box sx={{ p: 1, textAlign: 'center', backgroundColor: '#f5f5f5' }}>
+          <Typography variant="caption" color="text.secondary" sx={{ fontSize: '10px' }}>
+            Advertisement
+          </Typography>
+        </Box>
+
+        {/* AdObject Component */}
+      {/* <AdObject
+          onAdView={(ad) => console.log('Ad viewed:', ad)}
+          onAdClick={(ad) => console.log('Ad clicked:', ad)}
+          onAdSkip={(ad) => console.log('Ad skipped:', ad)}
+          onRewardClaim={(ad, amount) => console.log('Reward claimed:', amount)}
+          RewardModal={({ onClose, onReward }) => (
+            <div style={{ }}>
+              <button onClick={() => onReward(5)}>Claim Credits</button>
+              <button onClick={onClose}>Close</button>
+            </div>
+          )}
+          showRewardProbability={0.1} // 10% chance to show reward button
+          filters={{ format: 'video', mediaFormat: 'regular' }} // Only show video ads for this placement
+          style={{
+            minHeight: '200px', // Ensure minimum height
+            borderRadius: 0 // Remove border radius to fit Paper container
+          }}
+          getAdById={-1}
+          className="banner-ad"
+        /> */}
+      {/* </Paper> */}
+
+      {/* Support Ticket Modal */}
+      <Modal
+        open={openSupportModal}
+        onClose={handleCloseSupportModal}
+        aria-labelledby="support-modal-title"
+        aria-describedby="support-modal-description"
+      >
         <Box
           sx={{
             position: "absolute",
             top: "50%",
             left: "50%",
             transform: "translate(-50%, -50%)",
-            bgcolor: "#111",
-            color: "#fff",
-            border: "1px solid rgba(255,255,255,0.1)",
-            boxShadow: "0 24px 80px rgba(0,0,0,0.7)",
+            bgcolor: "#1a1a1a", // Dark background
+            color: "#ffffff", // White text
+            border: "2px solid #ffd700", // Gold border
+            boxShadow: "0 8px 32px rgba(255, 215, 0, 0.3)",
             p: 4,
-            width: { xs: "92%", sm: 440 },
-            borderRadius: 3,
-          }}
-        >
-          <Typography id="support-modal-title" variant="h6" sx={{ fontWeight: 800, mb: 0.5 }}>
+            width: { xs: "90%", sm: "400px" },
+            borderRadius: 2,
+            }}
+          >
+            <Typography
+            id="support-modal-title"
+            variant="h6"
+            gutterBottom
+            sx={{
+              color: "#ffd700",
+              fontWeight: "bold",
+              mb: 3,
+            }}
+            >
             Submit Feedback
-          </Typography>
-          <Typography variant="body2" sx={{ color: "rgba(255,255,255,0.4)", mb: 3 }}>
-            Tell us what's on your mind — bugs, ideas, or anything else.
-          </Typography>
-
-          <Select
+            </Typography>
+            <Select
             fullWidth
             value={supportProblemType}
             onChange={(e) => setSupportProblemType(e.target.value)}
             displayEmpty
             variant="outlined"
-            MenuProps={{ PaperProps: { sx: { bgcolor: "#1a1a1a", color: "#fff", "& .MuiMenuItem-root:hover": { bgcolor: "#222" } } } }}
+            MenuProps={{
+              PaperProps: {
+              sx: {
+                bgcolor: "#2a2a2a",
+                color: "#ffffff",
+                "& .MuiMenuItem-root:hover": { bgcolor: "#3a3a3a" },
+              },
+              },
+            }}
             sx={{
               mb: 2,
-              borderRadius: 2,
-              "& .MuiSelect-select": { backgroundColor: "rgba(255,255,255,0.04)", color: supportProblemType ? "#fff" : "rgba(255,255,255,0.35)" },
-              "& .MuiOutlinedInput-notchedOutline": { borderColor: "rgba(255,255,255,0.12)" },
-              "&:hover .MuiOutlinedInput-notchedOutline": { borderColor: GOLD },
-              "&.Mui-focused .MuiOutlinedInput-notchedOutline": { borderColor: GOLD },
-              "& .MuiSvgIcon-root": { color: "rgba(255,255,255,0.4)" },
+              "& .MuiSelect-select": {
+              backgroundColor: "#2a2a2a",
+              color: "#ffffff",
+              },
+              "& .MuiOutlinedInput-notchedOutline": {
+              borderColor: "#ffd700",
+              },
+              "&:hover .MuiOutlinedInput-notchedOutline": {
+              borderColor: "#ffed4e",
+              },
+              "&.Mui-focused .MuiOutlinedInput-notchedOutline": {
+              borderColor: "#ffd700",
+              },
+              "& .MuiSvgIcon-root": {
+              color: "#ffd700",
+              },
             }}
-          >
-            <MenuItem value="" disabled>Select Feedback Type</MenuItem>
-            <MenuItem value="improvement-issue">Improvement / Tips</MenuItem>
-            <MenuItem value="bug-issue">Bugs / App Issues</MenuItem>
+            >
+            <MenuItem value="" disabled>
+              Select Feedback Type
+            </MenuItem>
+            <MenuItem value="improvement-issue">Improvement/Tips</MenuItem>
+            <MenuItem value="account-issue">Bugs/App Issues</MenuItem>
             <MenuItem value="account-issue">Account Issue</MenuItem>
             <MenuItem value="billing-issue">Billing Issue</MenuItem>
-            <MenuItem value="report-scammer">Report Scammer / Abuse</MenuItem>
+            <MenuItem value="report-scammer">Report Scammer/Abuse</MenuItem>
             <MenuItem value="other">Other</MenuItem>
-          </Select>
+            </Select>
+            <TextField
+            label="Title"
+            fullWidth
+            value={supportTitle}
+            onChange={(e) => setSupportTitle(e.target.value)}
+            sx={{
+              mb: 2,
+              "& .MuiInputLabel-root": { color: "#ffd700" },
+              "& .MuiInputLabel-root.Mui-focused": { color: "#ffd700" },
+              "& .MuiOutlinedInput-root": {
+              backgroundColor: "#2a2a2a",
+              color: "#ffffff9f",
+              "& fieldset": { borderColor: "#ffd700" },
+              "&:hover fieldset": { borderColor: "#ffed4e" },
+              "&.Mui-focused fieldset": { borderColor: "#ffd700" },
+              },
+            }}
+            />
+            <TextField
+            label="Message"
+            fullWidth
+            multiline
+            rows={3}
+            value={supportMessage}
+            onChange={(e) => setSupportMessage(e.target.value)}
+            sx={{
+              mb: 2,
+              "& .MuiInputLabel-root": { color: "#ffd700" },
+              "& .MuiInputLabel-root.Mui-focused": { color: "#ffd700" },
+              "& .MuiOutlinedInput-root": {
+              backgroundColor: "#2a2a2a",
+              color: "#ffffff",
+              "& fieldset": { borderColor: "#ffd700" },
+              "&:hover fieldset": { borderColor: "#ffed4e" },
+              "&.Mui-focused fieldset": { borderColor: "#ffd700" },
+              },
+            }}
+            />
+            <TextField
+            label="Email or Other Contact Info"
+            fullWidth
+            value={supportContactInfo}
+            onChange={(e) => setSupportContactInfo(e.target.value)}
+            sx={{
+              mb: 2,
+              "& .MuiInputLabel-root": { color: "#ffd700" },
+              "& .MuiInputLabel-root.Mui-focused": { color: "#ffd700" },
+              "& .MuiOutlinedInput-root": {
+              backgroundColor: "#2a2a2a",
+              color: "#ffffff",
+              "& fieldset": { borderColor: "#ffd700" },
+              "&:hover fieldset": { borderColor: "#ffed4e" },
+              "&.Mui-focused fieldset": { borderColor: "#ffd700" },
+              },
+            }}
+            />
 
-          <TextField label="Title" fullWidth value={supportTitle} onChange={(e) => setSupportTitle(e.target.value)} sx={inputSx()} />
-          <TextField label="Message" fullWidth multiline rows={3} value={supportMessage} onChange={(e) => setSupportMessage(e.target.value)} sx={inputSx()} />
-          <TextField label="Email or Contact Info" fullWidth value={supportContactInfo} onChange={(e) => setSupportContactInfo(e.target.value)} sx={inputSx()} />
-          <TextField label="Username" fullWidth value={supportUsername} onChange={(e) => setSupportUsername(e.target.value)} sx={inputSx()} />
-
-          <Box sx={{ display: "flex", justifyContent: "flex-end", gap: 1.5, mt: 1 }}>
-            <Button variant="text" onClick={handleCloseSupportModal} sx={{ color: "rgba(255,255,255,0.45)", "&:hover": { backgroundColor: "rgba(255,255,255,0.05)" } }}>
+            <TextField
+            label="Username"
+            fullWidth
+            value={supportUsername}
+            onChange={(e) => setSupportUsername(e.target.value)}
+            sx={{
+              mb: 2,
+              "& .MuiInputLabel-root": { color: "#ffd700" },
+              "& .MuiInputLabel-root.Mui-focused": { color: "#ffd700" },
+              "& .MuiOutlinedInput-root": {
+              backgroundColor: "#2a2a2a",
+              color: "#ffffff",
+              "& fieldset": { borderColor: "#ffd700" },
+              "&:hover fieldset": { borderColor: "#ffed4e" },
+              "&.Mui-focused fieldset": { borderColor: "#ffd700" },
+              },
+            }}
+            />
+            <Box sx={{ display: "flex", justifyContent: "flex-end", gap: 2 }}>
+            <Button
+              variant="text"
+              onClick={handleCloseSupportModal}
+              sx={{
+              color: "#e0e0e0",
+              "&:hover": { backgroundColor: "rgba(224, 224, 224, 0.1)" },
+              }}
+            >
               Cancel
             </Button>
             <Button
               variant="contained"
               onClick={handleSubmitSupportTicket}
-              sx={{ backgroundColor: GREEN, color: "#000", fontWeight: 700, "&:hover": { backgroundColor: "#00c853" } }}
+              sx={{
+              backgroundColor: "#00e676",
+              color: "#000000",
+              fontWeight: "bold",
+              "&:hover": {
+                backgroundColor: "#00c853",
+                boxShadow: "0 0 15px rgba(0, 230, 118, 0.5)",
+              },
+              }}
             >
               Submit
             </Button>
+            </Box>
           </Box>
-        </Box>
-      </Modal>
+          </Modal>
 
-      {/* ── Popup Ad Modal (fly game) ─────────────────── */}
-      <Modal open={openPopupAdModal} onClose={() => {}} disableEscapeKeyDown aria-labelledby="popup-ad-modal-title">
+          {/* Popup Ad Modal */}
+      <Modal
+        open={openPopupAdModal}
+        onClose={() => {}} // Disable closing by clicking backdrop
+        disableEscapeKeyDown // Disable closing with ESC key
+        aria-labelledby="popup-ad-modal-title"
+        aria-describedby="popup-ad-modal-description"
+      >
         <Box
           sx={{
             position: "absolute",
             top: "50%",
             left: "50%",
             transform: "translate(-50%, -50%)",
-            bgcolor: "#111",
-            color: "#fff",
-            border: "1px solid rgba(255,255,255,0.1)",
-            boxShadow: "0 24px 80px rgba(0,0,0,0.8)",
-            p: 2.5,
-            width: { xs: "92%", sm: 620 },
-            borderRadius: 3,
+            bgcolor: "#1a1a1a",
+            color: "#ffffff",
+            border: "2px solid #ffd700",
+            boxShadow: "0 8px 32px rgba(255, 215, 0, 0.3)",
+            p: 2,
+            width: { xs: "90%", sm: "600px" },
+            borderRadius: 2,
           }}
         >
-          <Box sx={{ display: "flex", alignItems: "center", justifyContent: "space-between", mb: 1.5 }}>
-            <Typography id="popup-ad-modal-title" variant="subtitle1" sx={{ fontWeight: 800 }}>
-              Swat the Flies to Continue!
-            </Typography>
-            <Chip
-              label={`${fliesKilled} / ${totalFlies}`}
-              size="small"
-              sx={{ backgroundColor: alpha(GOLD, 0.12), color: GOLD, border: `1px solid ${alpha(GOLD, 0.3)}`, fontWeight: 700 }}
-            />
-          </Box>
+          <Typography
+            id="popup-ad-modal-title"
+            variant="h6"
+            gutterBottom
+            sx={{
+              color: "#ffd700",
+              fontWeight: "bold",
+              textAlign: "center",
+            }}
+          >
+            Swat the Flies to Continue! ({fliesKilled}/{totalFlies})
+          </Typography>
 
           <canvas
             ref={canvasRef}
@@ -1162,12 +1327,10 @@ const Info = () => {
             onClick={handleCanvasClick}
             onTouchEnd={handleCanvasClick}
             style={{
-              display: "block",
+              border: "1px solid #ffd700",
               width: "100%",
               height: "auto",
               backgroundColor: "#0a0a0a",
-              borderRadius: 8,
-              border: "1px solid rgba(255,255,255,0.08)",
               cursor: "none",
               touchAction: "none",
             }}
@@ -1175,18 +1338,23 @@ const Info = () => {
             Your browser does not support the canvas element.
           </canvas>
 
-          <Typography variant="caption" sx={{ display: "block", color: "rgba(255,255,255,0.35)", mt: 1.5, textAlign: "center" }}>
-            Double-click on the flies to swat them 🪰
+          <Typography
+            id="popup-ad-modal-description"
+            variant="body2"
+            sx={{ color: "#e0e0e0", mt: 1, textAlign: "center" }}
+          >
+            Double-click on the flies to swat them! 🪰
             {fliesKilled >= totalFlies && totalFlies > 0 && (
-              <Box component="span" sx={{ color: GREEN, fontWeight: 700, ml: 1 }}>
-                — Nice! Closing in 3 seconds...
-              </Box>
+              <span style={{ color: "#00e676", fontWeight: "bold" }}>
+                {" "}
+                - Great job! Closing in 3 seconds...
+              </span>
             )}
           </Typography>
         </Box>
       </Modal>
 
-      {/* ── Snackbar ──────────────────────────────────── */}
+      {/* Snackbar for notifications */}
       <Snackbar
         anchorOrigin={{ vertical: "bottom", horizontal: "center" }}
         open={openSnackbar}

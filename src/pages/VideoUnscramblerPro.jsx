@@ -73,6 +73,8 @@ export default function VideoUnscramblerPro() {
   // const actionCost = 15; // Cost to unscramble a video (pro version)
   const [actionCost, setActionCost] = useState(15); // Cost to unscramble a video (pro version)
   const [previewUrl, setPreviewUrl] = useState('');
+  const [keyValidated, setKeyValidated] = useState(false);
+  const [keyValidationError, setKeyValidationError] = useState('');
 
   const [creatorInfo, setCreatorInfo] = useState({
     username: 'Anonymous',
@@ -273,15 +275,52 @@ export default function VideoUnscramblerPro() {
     // }
   };
 
-  const decodeKeyCode = () => {
+  const decodeKeyCode = async () => {
     try {
       const json = fromBase64(keyCode);
       const params = JSON.parse(json);
+
+      // Client-side expiry check (instant, no network)
+      if (params.limits?.expires_at) {
+        if (new Date(params.limits.expires_at) < new Date()) {
+          error('This key has expired and can no longer be used.');
+          setKeyValidated(false);
+          setKeyValidationError('Key has expired');
+          setDecodedParams(null);
+          return;
+        }
+      }
+
+      // Backend validation (checks use count, revocation, server-side expiry)
+      if (params.key_id) {
+        try {
+          const { data: valData } = await api.post(`${API_URL}/api/keys/validate`, { key_id: params.key_id });
+          if (!valData.valid) {
+            const reason = valData.reason || 'Key is no longer valid';
+            error(`Key rejected: ${reason}`);
+            setKeyValidated(false);
+            setKeyValidationError(reason);
+            setDecodedParams(null);
+            return;
+          }
+          // Show remaining uses info if applicable
+          if (valData.remaining_uses !== null) {
+            console.info(`Key has ${valData.remaining_uses} use(s) remaining.`);
+          }
+        } catch (valErr) {
+          // Backend unreachable — allow key but warn
+          console.warn('Key validation backend unreachable, allowing key:', valErr.message);
+        }
+      }
+
       setDecodedParams(params);
-      success('Key code decoded successfully!');
-      console.log("Decoded key parameters:", params);
+      setKeyValidated(true);
+      setKeyValidationError('');
+      success('Key decoded and validated successfully!');
+      console.log('Decoded key parameters:', params);
     } catch (e) {
       error('Invalid key code: ' + e.message);
+      setKeyValidated(false);
     }
   };
 
@@ -391,6 +430,13 @@ export default function VideoUnscramblerPro() {
         loadUnscrambledVideo();
 
         success("Video unscrambled successfully!");
+
+        // Log key usage in backend (increments use_count, revokes if maxed)
+        if (decodedParams?.key_id) {
+          api.post(`${API_URL}/api/keys/use`, { key_id: decodedParams.key_id }).catch(useErr => {
+            console.warn('Key usage logging failed (non-critical):', useErr.message);
+          });
+        }
 
         // log succesful media unscramble event to analytics
         api.post('/api/analytics/unscramble-event', {
@@ -682,7 +728,7 @@ export default function VideoUnscramblerPro() {
               multiline
               rows={3}
               value={keyCode}
-              onChange={(e) => setKeyCode(e.target.value)}
+              onChange={(e) => { setKeyCode(e.target.value); setKeyValidated(false); setKeyValidationError(''); setDecodedParams(null); }}
               placeholder="eyJzZWVkIjoxMjM0NSwibiI6MywibSI6MywicGVybTFiYXNlZCI6WzMsMiw1LDEsNyw2LDksNCw4XX0="
               sx={{
                 mb: 2,
@@ -696,7 +742,7 @@ export default function VideoUnscramblerPro() {
 
 
             {/* Step buttons */}
-            <Box sx={{ display: 'flex', gap: 2, flexWrap: 'wrap' }}>
+            <Box sx={{ display: 'flex', gap: 2, flexWrap: 'wrap', alignItems: 'center' }}>
               <Button
                 variant="contained"
                 onClick={decodeKeyCode}
@@ -707,14 +753,29 @@ export default function VideoUnscramblerPro() {
                 Step 1: Decode Key
               </Button>
 
+              {keyValidationError && (
+                <Alert severity="error" sx={{ flex: 1, py: 0 }}>
+                  {keyValidationError}
+                </Alert>
+              )}
+
+              {keyValidated && !keyValidationError && decodedParams?.limits?.max_uses && (
+                <Alert severity="info" sx={{ flex: 1, py: 0 }}>
+                  Key validated — limited to {decodedParams.limits.max_uses} total use{decodedParams.limits.max_uses !== 1 ? 's' : ''}
+                  {decodedParams.limits.expires_at ? `, expires ${new Date(decodedParams.limits.expires_at).toLocaleDateString()}` : ''}
+                </Alert>
+              )}
+            </Box>
+
+            <Box sx={{ mt: 2 }}>
               <Button
                 variant="contained"
                 onClick={() => setShowCreditModal(true)}
                 startIcon={isProcessing ? <CircularProgress size={20} /> : <CloudUpload />}
-                disabled={!videoLoaded || !decodedParams || isProcessing}
+                disabled={!videoLoaded || !decodedParams || !keyValidated || isProcessing}
                 sx={{
-                  backgroundColor: (!videoLoaded || !decodedParams || isProcessing) ? '#666' : '#4caf50',
-                  color: (!videoLoaded || !decodedParams || isProcessing) ? '#999' : 'white',
+                  backgroundColor: (!videoLoaded || !decodedParams || !keyValidated || isProcessing) ? '#666' : '#4caf50',
+                  color: (!videoLoaded || !decodedParams || !keyValidated || isProcessing) ? '#999' : 'white',
                   fontWeight: 'bold'
                 }}
               >

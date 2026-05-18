@@ -1,0 +1,698 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Tatum TX Explorer</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: 'Segoe UI', system-ui, sans-serif;
+      background: #0f1117;
+      color: #e2e8f0;
+      min-height: 100vh;
+      padding: 24px;
+    }
+
+    h1 {
+      font-size: 1.5rem;
+      font-weight: 700;
+      color: #f8fafc;
+      margin-bottom: 4px;
+    }
+    .subtitle { color: #64748b; font-size: 0.85rem; margin-bottom: 24px; }
+
+    /* ── Input Panel ── */
+    .panel {
+      background: #1e2130;
+      border: 1px solid #2d3148;
+      border-radius: 10px;
+      padding: 20px;
+      margin-bottom: 20px;
+    }
+
+    .row { display: flex; gap: 12px; flex-wrap: wrap; align-items: flex-end; }
+
+    label { display: block; font-size: 0.78rem; color: #94a3b8; margin-bottom: 6px; font-weight: 500; letter-spacing: .04em; text-transform: uppercase; }
+
+    input, select {
+      background: #0f1117;
+      border: 1px solid #2d3148;
+      color: #e2e8f0;
+      border-radius: 6px;
+      padding: 9px 12px;
+      font-size: 0.9rem;
+      outline: none;
+      transition: border-color .15s;
+    }
+    input:focus, select:focus { border-color: #6366f1; }
+    input[type="text"] { width: 420px; }
+    .api-key-input { width: 320px; font-family: monospace; font-size: 0.78rem; }
+
+    select { width: 110px; }
+
+    button {
+      background: #6366f1;
+      color: #fff;
+      border: none;
+      border-radius: 6px;
+      padding: 9px 20px;
+      font-size: 0.9rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: background .15s;
+      white-space: nowrap;
+    }
+    button:hover { background: #4f46e5; }
+    button:disabled { background: #374151; color: #6b7280; cursor: not-allowed; }
+    button.secondary {
+      background: #1e2130;
+      border: 1px solid #2d3148;
+      color: #94a3b8;
+    }
+    button.secondary:hover { background: #2d3148; color: #e2e8f0; }
+
+    /* ── Toolbar ── */
+    .toolbar {
+      display: flex;
+      gap: 10px;
+      flex-wrap: wrap;
+      align-items: center;
+      margin-bottom: 14px;
+    }
+    .toolbar input[type="search"] {
+      width: 240px;
+      padding-left: 32px;
+      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='14' height='14' fill='%2364748b' viewBox='0 0 16 16'%3E%3Cpath d='M11.742 10.344a6.5 6.5 0 1 0-1.397 1.398l3.85 3.85a1 1 0 0 0 1.415-1.415l-3.868-3.833zm-5.242 1.656a5 5 0 1 1 0-10 5 5 0 0 1 0 10z'/%3E%3C/svg%3E");
+      background-repeat: no-repeat;
+      background-position: 10px center;
+    }
+    .filter-btn {
+      background: #1e2130;
+      border: 1px solid #2d3148;
+      color: #94a3b8;
+      border-radius: 6px;
+      padding: 8px 14px;
+      font-size: 0.82rem;
+      cursor: pointer;
+      transition: all .15s;
+    }
+    .filter-btn.active-all    { border-color: #6366f1; color: #a5b4fc; background: #1e213f; }
+    .filter-btn.active-in     { border-color: #22c55e; color: #86efac; background: #0f2a1a; }
+    .filter-btn.active-out    { border-color: #f43f5e; color: #fda4af; background: #2a0f18; }
+    .spacer { flex: 1; }
+    .count-badge {
+      font-size: 0.78rem;
+      color: #64748b;
+      background: #1e2130;
+      border: 1px solid #2d3148;
+      border-radius: 20px;
+      padding: 4px 14px;
+    }
+
+    /* ── Table ── */
+    .table-wrap {
+      overflow-x: auto;
+      border: 1px solid #2d3148;
+      border-radius: 10px;
+    }
+    table { width: 100%; border-collapse: collapse; font-size: 0.85rem; }
+    thead { background: #161925; }
+    th {
+      padding: 12px 16px;
+      text-align: left;
+      font-size: 0.75rem;
+      font-weight: 600;
+      color: #64748b;
+      text-transform: uppercase;
+      letter-spacing: .05em;
+      cursor: pointer;
+      user-select: none;
+      white-space: nowrap;
+    }
+    th:hover { color: #a5b4fc; }
+    th .sort-icon { display: inline-block; margin-left: 4px; opacity: .4; }
+    th.sort-asc .sort-icon::after  { content: '▲'; }
+    th.sort-desc .sort-icon::after { content: '▼'; }
+    th:not(.sort-asc):not(.sort-desc) .sort-icon::after { content: '⇅'; }
+
+    tbody tr { border-top: 1px solid #1e2130; transition: background .1s; }
+    tbody tr:hover { background: #1e2130; }
+
+    td { padding: 11px 16px; vertical-align: middle; }
+
+    .hash-cell {
+      font-family: monospace;
+      font-size: 0.8rem;
+      color: #818cf8;
+      cursor: pointer;
+    }
+    .hash-cell:hover { color: #a5b4fc; text-decoration: underline; }
+    .hash-full { display: none; }
+
+    .dir-badge {
+      display: inline-block;
+      padding: 2px 10px;
+      border-radius: 20px;
+      font-size: 0.75rem;
+      font-weight: 700;
+      letter-spacing: .05em;
+    }
+    .dir-IN  { background: #052e16; color: #4ade80; border: 1px solid #166534; }
+    .dir-OUT { background: #2d0a14; color: #fb7185; border: 1px solid #9f1239; }
+    .dir-SELF, .dir-— { background: #1e2130; color: #64748b; border: 1px solid #374151; }
+
+    .amount-cell { font-family: monospace; color: #f8fafc; }
+    .time-cell   { color: #94a3b8; white-space: nowrap; }
+    .addr-cell   { font-family: monospace; font-size: 0.75rem; color: #64748b; }
+
+    /* ── Status / Error ── */
+    .status-bar {
+      padding: 12px 16px;
+      border-radius: 8px;
+      margin-bottom: 16px;
+      font-size: 0.88rem;
+      display: none;
+    }
+    .status-bar.info    { background: #0d1f3c; border: 1px solid #1d4ed8; color: #93c5fd; display: flex; align-items: center; gap: 8px; }
+    .status-bar.error   { background: #2d0a14; border: 1px solid #9f1239; color: #fda4af; display: block; }
+    .status-bar.success { background: #052e16; border: 1px solid #166534; color: #86efac; display: block; }
+
+    .spinner {
+      display: inline-block;
+      width: 16px; height: 16px;
+      border: 2px solid #1d4ed8;
+      border-top-color: #93c5fd;
+      border-radius: 50%;
+      animation: spin .7s linear infinite;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    .empty-state {
+      text-align: center;
+      padding: 60px 20px;
+      color: #374151;
+    }
+    .empty-state svg { margin-bottom: 12px; opacity: .3; }
+
+    /* Copy toast */
+    .toast {
+      position: fixed;
+      bottom: 28px;
+      left: 50%;
+      transform: translateX(-50%) translateY(20px);
+      background: #1e2130;
+      border: 1px solid #2d3148;
+      color: #e2e8f0;
+      padding: 8px 20px;
+      border-radius: 30px;
+      font-size: 0.82rem;
+      opacity: 0;
+      transition: all .25s;
+      pointer-events: none;
+      z-index: 9999;
+    }
+    .toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+  </style>
+</head>
+<body>
+
+<h1>Tatum TX Explorer</h1>
+<p class="subtitle">Fetch, search &amp; sort the last 100 transactions for any wallet address via the Tatum API</p>
+
+<!-- ── Config Panel ── -->
+<div class="panel">
+  <div class="row">
+    <div>
+      <label>Tatum API Key</label>
+      <input class="api-key-input" type="text" id="apiKey" value="t-69ef9cdaf2332f46be8c3b88-4f922dbbf0824768bf9ff13a" placeholder="x-api-key…">
+    </div>
+    <div>
+      <label>Chain</label>
+      <select id="chain">
+        <option value="BTC">BTC</option>
+        <option value="LTC">LTC</option>
+        <option value="ETH" selected>ETH</option>
+        <option value="SOL">SOL</option>
+      </select>
+    </div>
+    <div style="flex:1; min-width:260px;">
+      <label>Wallet Address</label>
+      <input type="text" id="address" placeholder="Enter wallet address…" style="width:100%;">
+    </div>
+    <div>
+      <label>Limit</label>
+      <select id="limitSelect" style="width:90px;">
+        <option value="50">50</option>
+        <option value="100" selected>100</option>
+      </select>
+    </div>
+    <div>
+      <button id="fetchBtn" onclick="fetchTxs()">Fetch</button>
+    </div>
+    <div>
+      <button class="secondary" onclick="clearAll()">Clear</button>
+    </div>
+  </div>
+</div>
+
+<!-- ── Status Bar ── -->
+<div id="statusBar" class="status-bar"></div>
+
+<!-- ── Toolbar ── -->
+<div class="toolbar" id="toolbar" style="display:none;">
+  <input type="search" id="searchInput" placeholder="Search hash, address, amount…" oninput="applyFilters()">
+  <button class="filter-btn active-all" data-dir="ALL"  onclick="setDirFilter('ALL')">All</button>
+  <button class="filter-btn" data-dir="IN"   onclick="setDirFilter('IN')">↓ IN</button>
+  <button class="filter-btn" data-dir="OUT"  onclick="setDirFilter('OUT')">↑ OUT</button>
+  <div class="spacer"></div>
+  <button class="secondary" style="font-size:.78rem;padding:6px 12px;" onclick="exportCSV()">Export CSV</button>
+  <span class="count-badge" id="countBadge">0 txs</span>
+</div>
+
+<!-- ── Table ── -->
+<div class="table-wrap" id="tableWrap" style="display:none;">
+  <table id="txTable">
+    <thead>
+      <tr>
+        <th onclick="sortBy('idx')">#<span class="sort-icon"></span></th>
+        <th onclick="sortBy('time')">Time<span class="sort-icon"></span></th>
+        <th onclick="sortBy('direction')">Dir<span class="sort-icon"></span></th>
+        <th onclick="sortBy('amount')">Amount<span class="sort-icon"></span></th>
+        <th>Hash / Signature</th>
+        <th onclick="sortBy('from')">From<span class="sort-icon"></span></th>
+        <th onclick="sortBy('to')">To<span class="sort-icon"></span></th>
+      </tr>
+    </thead>
+    <tbody id="txBody"></tbody>
+  </table>
+</div>
+
+<div id="emptyState" class="empty-state" style="display:none;">
+  <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
+  <p style="font-size:1rem;color:#4b5563;">No transactions match your filters</p>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+const TATUM_BASE = 'https://api.tatum.io/v3';
+
+// Pre-fill wallet addresses for quick testing
+const WALLET_DEFAULTS = {
+  BTC: 'bc1qu5x2gc25tdwmhrcfl0sya7kuq9k5n8dlyc5a7q',
+  LTC: 'ltc1qgg5aggedmvjx0grd2k5shg6jvkdzt9dtcqa4dh',
+  ETH: '0x9a61f30347258A3D03228F363b07692F3CBb7f27',
+  SOL: 'qaSpvAumg2L3LLZA8qznFtbrRKYMP1neTGqpNgtCPaU',
+};
+
+// Auto-fill address when chain changes
+document.getElementById('chain').addEventListener('change', () => {
+  const chain = document.getElementById('chain').value;
+  const addr = document.getElementById('address');
+  // Only auto-fill if current value matches a known default (or is empty)
+  const currentVal = addr.value.trim();
+  const isDefault = Object.values(WALLET_DEFAULTS).includes(currentVal) || !currentVal;
+  if (isDefault) addr.value = WALLET_DEFAULTS[chain] || '';
+});
+// Set initial default
+document.getElementById('address').value = WALLET_DEFAULTS['ETH'];
+
+// ── State ──
+let allTxs = [];
+let filtered = [];
+let sortKey = 'idx';
+let sortDir = 'asc';
+let dirFilter = 'ALL';
+
+// ── Fetch ──
+async function fetchTxs() {
+  const apiKey  = document.getElementById('apiKey').value.trim();
+  const chain   = document.getElementById('chain').value;
+  const address = document.getElementById('address').value.trim();
+  const limit   = parseInt(document.getElementById('limitSelect').value);
+
+  if (!apiKey)   return showStatus('error', 'Please enter your Tatum API key.');
+  if (!address)  return showStatus('error', 'Please enter a wallet address.');
+
+  setLoading(true);
+  showStatus('info', `<span class="spinner"></span> Fetching ${chain} transactions for ${truncate(address, 16)}…`);
+  document.getElementById('toolbar').style.display = 'none';
+  document.getElementById('tableWrap').style.display = 'none';
+  document.getElementById('emptyState').style.display = 'none';
+  document.getElementById('searchInput').value = '';
+  dirFilter = 'ALL';
+  updateDirBtns();
+
+  try {
+    const txs = await fetchFromTatum(chain, address, apiKey, limit);
+    allTxs = txs.map((tx, i) => ({ ...tx, idx: i + 1 }));
+    applyFilters();
+
+    showStatus('success', `✅ Fetched ${allTxs.length} transactions for ${truncate(address, 28)} (${chain})`);
+    document.getElementById('toolbar').style.display = 'flex';
+  } catch (err) {
+    showStatus('error', `❌ ${err.message}`);
+    console.error(err);
+  } finally {
+    setLoading(false);
+  }
+}
+
+async function fetchFromTatum(chain, address, apiKey, limit) {
+  const headers = { 'x-api-key': apiKey };
+
+  let url, params = {};
+
+  switch (chain) {
+    case 'BTC':
+      url = `${TATUM_BASE}/bitcoin/transaction/address/${encodeURIComponent(address)}`;
+      params = { pageSize: Math.min(50, limit) };
+      break;
+    case 'LTC':
+      url = `${TATUM_BASE}/litecoin/transaction/address/${encodeURIComponent(address)}`;
+      params = { pageSize: Math.min(50, limit) };
+      break;
+    case 'ETH':
+      url = `${TATUM_BASE}/ethereum/account/transaction/${encodeURIComponent(address)}`;
+      params = { pageSize: Math.min(50, limit) };
+      break;
+    case 'SOL':
+      url = `${TATUM_BASE}/solana/account/transaction/${encodeURIComponent(address)}`;
+      params = { limit: Math.min(50, limit) };
+      break;
+    default:
+      throw new Error(`Unsupported chain: ${chain}`);
+  }
+
+  const qs = new URLSearchParams(params).toString();
+  const res = await fetch(`${url}?${qs}`, { headers });
+
+  if (!res.ok) {
+    const errText = await res.text().catch(() => res.statusText);
+    let msg = `Tatum API error ${res.status}`;
+    try {
+      const j = JSON.parse(errText);
+      msg = j.message || j.error || errText;
+    } catch (_) { msg = errText || msg; }
+    throw new Error(msg);
+  }
+
+  const data = await res.json();
+  return normalize(chain, address, data);
+}
+
+// ── Normalize ──
+function normalize(chain, address, data) {
+  const list = Array.isArray(data) ? data : (data?.data || data?.result || []);
+  return list.map(tx => {
+    try {
+      switch (chain) {
+        case 'BTC':
+        case 'LTC':  return normalizeBtcLtc(tx, address);
+        case 'ETH':  return normalizeEth(tx, address);
+        case 'SOL':  return normalizeSol(tx, address);
+        default: return null;
+      }
+    } catch { return null; }
+  }).filter(Boolean);
+}
+
+function fmtSats(valueSats, decimals) {
+  try {
+    const n = BigInt(Math.round(Number(valueSats)));
+    const d = BigInt(10) ** BigInt(decimals);
+    const whole = (n / d).toString();
+    const frac  = (n % d).toString().padStart(decimals, '0');
+    return `${whole}.${frac}`.replace(/\.?0+$/, '') || '0';
+  } catch { return String(valueSats); }
+}
+
+function fmtWei(wei, decimals = 18) {
+  try {
+    const n = BigInt(String(wei || '0'));
+    const d = BigInt(10) ** BigInt(decimals);
+    const whole = (n / d).toString();
+    const frac  = (n % d).toString().padStart(decimals, '0').slice(0, 8);
+    return `${whole}.${frac}`.replace(/\.?0+$/, '') || '0';
+  } catch { return String(wei); }
+}
+
+function fmtTime(raw) {
+  if (!raw) return '—';
+  try {
+    let ms;
+    if (typeof raw === 'number') ms = raw > 1e10 ? raw : raw * 1000;
+    else ms = new Date(raw).getTime();
+    if (isNaN(ms)) return String(raw);
+    const d = new Date(ms);
+    return d.toISOString().replace('T', ' ').replace('Z', ' UTC').slice(0, 23);
+  } catch { return String(raw); }
+}
+
+function normalizeBtcLtc(tx, myAddress) {
+  const inputs = tx.inputs || [];
+  const outputs = tx.outputs || [];
+  let spent = 0, received = 0;
+
+  for (const inp of inputs) {
+    if (inp.coin?.address === myAddress) spent += (inp.coin?.value || 0);
+  }
+  for (const out of outputs) {
+    if (out.address === myAddress) received += (out.value || 0);
+  }
+
+  const net = received - spent;
+  const direction = net > 0 ? 'IN' : net < 0 ? 'OUT' : '—';
+  const absNet = Math.abs(net);
+
+  const fromAddr = direction === 'IN'
+    ? (inputs[0]?.coin?.address || '—')
+    : myAddress;
+  const toAddr = direction === 'IN'
+    ? myAddress
+    : (outputs.find(o => o.address !== myAddress)?.address || outputs[0]?.address || '—');
+
+  return {
+    time: fmtTime(tx.time),
+    direction,
+    amount: absNet.toFixed(8).replace(/\.?0+$/, '') || '0',
+    from: fromAddr,
+    to: toAddr,
+    hash: tx.hash || tx.txid || '??',
+    raw: tx,
+  };
+}
+
+function normalizeEth(tx, myAddress) {
+  const from = (tx.from || '').toLowerCase();
+  const to   = (tx.to   || '').toLowerCase();
+  const me   = myAddress.toLowerCase();
+  const direction = (to === me && from !== me) ? 'IN'
+    : (from === me && to !== me) ? 'OUT' : '—';
+
+  return {
+    time: fmtTime(tx.timestamp),
+    direction,
+    amount: fmtWei(tx.value || '0', 18) + ' ETH',
+    from: tx.from || '—',
+    to:   tx.to   || '—',
+    hash: tx.hash || '??',
+    raw: tx,
+  };
+}
+
+function normalizeSol(tx, myAddress) {
+  const meta = tx.meta || {};
+  const msg  = tx.transaction?.message || {};
+  const keys = (msg.accountKeys || []).map(k => typeof k === 'string' ? k : k.pubkey);
+  const idx  = keys.findIndex(k => k === myAddress);
+
+  let net = 0;
+  if (idx >= 0) {
+    net = (meta.postBalances?.[idx] ?? 0) - (meta.preBalances?.[idx] ?? 0);
+  }
+
+  const direction = net > 0 ? 'IN' : net < 0 ? 'OUT' : '—';
+  const cp = keys.find(k => k !== myAddress) || '—';
+
+  return {
+    time: fmtTime(tx.blockTime),
+    direction,
+    amount: (Math.abs(net) / 1e9).toFixed(9).replace(/\.?0+$/, '') + ' SOL',
+    from: direction === 'IN' ? cp : myAddress,
+    to:   direction === 'IN' ? myAddress : cp,
+    hash: tx.signature || tx.transaction?.signatures?.[0] || '??',
+    raw: tx,
+  };
+}
+
+// ── Filter / Sort / Render ──
+function applyFilters() {
+  const q = document.getElementById('searchInput').value.toLowerCase().trim();
+
+  filtered = allTxs.filter(tx => {
+    if (dirFilter !== 'ALL' && tx.direction !== dirFilter) return false;
+    if (!q) return true;
+    return (
+      (tx.hash  || '').toLowerCase().includes(q) ||
+      (tx.from  || '').toLowerCase().includes(q) ||
+      (tx.to    || '').toLowerCase().includes(q) ||
+      (tx.amount|| '').toLowerCase().includes(q) ||
+      (tx.time  || '').toLowerCase().includes(q)
+    );
+  });
+
+  sortRows(false); // re-sort without toggling
+  renderTable();
+}
+
+function sortBy(key) {
+  if (sortKey === key) {
+    sortDir = sortDir === 'asc' ? 'desc' : 'asc';
+  } else {
+    sortKey = key;
+    sortDir = 'asc';
+  }
+  sortRows(false);
+  renderTable();
+  updateSortHeaders();
+}
+
+function sortRows(toggle) {
+  filtered.sort((a, b) => {
+    let va = a[sortKey], vb = b[sortKey];
+    if (sortKey === 'amount') {
+      va = parseFloat(String(va)) || 0;
+      vb = parseFloat(String(vb)) || 0;
+    } else if (sortKey === 'idx') {
+      va = Number(va); vb = Number(vb);
+    } else {
+      va = String(va || '').toLowerCase();
+      vb = String(vb || '').toLowerCase();
+    }
+    if (va < vb) return sortDir === 'asc' ? -1 : 1;
+    if (va > vb) return sortDir === 'asc' ?  1 : -1;
+    return 0;
+  });
+}
+
+function renderTable() {
+  const tbody = document.getElementById('txBody');
+  document.getElementById('countBadge').textContent = `${filtered.length} / ${allTxs.length} txs`;
+
+  if (filtered.length === 0) {
+    document.getElementById('tableWrap').style.display = 'none';
+    document.getElementById('emptyState').style.display = 'block';
+    return;
+  }
+
+  document.getElementById('emptyState').style.display = 'none';
+  document.getElementById('tableWrap').style.display = 'block';
+
+  tbody.innerHTML = filtered.map((tx, i) => {
+    const dirClass = `dir-${tx.direction}`;
+    const hash = tx.hash || '??';
+    const shortHash = truncate(hash, 18);
+    return `<tr>
+      <td style="color:#4b5563;">${i + 1}</td>
+      <td class="time-cell">${tx.time || '—'}</td>
+      <td><span class="dir-badge ${dirClass}">${tx.direction}</span></td>
+      <td class="amount-cell">${tx.amount || '—'}</td>
+      <td class="hash-cell" onclick="copyText('${hash}')" title="${hash}">${shortHash}</td>
+      <td class="addr-cell" title="${tx.from || ''}">${truncate(tx.from || '—', 20)}</td>
+      <td class="addr-cell" title="${tx.to   || ''}">${truncate(tx.to   || '—', 20)}</td>
+    </tr>`;
+  }).join('');
+}
+
+function updateSortHeaders() {
+  document.querySelectorAll('th').forEach(th => {
+    th.classList.remove('sort-asc', 'sort-desc');
+  });
+  const keyMap = { idx: 0, time: 1, direction: 2, amount: 3, from: 5, to: 6 };
+  const idx = keyMap[sortKey];
+  if (idx !== undefined) {
+    const ths = document.querySelectorAll('th');
+    ths[idx]?.classList.add(sortDir === 'asc' ? 'sort-asc' : 'sort-desc');
+  }
+}
+
+function setDirFilter(dir) {
+  dirFilter = dir;
+  updateDirBtns();
+  applyFilters();
+}
+function updateDirBtns() {
+  document.querySelectorAll('.filter-btn[data-dir]').forEach(btn => {
+    btn.className = 'filter-btn';
+    if (btn.dataset.dir === dirFilter) {
+      btn.classList.add(`active-${dirFilter.toLowerCase()}`);
+    }
+  });
+}
+
+// ── Utilities ──
+function truncate(str, n) {
+  if (!str) return '';
+  if (str.length <= n) return str;
+  return str.slice(0, Math.floor(n / 2)) + '…' + str.slice(-Math.ceil(n / 2));
+}
+
+function copyText(text) {
+  navigator.clipboard.writeText(text).then(() => {
+    const toast = document.getElementById('toast');
+    toast.textContent = '📋 Copied to clipboard';
+    toast.classList.add('show');
+    setTimeout(() => toast.classList.remove('show'), 2000);
+  });
+}
+
+function exportCSV() {
+  const header = 'Index,Time,Direction,Amount,Hash,From,To';
+  const rows = filtered.map(tx =>
+    [tx.idx, tx.time, tx.direction, tx.amount, tx.hash, tx.from, tx.to]
+      .map(v => `"${String(v || '').replace(/"/g, '""')}"`)
+      .join(',')
+  );
+  const csv = [header, ...rows].join('\n');
+  const blob = new Blob([csv], { type: 'text/csv' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = `tatum_txs_${document.getElementById('chain').value}_${Date.now()}.csv`;
+  a.click();
+}
+
+function clearAll() {
+  allTxs = [];
+  filtered = [];
+  document.getElementById('txBody').innerHTML = '';
+  document.getElementById('statusBar').style.display = 'none';
+  document.getElementById('toolbar').style.display = 'none';
+  document.getElementById('tableWrap').style.display = 'none';
+  document.getElementById('emptyState').style.display = 'none';
+  document.getElementById('searchInput').value = '';
+  dirFilter = 'ALL';
+  updateDirBtns();
+}
+
+function showStatus(type, html) {
+  const bar = document.getElementById('statusBar');
+  bar.className = `status-bar ${type}`;
+  bar.innerHTML = html;
+  bar.style.display = type === 'info' ? 'flex' : 'block';
+}
+
+function setLoading(on) {
+  document.getElementById('fetchBtn').disabled = on;
+  document.getElementById('fetchBtn').textContent = on ? 'Fetching…' : 'Fetch';
+}
+
+// Allow Enter key in address field
+document.getElementById('address').addEventListener('keydown', e => {
+  if (e.key === 'Enter') fetchTxs();
+});
+</script>
+</body>
+</html>

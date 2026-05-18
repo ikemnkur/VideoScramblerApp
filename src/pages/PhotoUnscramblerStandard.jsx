@@ -975,11 +975,12 @@ export default function PhotoUnscramblerPro() {
 
 
                         {/* Display Decoded Key Info */}
+                          {/*
                         {keyValid && decodedKey && (
-                            <Alert severity="success" sx={{ mt: 2, backgroundColor: '#2e7d32', color: 'white' }}>
-                                <Typography variant="body2" sx={{ fontWeight: 'bold', mb: 1 }}>
-                                    Key Information:
-                                </Typography>
+                            // <Alert severity="success" sx={{ mt: 2, backgroundColor: '#2e7d32', color: 'white' }}>
+                            //     <Typography variant="body2" sx={{ fontWeight: 'bold', mb: 1 }}>
+                            //         Key Information:
+                            //     </Typography>
                                 {/* <Typography variant="body2">
                                     • Algorithm: <strong>{decodedKey.algorithm}</strong>
                                 </Typography>
@@ -994,18 +995,19 @@ export default function PhotoUnscramblerPro() {
                                 {/* <Typography variant="body2">
                                     • Scrambling: <strong>{decodedKey.percentage}%</strong>
                                 </Typography> */}
-                                <Typography variant="body2" sx={{ mt: 1, fontSize: '0.75rem', opacity: 0.8 }}>
+                                {/* <Typography variant="body2" sx={{ mt: 1, fontSize: '0.75rem', opacity: 0.8 }}>
                                     Created: {new Date(decodedKey.timestamp).toLocaleString()}
                                 </Typography>
                                 <Typography variant="body2" sx={{ mt: 1, fontSize: '0.75rem', opacity: 0.8 }}>
                                     Expires: {new Date(decodedKey.timestamp + 7 * 24 * 60 * 60 * 1000).toLocaleString()}
-                                </Typography>
+                                </Typography> */}
                                 {/* for testing purposes */}
                                 {/* <Typography variant="body2" sx={{ mt: 1, fontSize: '0.75rem', opacity: 0.8 }}>
                                     Unscrambles: {Math.floor(Math.random() * 1000)}
                                 </Typography> */}
-                            </Alert>
-                        )}
+                          {/*   // </Alert>
+                        // )}
+                        */}
                     </Box>
 
                     <Divider sx={{ my: 3, backgroundColor: '#666' }} />

@@ -243,6 +243,8 @@ export default function PhotoUnscramblerPro() {
     const [actionCost, setActionCost] = useState(15); // Cost to unscramble a photo (pro version)
     const [scrambleLevel, setScrambleLevel] = useState(1); // Level of scrambling (for credit calculation)
 
+    const [keyValidationError, setKeyValidationError] = useState('');
+
     const [fingerprintedUrl, setFingerprintedUrl] = useState(null);
     const [fingerprintParams, setFingerprintParams] = useState(null);
 
@@ -466,34 +468,54 @@ export default function PhotoUnscramblerPro() {
     };
 
 
-    const decodeKey = () => {
+    const decodeKey = async () => {
         if (!keyCode || keyCode.trim() === '') {
             error("Please paste your unscramble key first");
             return;
         }
 
         try {
-            // Decode base64 key
-            // const jsonString = atob(keyCode.trim());
             const jsonString = fromBase64(keyCode.trim());
-
             const keyData = JSON.parse(jsonString);
 
             console.log("Decoded key data:", keyData);
 
+            // Client-side expiry check
+            if (keyData.limits?.expires_at) {
+                if (new Date(keyData.limits.expires_at) < new Date()) {
+                    error('This key has expired and can no longer be used.');
+                    setKeyValid(false);
+                    setKeyValidationError('Key has expired');
+                    setDecodedKey(null);
+                    return;
+                }
+            }
+
+            // Backend validation if key_id present
+            if (keyData.key_id) {
+                try {
+                    const { data: valData } = await api.post(`${API_URL}/api/keys/validate`, { key_id: keyData.key_id });
+                    if (!valData.valid) {
+                        const reason = valData.reason || 'Key is no longer valid';
+                        error(`Key rejected: ${reason}`);
+                        setKeyValid(false);
+                        setKeyValidationError(reason);
+                        setDecodedKey(null);
+                        return;
+                    }
+                } catch (valErr) {
+                    console.warn('Key validation backend unreachable, allowing key:', valErr.message);
+                }
+            }
 
             if (keyData.type !== "photo") {
                 error('The loaded key file is not a valid photo scramble key.');
-                console.error('The loaded key file is not a valid photo scramble key.');
                 throw new Error("Invalid key format");
             } else if (keyData.version !== "premium" && keyData.version !== "standard") {
                 error('Use the ' + keyData.version + ' ' + keyData.type + ' unscrambler to unscramble this file.');
-                alert('The loaded key file will not work with this unscrambler version, you must use the ' + keyData.version + ' ' + keyData.type + ' unscrambler to unscramble this file.');
-                console.error('The loaded key file is not compatible with this unscrambler version.');
                 throw new Error("Invalid key format");
             }
 
-            // Validate key structure
             if (!keyData.algorithm || !keyData.seed) {
                 throw new Error("Invalid key format");
             }
@@ -515,14 +537,12 @@ export default function PhotoUnscramblerPro() {
 
             setDecodedKey(keyData);
             setKeyValid(true);
-            console.log("Key decoded successfully:", keyData);
-            success("Key decoded successfully!");
-
-            console.log("Decoded key:", keyData);
-            setReferencedKeyData(keyData); // Store the key data for analytics reference
+            setKeyValidationError('');
+            success("Key decoded and validated successfully!");
+            setReferencedKeyData(keyData);
         } catch (err) {
             console.error("Key decode error:", err);
-            error("Invalid key format. Please check your key and try again.");
+            if (!keyValidationError) error("Invalid key format. Please check your key and try again.");
             setKeyValid(false);
             setDecodedKey(null);
         }
@@ -635,7 +655,13 @@ export default function PhotoUnscramblerPro() {
 
                 success("Image unscrambled successfully!");
 
-                // SHOW MESSAGE DIALOG SAYTHING THAT THE USER HAS SPENT CREDITS TO CHECK THE IMAGE
+                // Log key usage (non-blocking)
+                const keyId = referencedKeyData?.key_id;
+                if (keyId) {
+                    api.post(`${API_URL}/api/keys/use`, { key_id: keyId }).catch(useErr => {
+                        console.warn('Key usage logging failed (non-critical):', useErr.message);
+                    });
+                }
 
                 // log succesful media unscramble event to analytics
                 api.post('/api/analytics/unscramble-event', {
@@ -942,7 +968,7 @@ export default function PhotoUnscramblerPro() {
                             multiline
                             rows={4}
                             value={keyCode}
-                            onChange={(e) => setKeyCode(e.target.value)}
+                            onChange={(e) => { setKeyCode(e.target.value); setKeyValid(false); setKeyValidationError(''); setDecodedKey(null); }}
                             placeholder="Paste your unscramble key here..."
                             InputProps={{
                                 sx: {
@@ -965,7 +991,20 @@ export default function PhotoUnscramblerPro() {
                                 Decode Key
                             </Button>
 
-                            {keyValid && decodedKey && (
+                            {keyValidationError && (
+                                <Alert severity="error" sx={{ flex: 1, py: 0 }}>
+                                    {keyValidationError}
+                                </Alert>
+                            )}
+
+                            {keyValid && decodedKey && !keyValidationError && decodedKey.limits?.max_uses && (
+                                <Alert severity="info" sx={{ flex: 1, py: 0 }}>
+                                    Key validated — limited to {decodedKey.limits.max_uses} use{decodedKey.limits.max_uses !== 1 ? 's' : ''}
+                                    {decodedKey.limits.expires_at ? `, expires ${new Date(decodedKey.limits.expires_at).toLocaleDateString()}` : ''}
+                                </Alert>
+                            )}
+
+                            {keyValid && decodedKey && !keyValidationError && !decodedKey.limits?.max_uses && (
                                 <Chip
                                     icon={<CheckCircle />}
                                     label={`Valid Key`}
@@ -978,11 +1017,11 @@ export default function PhotoUnscramblerPro() {
 
 
                         {/* Display Decoded Key Info */}
-                        {keyValid && decodedKey && (
-                            <Alert severity="success" sx={{ mt: 2, backgroundColor: '#2e7d32', color: 'white' }}>
-                                <Typography variant="body2" sx={{ fontWeight: 'bold', mb: 1 }}>
-                                    Key Information:
-                                </Typography>
+                        {/* {keyValid && decodedKey && ( */}
+                            {/* // <Alert severity="success" sx={{ mt: 2, backgroundColor: '#2e7d32', color: 'white' }}>
+                            //     <Typography variant="body2" sx={{ fontWeight: 'bold', mb: 1 }}>
+                            //         Key Information:
+                            //     </Typography> */}
                                 {/* <Typography variant="body2">
                                     • Algorithm: <strong>{decodedKey.algorithm}</strong>
                                 </Typography>
@@ -997,18 +1036,18 @@ export default function PhotoUnscramblerPro() {
                                 {/* <Typography variant="body2">
                                     • Scrambling: <strong>{decodedKey.percentage}%</strong>
                                 </Typography> */}
-                                <Typography variant="body2" sx={{ mt: 1, fontSize: '0.75rem', opacity: 0.8 }}>
+                                {/* <Typography variant="body2" sx={{ mt: 1, fontSize: '0.75rem', opacity: 0.8 }}>
                                     Created: {new Date(decodedKey.timestamp).toLocaleString()}
                                 </Typography>
                                 <Typography variant="body2" sx={{ mt: 1, fontSize: '0.75rem', opacity: 0.8 }}>
                                     Expires: {new Date(decodedKey.timestamp + 7 * 24 * 60 * 60 * 1000).toLocaleString()}
-                                </Typography>
+                                </Typography> */}
                                 {/* for testing purposes */}
                                 {/* <Typography variant="body2" sx={{ mt: 1, fontSize: '0.75rem', opacity: 0.8 }}>
                                     Unscrambles: {Math.floor(Math.random() * 1000)}
                                 </Typography> */}
-                            </Alert>
-                        )}
+                            {/* </Alert> */}
+                        {/* )} */}
                     </Box>
 
                     <Divider sx={{ my: 3, backgroundColor: '#666' }} />

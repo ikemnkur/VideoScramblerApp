@@ -9,7 +9,7 @@ const API_URL = import.meta.env.VITE_API_SERVER_URL || 'http://localhost:3001';
 // Deposit wallet address mappings
 
 const recipientAddresses = {
-    BTC: 'bc1q4j9e7equq4xvlyu7tan4gdmkvze7wc0egvykr6',
+    BTC: 'bc1qu5x2gc25tdwmhrcfl0sya7kuq9k5n8dlyc5a7q',
     LTC: 'ltc1qgg5aggedmvjx0grd2k5shg6jvkdzt9dtcqa4dh',
     ETH: '0x9a61f30347258A3D03228F363b07692F3CBb7f27',
     SOL: 'qaSpvAumg2L3LLZA8qznFtbrRKYMP1neTGqpNgtCPaU',

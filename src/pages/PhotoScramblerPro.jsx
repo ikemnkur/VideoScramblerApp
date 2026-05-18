@@ -22,7 +22,8 @@ import {
     Slider,
     CircularProgress,
     Tabs,
-    Tab
+    Tab,
+    Checkbox
 } from '@mui/material';
 import {
     PhotoCamera,
@@ -52,6 +53,7 @@ export default function PhotoScramblerPro() {
     const fileInputRef = useRef(null);
     const displayImageRef = useRef(null);
     const scrambledDisplayRef = useRef(null);
+    const reregisterTimerRef = useRef(null);
 
     // State
     const [selectedFile, setSelectedFile] = useState(null);
@@ -60,6 +62,7 @@ export default function PhotoScramblerPro() {
     // const [uploadedFilename, setUploadedFilename] = useState('');
     const [scrambledFilename, setScrambledFilename] = useState('');
     const [keyCode, setKeyCode] = useState('');
+    const [baseKeyObject, setBaseKeyObject] = useState(null);
     const [currentTab, setCurrentTab] = useState(0);
     const [previewUrl, setPreviewUrl] = useState('');
 
@@ -94,6 +97,11 @@ export default function PhotoScramblerPro() {
     // Algorithm-specific parameters
     const [maxHueShift, setMaxHueShift] = useState(64);
     const [maxIntensityShift, setMaxIntensityShift] = useState(128);
+
+    // Key limits (default: on, 1000 uses, 30 days)
+    const [keyLimitsActivated, setKeyLimitsActivated] = useState(true);
+    const [keyUses, setKeyUses] = useState(1000);
+    const [keyExpiry, setKeyExpiry] = useState(30);
 
     // =============================
     // UTILS
@@ -454,6 +462,14 @@ export default function PhotoScramblerPro() {
                 const encodedKey = btoa(JSON.stringify(key));
                 setKeyCode(encodedKey);
 
+                // Generate key_id — limits applied reactively via useEffect
+                const keyId = (typeof crypto !== 'undefined' && crypto.randomUUID)
+                    ? crypto.randomUUID()
+                    : `${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
+
+                key.key_id = keyId;
+                setBaseKeyObject({ ...key });
+
                 // Load scrambled image preview
                 if (data.output_file || data.scrambledFileName) {
                     loadScrambledImage(data.output_file || data.scrambledFileName);
@@ -490,7 +506,7 @@ export default function PhotoScramblerPro() {
             setIsProcessing(false);
         }
 
-    }, [selectedFile, algorithm, seed, rows, cols, scramblingPercentage, maxHueShift, maxIntensityShift, error, userData]);
+    }, [selectedFile, algorithm, seed, rows, cols, scramblingPercentage, maxHueShift, maxIntensityShift, error, userData, keyLimitsActivated, keyUses, keyExpiry]);
 
     const loadScrambledImage = async (filename) => {
         try {
@@ -577,6 +593,33 @@ export default function PhotoScramblerPro() {
         setSeed(Math.floor(Math.random() * 1000000000));
         success("New seed generated!");
     };
+
+    // Reactively re-encode key when limits change after a scramble
+    useEffect(() => {
+        if (!baseKeyObject) return;
+        const expiresAt = keyLimitsActivated && keyExpiry
+            ? new Date(Date.now() + keyExpiry * 24 * 60 * 60 * 1000).toISOString()
+            : null;
+        const fullKey = {
+            ...baseKeyObject,
+            limits: {
+                activated: keyLimitsActivated,
+                max_uses: keyLimitsActivated ? keyUses : null,
+                expires_at: expiresAt
+            }
+        };
+        setKeyCode(btoa(JSON.stringify(fullKey)));
+        clearTimeout(reregisterTimerRef.current);
+        reregisterTimerRef.current = setTimeout(() => {
+            api.post(`${API_URL}/api/keys/register`, {
+                key_id: baseKeyObject.key_id,
+                media_type: 'photo',
+                algorithm: baseKeyObject.algorithm,
+                max_uses: keyLimitsActivated ? keyUses : null,
+                expires_at: expiresAt
+            }).catch(err => console.warn('Key re-registration failed:', err.message));
+        }, 600);
+    }, [baseKeyObject, keyLimitsActivated, keyUses, keyExpiry]);
 
     // =============================
     // RENDER
@@ -1007,6 +1050,44 @@ export default function PhotoScramblerPro() {
                             >
                                 Copy Key
                             </Button>
+                        </Box>
+
+                        {/* Key Limits */}
+                        <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 2, alignItems: 'center', mt: 2 }}>
+                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                                <Checkbox
+                                    checked={keyLimitsActivated}
+                                    onChange={(e) => setKeyLimitsActivated(e.target.checked)}
+                                    sx={{ color: '#22d3ee', '&.Mui-checked': { color: '#22d3ee' }, p: 0 }}
+                                />
+                                <Typography variant="body2" sx={{ color: '#e0e0e0' }}>
+                                    Limit Key Usage
+                                </Typography>
+                            </Box>
+                            {keyLimitsActivated && (
+                                <>
+                                    <TextField
+                                        type="number"
+                                        label="Max Uses"
+                                        value={keyUses}
+                                        onChange={(e) => setKeyUses(parseInt(e.target.value) || 1)}
+                                        inputProps={{ min: 1, max: 100000 }}
+                                        size="small"
+                                        sx={{ width: 140, backgroundColor: '#353535', input: { color: 'white' } }}
+                                        InputLabelProps={{ sx: { color: '#bdbdbd' } }}
+                                    />
+                                    <TextField
+                                        type="number"
+                                        label="Expires (days)"
+                                        value={keyExpiry}
+                                        onChange={(e) => setKeyExpiry(parseInt(e.target.value) || 1)}
+                                        inputProps={{ min: 1, max: 365 }}
+                                        size="small"
+                                        sx={{ width: 150, backgroundColor: '#353535', input: { color: 'white' } }}
+                                        InputLabelProps={{ sx: { color: '#bdbdbd' } }}
+                                    />
+                                </>
+                            )}
                         </Box>
                     </Box>
                 </CardContent>

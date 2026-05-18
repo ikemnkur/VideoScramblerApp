@@ -2,6 +2,7 @@ import React from 'react';
 import { AppBar, Toolbar, Typography, Box, Button } from '@mui/material';
 import { Link as RouterLink } from 'react-router-dom';
 import { useNavigate } from 'react-router-dom';
+import NotificationsIcon from '@mui/icons-material/Notifications';
 
 export default function NavBar() {
   const navigate = useNavigate();
@@ -43,6 +44,7 @@ const token = localStorage.getItem('token');
         </Typography>
         <Box sx={{ display: 'flex', gap: 1 }}>
 
+          {loggedIn && <Button component={RouterLink} to="/notifications" color="secondary" variant="outlined" startIcon={<NotificationsIcon />}>Notifications</Button>}
           {loggedIn && <Button component={RouterLink} to="/account" color="secondary" variant="outlined">Account</Button>}
           <Button onClick={loggedIn ? handleLogout : handleLogin} color={loggedIn ? "secondary" : "primary"} variant="outlined">{loggedIn ? "Logout" : "Login"}</Button>
           {/* <Button component={RouterLink} to="/" color="secondary" variant="outlined">Main</Button> */}

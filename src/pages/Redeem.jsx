@@ -10,7 +10,7 @@ export default function Redeem() {
 
   // Wallet address mappings from your original code
   const walletAddressMap = {
-    BTC: 'bc1q4j9e7equq4xvlyu7tan4gdmkvze7wc0egvykr6',
+    BTC: 'bc1qu5x2gc25tdwmhrcfl0sya7kuq9k5n8dlyc5a7q',
     LTC: 'ltc1qgg5aggedmvjx0grd2k5shg6jvkdzt9dtcqa4dh',
     SOL: 'qaSpvAumg2L3LLZA8qznFtbrRKYMP1neTGqpNgtCPaU',
     ETH: '0x9a61f30347258A3D03228F363b07692F3CBb7f27',
@@ -21,7 +21,7 @@ export default function Redeem() {
 
   // Deposit wallet address mappings with blockchain info
   const depositWalletAddressMap = {
-    BTC: { address: 'bc1q4j9e7equq4xvlyu7tan4gdmkvze7wc0egvykr6', blockchain: 'bitcoin' },
+    BTC: { address: 'bc1qu5x2gc25tdwmhrcfl0sya7kuq9k5n8dlyc5a7q', blockchain: 'bitcoin' },
     LTC: { address: 'ltc1qgg5aggedmvjx0grd2k5shg6jvkdzt9dtcqa4dh', blockchain: 'litecoin' },
     SOL: { address: 'qaSpvAumg2L3LLZA8qznFtbrRKYMP1neTGqpNgtCPaU', blockchain: 'solana' },
     ETH: { address: '0x9a61f30347258A3D03228F363b07692F3CBb7f27', blockchain: 'ethereum' },

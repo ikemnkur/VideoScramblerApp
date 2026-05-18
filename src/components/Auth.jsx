@@ -43,7 +43,11 @@ const Auth = ({ isLogin, onLoginSuccess }) => {
   const [captchaPassed, setCaptchaPassed] = useState(false);
   const [captchaFailed, setCaptchaFailed] = useState(false);
   const [authError, setAuthError] = useState('');
-  const [loginStep, setLoginStep] = useState(1); // 1: credentials, 2: CAPTCHA
+  const [loginStep, setLoginStep] = useState(1); // 1: credentials, 2: CAPTCHA, 3: 2FA
+  const [twoFactorCode, setTwoFactorCode] = useState('');
+  const [twoFactorError, setTwoFactorError] = useState('');
+  const [twoFactorLoading, setTwoFactorLoading] = useState(false);
+  const [tempToken, setTempToken] = useState(null);
   const [blockTime, setBlockTime] = useState(null);
   const [remainingTime, setRemainingTime] = useState(null);
   const [showCaptcha, setShowCaptcha] = useState(false);
@@ -148,7 +152,7 @@ const Auth = ({ isLogin, onLoginSuccess }) => {
         console.log('Valid token found for user:', userData.username);
         // Token exists, redirect to main page
         // Note: Token validation happens on the server via the authenticateToken middleware
-        navigate('/');
+        navigate('/dashboard');
       } catch (error) {
         // Error parsing user data, remove invalid data
         console.error('Error parsing stored user data:', error);
@@ -199,6 +203,13 @@ const Auth = ({ isLogin, onLoginSuccess }) => {
 
 
       // Store user data and token from server response
+      // If the server requires 2FA verification
+      if (loginData.requiresTwoFactor) {
+        setTempToken(loginData.tempToken);
+        setLoginStep(3); // Move to 2FA step
+        return;
+      }
+
       let { user, token, accountType, tokenExpiry, verification } = loginData;
       localStorage.setItem('verification', JSON.stringify(verification));
       localStorage.setItem('token', token);
@@ -334,7 +345,7 @@ const Auth = ({ isLogin, onLoginSuccess }) => {
       // Navigate to main page after successful verification
       console.log('🧭 Navigating to /dashboard page...');
       setTimeout(() => {
-        navigate('/');
+        navigate('/dashboard');
       }, 500);
     }
 
@@ -360,6 +371,40 @@ const Auth = ({ isLogin, onLoginSuccess }) => {
       setCaptchaFailed(true);
     }
   }, []);
+
+  // Handler for 2FA verification step
+  const handleTwoFactorVerify = async () => {
+    if (!twoFactorCode.trim()) {
+      setTwoFactorError('Please enter the 6-digit code from your authenticator app.');
+      return;
+    }
+    setTwoFactorLoading(true);
+    setTwoFactorError('');
+    try {
+      const response = await fetch(`${API_URL}/api/auth/2fa/verify`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ tempToken, code: twoFactorCode.trim() })
+      });
+      const data = await response.json();
+      if (!response.ok || !data.success) {
+        setTwoFactorError(data.message || 'Invalid code. Please try again.');
+        return;
+      }
+      const { user, token, accountType, tokenExpiry } = data;
+      localStorage.setItem('token', token);
+      localStorage.setItem('userdata', JSON.stringify(user));
+      localStorage.setItem('tokenExpiry', tokenExpiry);
+      localStorage.setItem('accountType', accountType);
+      window.dispatchEvent(new Event('userLoggedIn'));
+      if (onLoginSuccess) onLoginSuccess();
+      navigate('/dashboard');
+    } catch (err) {
+      setTwoFactorError('Network error. Please try again.');
+    } finally {
+      setTwoFactorLoading(false);
+    }
+  };
 
   // const validateEmail = (email) => {
   //   // Standard email validation that allows dots in the local part (e.g., user.name@domain.com)
@@ -673,6 +718,51 @@ const Auth = ({ isLogin, onLoginSuccess }) => {
             <Typography variant="body2" color="error" align="center" sx={{ mt: 2 }}>
               You have been blocked due to multiple failed CAPTCHA attempts. Please try again later.
             </Typography>
+          )}
+
+          {/* Step 3: 2FA verification */}
+          {loginStep === 3 && (
+            <Box sx={{ mt: 2 }}>
+              <Typography variant="h6" align="center" sx={{ mb: 1, color: '#ffd700' }}>
+                Two-Factor Authentication
+              </Typography>
+              <Typography variant="body2" align="center" sx={{ mb: 2, color: '#ccc' }}>
+                Enter the 6-digit code from your authenticator app.
+              </Typography>
+              <TextField
+                label="Authentication Code"
+                variant="outlined"
+                fullWidth
+                margin="normal"
+                value={twoFactorCode}
+                onChange={(e) => setTwoFactorCode(e.target.value.replace(/\D/g, '').slice(0, 6))}
+                inputProps={{ inputMode: 'numeric', maxLength: 6 }}
+                autoFocus
+                onKeyDown={(e) => { if (e.key === 'Enter') handleTwoFactorVerify(); }}
+              />
+              {twoFactorError && (
+                <Typography variant="body2" color="error" sx={{ mt: 1 }}>
+                  {twoFactorError}
+                </Typography>
+              )}
+              <Button
+                variant="contained"
+                fullWidth
+                sx={{ mt: 2 }}
+                onClick={handleTwoFactorVerify}
+                disabled={twoFactorLoading || twoFactorCode.length !== 6}
+              >
+                {twoFactorLoading ? 'Verifying…' : 'Verify'}
+              </Button>
+              <Button
+                variant="text"
+                fullWidth
+                sx={{ mt: 1, color: '#aaa' }}
+                onClick={() => { setLoginStep(1); setTempToken(null); setTwoFactorCode(''); setTwoFactorError(''); }}
+              >
+                Back to login
+              </Button>
+            </Box>
           )}
         </CardContent>
       </Card>

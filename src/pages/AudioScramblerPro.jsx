@@ -17,6 +17,7 @@ import {
   Chip,
   Alert,
   Divider,
+  Checkbox,
   duration
 } from '@mui/material';
 import {
@@ -26,7 +27,8 @@ import {
   Key,
   Lock,
   LockOpen,
-  VolumeUp
+  VolumeUp,
+  ContentCopy
 } from '@mui/icons-material';
 import { useToast } from '../contexts/ToastContext';
 import CreditConfirmationModal from '../components/CreditConfirmationModal';
@@ -51,6 +53,7 @@ export default function AudioScrambler() {
 
   const unscrambledAudioPlayerRef = useRef(null);
   const unscrambledCanvasRef = useRef(null);
+  const reregisterTimerRef = useRef(null);
 
   const [audioContext] = useState(() => new (window.AudioContext || window.webkitAudioContext)());
   const VIEW_SPAN = 10; // 10 seconds viewable area
@@ -82,6 +85,12 @@ export default function AudioScrambler() {
   const [actionCost, setActionCost] = useState(3);
   const [scrambleLevel, setScrambleLevel] = useState(1);
   const [userData, setUserData] = useState(JSON.parse(localStorage.getItem("userdata")));
+
+  // Key limits
+  const [keyLimitsActivated, setKeyLimitsActivated] = useState(false);
+  const [keyUses, setKeyUses] = useState(100);
+  const [keyExpiry, setKeyExpiry] = useState(30);
+  const [keyCode, setKeyCode] = useState('');
 
   // const [userData] = useState(JSON.parse(localStorage.getItem("userdata")));
 
@@ -157,7 +166,6 @@ export default function AudioScrambler() {
     const jsonStr = JSON.stringify(keyObject);
     const encryptionKey = "AudioProtectionKey2025";
     const encrypted = xorEncrypt(jsonStr, encryptionKey);
-    console
     return btoa(encrypted);
   };
 
@@ -626,11 +634,39 @@ export default function AudioScrambler() {
           channels: audioBuffer.numberOfChannels
         },
         type: "audio",
-        version: "basic"
+        version: "premium"
 
       };
 
+      // Embed key_id and limits
+      const keyId = (typeof crypto !== 'undefined' && crypto.randomUUID)
+        ? crypto.randomUUID()
+        : `${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
+
+      const expiresAt = keyLimitsActivated && keyExpiry
+        ? new Date(Date.now() + keyExpiry * 24 * 60 * 60 * 1000).toISOString()
+        : null;
+
+      params.key_id = keyId;
+      params.limits = {
+        activated: keyLimitsActivated,
+        max_uses: keyLimitsActivated ? keyUses : null,
+        expires_at: expiresAt
+      };
+
       setScramblingParameters(params);
+      try { setKeyCode(encryptKeyData(params)); } catch (encErr) { console.warn('Initial key encoding failed:', encErr); }
+
+      // Register key in backend (non-blocking)
+      api.post(`${API_URL}/api/keys/register`, {
+        key_id: keyId,
+        media_type: 'audio',
+        algorithm: 'shuffle+noise',
+        max_uses: keyLimitsActivated ? keyUses : null,
+        expires_at: expiresAt
+      }).catch(regErr => {
+        console.warn('Key registration failed (non-critical):', regErr.message);
+      });
 
       // Create playable URL
       const url = bufferToWavUrl(final, final.numberOfChannels, final.sampleRate);
@@ -744,6 +780,19 @@ export default function AudioScrambler() {
     }
   };
 
+  const copyKey = async () => {
+    if (!keyCode) {
+      error('Please scramble audio first');
+      return;
+    }
+    try {
+      await navigator.clipboard.writeText(keyCode);
+      success('Key copied to clipboard!');
+    } catch {
+      error('Failed to copy key');
+    }
+  };
+
 
   // Update waveforms on time update
   useEffect(() => {
@@ -821,25 +870,51 @@ export default function AudioScrambler() {
     }
   }, [recoveredAudioBuffer]);
 
-  // =============================
-  // RENDER
+  // Directly update limits in params and re-encode key whenever limit settings change
+  useEffect(() => {
+    if (!scramblingParameters?.key_id) return;
+    const expiresAt = keyLimitsActivated && keyExpiry
+      ? new Date(Date.now() + keyExpiry * 24 * 60 * 60 * 1000).toISOString()
+      : null;
+    const newParams = {
+      ...scramblingParameters,
+      limits: {
+        activated: keyLimitsActivated,
+        max_uses: keyLimitsActivated ? keyUses : null,
+        expires_at: expiresAt
+      }
+    };
+    setScramblingParameters(newParams);
+    try { setKeyCode(encryptKeyData(newParams)); } catch (err) { console.warn('Key encoding failed:', err); }
+    clearTimeout(reregisterTimerRef.current);
+    reregisterTimerRef.current = setTimeout(() => {
+      api.post(`${API_URL}/api/keys/register`, {
+        key_id: scramblingParameters.key_id,
+        media_type: 'audio',
+        algorithm: 'shuffle+noise',
+        max_uses: keyLimitsActivated ? keyUses : null,
+        expires_at: expiresAt
+      }).catch(err => console.warn('Key re-registration failed:', err.message));
+    }, 600);
+  }, [scramblingParameters?.key_id, keyLimitsActivated, keyUses, keyExpiry]);
+
   // =============================
   return (
     <Container sx={{ py: 4 }}>
       <Box sx={{ mb: 4, textAlign: 'center' }}>
         <Typography variant="h3" color="primary.main" sx={{ mb: 2, fontWeight: 'bold', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 1 }}>
           {/* <AudioFile /> */}
-          🎵 Audio Scrambler
+          🎵 Audio Scrambler +
         </Typography>
         <Typography variant="h6" color="text.secondary" sx={{ mb: 2 }}>
           Upload audio, splice & shuffle it, add reversible noise, and download the secret audio and unscramble key
         </Typography>
 
-        <Box sx={{ display: 'flex', gap: 1, justifyContent: 'center', flexWrap: 'wrap' }}>
+        {/* <Box sx={{ display: 'flex', gap: 1, justifyContent: 'center', flexWrap: 'wrap' }}>
           <Chip label="Export: WAV" size="small" />
           <Chip label="Quality: 16-bit PCM" size="small" />
           <Chip label="Operations: Shuffle + Noise" size="small" />
-        </Box>
+        </Box> */}
       </Box>
 
       {/* Original Audio Section */}
@@ -1054,6 +1129,72 @@ export default function AudioScrambler() {
                 >
                   🔑 Download Scramble Key
                 </Button>
+              </Box>
+
+              {/* Unscramble Key Display */}
+              <Box sx={{ mt: 1, mb: 2 }}>
+                <Typography variant="body2" sx={{ color: '#e0e0e0', mb: 1 }}>
+                  Unscramble Key
+                </Typography>
+                <TextField
+                  fullWidth
+                  multiline
+                  rows={3}
+                  value={keyCode}
+                  placeholder="Your unscramble key will appear here after scrambling..."
+                  InputProps={{
+                    readOnly: true,
+                    sx: { fontFamily: 'monospace', backgroundColor: '#353535', color: 'white' }
+                  }}
+                  sx={{ mb: 1 }}
+                />
+                <Button
+                  variant="outlined"
+                  onClick={copyKey}
+                  startIcon={<ContentCopy />}
+                  disabled={!keyCode}
+                  sx={{ borderColor: '#666', color: '#e0e0e0' }}
+                >
+                  Copy Key
+                </Button>
+              </Box>
+
+              {/* Key Limits */}
+              <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 2, alignItems: 'center', mb: 2 }}>
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                  <Checkbox
+                    checked={keyLimitsActivated}
+                    onChange={(e) => setKeyLimitsActivated(e.target.checked)}
+                    sx={{ color: '#22d3ee', '&.Mui-checked': { color: '#22d3ee' }, p: 0 }}
+                  />
+                  <Typography variant="body2" sx={{ color: '#e0e0e0' }}>
+                    Limit Key Usage
+                  </Typography>
+                </Box>
+                {keyLimitsActivated && (
+                  <>
+                    <TextField
+                      type="number"
+                      label="Max Uses"
+                      value={keyUses}
+                      onChange={(e) => setKeyUses(parseInt(e.target.value) || 1)}
+                      inputProps={{ min: 1, max: 10000 }}
+                      size="small"
+                      sx={{ width: 140, backgroundColor: '#353535', input: { color: 'white' } }}
+                      InputLabelProps={{ sx: { color: '#bdbdbd' } }}
+                    />
+                    <TextField
+                      type="number"
+                      label="Expires (days)"
+                      value={keyExpiry}
+                      onChange={(e) => setKeyExpiry(parseInt(e.target.value) || 1)}
+                      inputProps={{ min: 1, max: 365 }}
+                      size="small"
+                      sx={{ width: 150, backgroundColor: '#353535', input: { color: 'white' } }}
+                      InputLabelProps={{ sx: { color: '#bdbdbd' } }}
+                    />
+                  </>
+                )}
               </Box>
 
               <Alert severity="warning" sx={{ backgroundColor: '#ff9800', color: 'white' }}>

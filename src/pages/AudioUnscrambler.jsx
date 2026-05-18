@@ -1208,7 +1208,7 @@ export default function AudioUnscrambler() {
             </Box>
 
             {/* Display Decoded Key Info */}
-            {decodedParams && (() => {
+            {/* {decodedParams && (() => {
               try {
                 const obj = JSON.parse(decodedParams);
                 const n = Number(obj.n);
@@ -1232,7 +1232,7 @@ export default function AudioUnscrambler() {
               } catch (e) {
                 return null;
               }
-            })()}
+            })()} */}
           </Box>
 
           {/* Key Code Input

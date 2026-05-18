@@ -88,6 +88,7 @@ import SubscriptionPlans from './pages/SubscriptionPlans';
 import SubscriptionSuccess from './pages/SubscriptionSuccess';
 import BonusCredits from './pages/BonusCredits';
 import PurchaseStripeSuccessful from './pages/PurchaseStripeSuccesful';
+import NotificationsPage from './pages/NotificationsPage';
 import TestGoogleTTS from './pages/TestGoogleTTS';
 
 import CreditPurchases from './components/CreditPurchases';
@@ -304,21 +305,25 @@ export default function App() {
                   <Route path="/account" element={<Account />} />
                 </>
 
-                {/* Main Route */}
-                {/* not logged in */}
-                {!(localStorage.getItem('userdata') ? JSON.parse(localStorage.getItem('userdata')).loginStatus : false) && (
-                  <>
-                    <Route path="/" element={<Info />} />
-                  </>
-                )}
-
-                {/* logged in */}
-                {(localStorage.getItem('userdata') ? JSON.parse(localStorage.getItem('userdata')).loginStatus : false) && (
-                  <Route path="/" element={<Main />} />
-                )}
+                {/* Main Route — single stable route, redirects based on login status */}
+                <Route
+                  path="/"
+                  element={
+                    (() => {
+                      try {
+                        const ud = JSON.parse(localStorage.getItem('userdata') || 'null');
+                        return ud?.loginStatus
+                          ? <Main />
+                          : <Info />;
+                      } catch { return <Info />; }
+                    })()
+                  }
+                />
 
 
                 <Route path="/dashboard" element={<Main />} />
+
+                <Route path="/notifications" element={<NotificationsPage />} />
 
                 <Route path="/wallet" element={<Wallet />} />
 

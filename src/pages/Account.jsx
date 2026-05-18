@@ -14,6 +14,7 @@ import {
 import { Save as SaveIcon } from '@mui/icons-material';
 import { useNavigate } from 'react-router-dom';
 import api from '../api/client';
+import TwoFactorSetup from '../components/TwoFactorSetup';
 // import FingerprintDisplay from '../components/FingerprintDisplay';
 
 
@@ -529,6 +530,12 @@ const AccountPage = () => {
 
       </Grid>
       {/* </Grid> */}
+
+
+
+      {/* Two-Factor Authentication Section */}
+      <TwoFactorSetup />
+
 
       <>
         {/* Verify Account */}

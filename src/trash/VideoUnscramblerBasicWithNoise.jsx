@@ -856,7 +856,7 @@ export default function VideoUnscramblerBasic() {
             </Box>
 
             {/* Display Decoded Key Info */}
-            {decodedParams && (() => {
+            {/* {decodedParams && (() => {
               try {
                 const obj = JSON.parse(decodedParams);
                 const n = Number(obj.n);
@@ -880,7 +880,7 @@ export default function VideoUnscramblerBasic() {
               } catch (e) {
                 return null;
               }
-            })()}
+            })()} */}
           </Box>
 
           <Divider sx={{ my: 3, backgroundColor: '#666' }} />

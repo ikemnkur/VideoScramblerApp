@@ -53,10 +53,15 @@ export default function MainPage() {
             // let lastDataFetchTooOld = !localStorage.getItem('lastDataFetch') ||
             //     (Date.now() - parseInt(localStorage.getItem('lastDataFetch') || "0", 10) > 1.5 * 60 * 1000);
 
+            const currentUserData = JSON.parse(localStorage.getItem("userdata"));
+            if (!currentUserData?.username) {
+                navigate('/login');
+                return;
+            }
 
             let response = await api.post(`/api/user`, {
-                username: userData.username,
-                email: userData.email,
+                username: currentUserData.username,
+                email: currentUserData.email,
                 password: "Password"//localStorage.getItem('hashedPassword')
             });
 
@@ -155,7 +160,12 @@ export default function MainPage() {
 
             // If trying to select same mode they already have
             if (mode === dayPassMode) {
-                info(`You have an active ${mode} pass until it expires at ${new Date(dayPassExpiry).toLocaleString()}.`);
+                // info(`You have an active ${mode} pass until it expires at ${new Date(dayPassExpiry).toLocaleString()}.`);
+                // change to display time to expry instead of expiry date
+                const timeRemaining = new Date(dayPassExpiry) - new Date();
+                const hours = Math.floor(timeRemaining / (1000 * 60 * 60));
+                const minutes = Math.floor((timeRemaining % (1000 * 60 * 60)) / (1000 * 60));
+                info(`You have an active ${mode} pass. Time until expiry: ${hours} hours ${minutes} minutes.`);
                 setServiceMode(dayPassMode);
                 return;
             }
@@ -1071,16 +1081,16 @@ export default function MainPage() {
                 </Card>
 
 
-                <Card variant="outlined" sx={{
+                {/* <Card variant="outlined" sx={{
                     backgroundColor: '#1a1a1a',
                     border: '2px solid #ffd700',
                     borderRadius: 2
-                }}>
-                    <CardContent>
-                        <Typography variant="h6" gutterBottom sx={{ color: '#ffd700' }}>Notifications</Typography>
-                        <Notifications />
-                    </CardContent>
-                </Card>
+                }}> */}
+                    {/* <CardContent> */}
+                        {/* <Typography variant="h6" gutterBottom sx={{ color: '#ffd700' }}>Notifications</Typography> */}
+                        {/* <Notifications /> */}
+                    {/* </CardContent> */}
+                {/* </Card> */}
             </Stack>
 
             {/* Mode Purchase Modal */}

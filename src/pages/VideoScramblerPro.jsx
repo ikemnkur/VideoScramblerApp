@@ -54,6 +54,7 @@ export default function ScramblerVideosPro() {
   const fileInputRef = useRef(null);
   const displayVideoRef = useRef(null);
   const scrambledVideoRef = useRef(null);
+  const reregisterTimerRef = useRef(null);
 
   // State
   const [selectedFile, setSelectedFile] = useState(null);
@@ -85,6 +86,7 @@ export default function ScramblerVideosPro() {
   const [maxIntensityShift, setMaxIntensityShift] = useState(128);
 
   const [keyCode, setKeyCode] = useState('');
+  const [baseKeyObject, setBaseKeyObject] = useState(null);
   const [keyUses, setKeyUses] = useState(1000);
   const [keyExpiry, setKeyExpiry] = useState(100); // in days, 1000 is effectively no expiry
   const [KeyLimitsActivated, setKeyLimitsActivated] = useState(false);
@@ -208,6 +210,33 @@ export default function ScramblerVideosPro() {
     setSeed(Math.floor(Math.random() * 1000000000));
     success("New seed generated!");
   };
+
+  // Reactively re-encode key when limits change after a scramble
+  useEffect(() => {
+    if (!baseKeyObject) return;
+    const expiresAt = KeyLimitsActivated && keyExpiry
+      ? new Date(Date.now() + keyExpiry * 24 * 60 * 60 * 1000).toISOString()
+      : null;
+    const fullKey = {
+      ...baseKeyObject,
+      limits: {
+        activated: KeyLimitsActivated,
+        max_uses: KeyLimitsActivated ? keyUses : null,
+        expires_at: expiresAt
+      }
+    };
+    setKeyCode(btoa(JSON.stringify(fullKey)));
+    clearTimeout(reregisterTimerRef.current);
+    reregisterTimerRef.current = setTimeout(() => {
+      api.post(`${API_URL}/api/keys/register`, {
+        key_id: baseKeyObject.key_id,
+        media_type: 'video',
+        algorithm: baseKeyObject.algorithm,
+        max_uses: KeyLimitsActivated ? keyUses : null,
+        expires_at: expiresAt
+      }).catch(err => console.warn('Key re-registration failed:', err.message));
+    }, 600);
+  }, [baseKeyObject, KeyLimitsActivated, keyUses, keyExpiry]);
 
   const scrambleVideo = useCallback(async () => {
     console.log("scrambleVideo called with current state:", {
@@ -339,8 +368,13 @@ export default function ScramblerVideosPro() {
           }
         };
 
-        const encodedKey = btoa(JSON.stringify(key));
-        setKeyCode(encodedKey);
+        // Generate unique key_id — limits applied reactively via useEffect
+        const keyId = crypto.randomUUID
+          ? crypto.randomUUID()
+          : `${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
+
+        key.key_id = keyId;
+        setBaseKeyObject({ ...key });
 
         // Load scrambled video preview
         loadScrambledVideo();
@@ -362,7 +396,7 @@ export default function ScramblerVideosPro() {
     } finally {
       setIsProcessing(false);
     }
-  }, [selectedFile, algorithm, seed, rows, cols, scramblingBlur, maxHueShift, maxIntensityShift, error, userData]);
+  }, [selectedFile, algorithm, seed, rows, cols, scramblingBlur, maxHueShift, maxIntensityShift, error, userData, KeyLimitsActivated, keyUses, keyExpiry]);
 
 
   const loadScrambledVideo = async () => {

@@ -95,6 +95,9 @@ export default function AudioUnscrambler() {
 
   const [userData] = useState(JSON.parse(localStorage.getItem("userdata")));
 
+  const [keyValidated, setKeyValidated] = useState(false);
+  const [keyValidationError, setKeyValidationError] = useState('');
+
   const [creatorInfo, setCreatorInfo] = useState({
     username: 'Anonymous',
     userId: 'Unknown',
@@ -461,46 +464,60 @@ export default function AudioUnscrambler() {
     return URL.createObjectURL(blob);
   };
 
-  const decodeKeyCode = () => {
+  const decodeKeyCode = async () => {
     try {
-      // const text = await file.text();
       const text = keyCode.trim();
       const keyData = decryptKeyData(text);
+
       if (keyData.type !== "audio") {
-        error('The loaded key file is not a valid audio scramble key.');
-        // throw new Error('Invalid key file type');
-      } else if (keyData.version !== "standard") {
-        error('Use the ' + keyData.version + ' ' + keyData.type + ' scrambler to unscramble this file.');
-        alert('The loaded key file will not work with this scrambler version, you must use the ' + keyData.version + ' ' + keyData.type + ' scrambler to unscramble this file.');
-        // throw new Error('Incompatible key file version');
+        setKeyValidationError('This key is not a valid audio scramble key.');
+        return;
       }
+      if (keyData.version !== "standard" && keyData.version !== "premium") {
+        setKeyValidationError(`Incompatible key version "${keyData.version}". Use the matching scrambler.`);
+        return;
+      }
+
+      // Client-side expiry check
+      if (keyData.limits?.expires_at && new Date(keyData.limits.expires_at) < new Date()) {
+        setKeyValidationError('This key has expired.');
+        return;
+      }
+
+      // Backend validation (checks revoked / max_uses)
+      if (keyData.key_id) {
+        try {
+          const res = await api.post(`${API_URL}/api/keys/validate`, { key_id: keyData.key_id });
+          if (!res.data.valid) {
+            setKeyValidationError(res.data.reason || 'Key is no longer valid.');
+            return;
+          }
+        } catch (valErr) {
+          console.warn('Key validation request failed:', valErr.message);
+          // Allow usage if backend is unreachable
+        }
+      }
+
       setLoadedKeyData(keyData);
       applyParametersFromKey(keyData);
+      setKeyValidated(true);
+      setKeyValidationError('');
       success('🔑 Key loaded!');
     } catch (err) {
-
       console.error("Error loading key:", err);
-      error('Invalid or corrupted key file');
-      console.log("Attempting to decode key code as Base64-encoded JSON...");
+      // Fallback: try plain base64 JSON
       try {
-        const json = fromBase64(keyCode);
+        const json = fromBase64(keyCode.trim());
         const params = JSON.parse(json);
         setDecodedParams(params);
+        setKeyValidated(true);
+        setKeyValidationError('');
         success('Key code decoded successfully!');
-        console.log("Decoded (XOR Decrypt) key parameters:", params);
       } catch (e) {
-        try {
-          const keyData = decryptKeyData(keyCode);
-          setDecodedParams(keyData);
-          console.log("Decoded (Base64) key data from code:", keyData);
-        } catch (err) {
-          console.error("Error decoding key code:", err);
-        }
-        error('Invalid key code: ' + e.message);
+        setKeyValidationError('Invalid or corrupted key.');
+        error('Invalid or corrupted key.');
       }
     }
-
-
   };
 
   // =============================
@@ -634,7 +651,7 @@ export default function AudioUnscrambler() {
       "shuffle": { "enabled": true, "seed": 12345, "segmentSize": 5, "padding": 0.5, "shuffleOrder": [5, 2, 10, 9, 8, 6, 7, 1, 3, 0, 4] },
       "noise": { "enabled": true, "seed": 54321, "level": 1, "multiFrequency": true },
       "user": { "username": "ikemnkur", "userId": "Unknown", "timestamp": "2025-12-29T22:38:39.117Z" },
-      "type": "audio", "version": "basic"
+      "type": "audio", "version": "premium"
     }
 
     setSegmentSize(keyData.shuffle?.segmentSize);
@@ -738,10 +755,9 @@ export default function AudioUnscrambler() {
     const file = event.target.files?.[0];
     if (!file) return;
 
-    // place text in the Enter Key Code box 
+    const text = await file.text();
+    // place text in the Enter Key Code box
     setKeyCode(text.trim());
-
-
   };
 
   // =============================
@@ -897,6 +913,14 @@ export default function AudioUnscrambler() {
 
       setIsProcessing(false);
       success('✅ Audio unscrambled!');
+
+      // Log key usage in backend (non-blocking)
+      const keyId = loadedKeyData?.key_id || decodedParams?.key_id;
+      if (keyId) {
+        api.post(`${API_URL}/api/keys/use`, { key_id: keyId }).catch(useErr => {
+          console.warn('Key usage logging failed (non-critical):', useErr.message);
+        });
+      }
     } catch (err) {
       console.error('Unscramble error:', err);
       error('Error: ' + err.message);
@@ -998,11 +1022,11 @@ export default function AudioUnscrambler() {
           Upload scrambled audio and key, apply segment unshuffling and/or noise removal, and download the unscrambled audio.
         </Typography>
 
-        <Box sx={{ display: 'flex', gap: 1, justifyContent: 'center', flexWrap: 'wrap' }}>
+        {/* <Box sx={{ display: 'flex', gap: 1, justifyContent: 'center', flexWrap: 'wrap' }}>
           <Chip label="Export: WAV" size="small" />
           <Chip label="Quality: 16-bit PCM" size="small" />
           <Chip label="Operations: Shuffle + Noise" size="small" />
-        </Box>
+        </Box> */}
       </Box>
 
 
@@ -1093,7 +1117,7 @@ export default function AudioUnscrambler() {
               multiline
               rows={3}
               value={keyCode}
-              onChange={(e) => setKeyCode(e.target.value)}
+              onChange={(e) => { setKeyCode(e.target.value); setKeyValidated(false); setKeyValidationError(''); setLoadedKeyData(null); setDecodedParams(null); }}
               placeholder="eyJzZWVkIjoxMjM0NSwibiI6MywibSI6MywicGVybTFiYXNlZCI6WzMsMiw1LDEsNyw2LDksNCw4XX0="
               sx={{
                 mb: 2,
@@ -1117,7 +1141,20 @@ export default function AudioUnscrambler() {
                 Decode Key
               </Button>
 
-              {decodedParams && (
+              {keyValidationError && (
+                <Alert severity="error" sx={{ flex: 1, py: 0 }}>
+                  {keyValidationError}
+                </Alert>
+              )}
+
+              {keyValidated && !keyValidationError && loadedKeyData?.limits?.max_uses && (
+                <Alert severity="info" sx={{ flex: 1, py: 0 }}>
+                  Key validated — limited to {loadedKeyData.limits.max_uses} total use{loadedKeyData.limits.max_uses !== 1 ? 's' : ''}
+                  {loadedKeyData.limits.expires_at ? `, expires ${new Date(loadedKeyData.limits.expires_at).toLocaleDateString()}` : ''}
+                </Alert>
+              )}
+
+              {keyValidated && !keyValidationError && !loadedKeyData?.limits?.max_uses && (
                 <Chip
                   icon={<CheckCircle />}
                   label="Valid Key Decoded"
@@ -1175,9 +1212,9 @@ export default function AudioUnscrambler() {
             onClick={confirmSpendingCredits}
 
             startIcon={<LockOpen />}
-            disabled={!scrambledAudioBuffer || !loadedKeyData || isProcessing}
+            disabled={!scrambledAudioBuffer || !loadedKeyData || !keyValidated || isProcessing}
             sx={{
-              backgroundColor: (!scrambledAudioBuffer || !loadedKeyData || isProcessing) ? '#666' : '#4caf50',
+              backgroundColor: (!scrambledAudioBuffer || !loadedKeyData || !keyValidated || isProcessing) ? '#666' : '#4caf50',
               color: 'white',
               mb: 3
             }}
