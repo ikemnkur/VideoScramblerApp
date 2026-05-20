@@ -725,7 +725,7 @@ export default function MainPage() {
                                         boxShadow: '0 4px 12px rgba(46, 125, 50, 0.3)'
                                     }
                                 }}
-                                    onClick={() => navigate("/photo-scrambler-standard")}>
+                                    onClick={() => navigate("/photo-scrambler-standard-cs")}>
                                     <CardContent sx={{ p: 2 }}>
                                         <Typography variant="h6" sx={{ color: '#2e7d32ff', mb: 1, fontWeight: 'bold' }}>
                                             🔐📸 Scramble Photo +
@@ -753,7 +753,7 @@ export default function MainPage() {
                                         boxShadow: '0 4px 12px rgba(255, 152, 0, 0.3)'
                                     }
                                 }}
-                                    onClick={() => navigate("/photo-unscrambler-standard")}>
+                                    onClick={() => navigate("/photo-unscrambler-standard-cs")}>
                                     <CardContent sx={{ p: 2 }}>
                                         <Typography variant="h6" sx={{ color: '#ff9800', mb: 1, fontWeight: 'bold' }}>
                                             🖼️ Unscramble Photo +
@@ -897,7 +897,7 @@ export default function MainPage() {
                                         boxShadow: '0 4px 12px rgba(46, 125, 50, 0.3)'
                                     }
                                 }}
-                                    onClick={() => navigate("/photo-scrambler-pro")}>
+                                    onClick={() => navigate("/photo-scrambler-pro-cs")}>
                                     <CardContent sx={{ p: 2 }}>
                                         <Typography variant="h6" sx={{ color: '#2e7d32ff', mb: 1, fontWeight: 'bold' }}>
                                             🔐📸 Scramble Photo Pro
@@ -923,7 +923,7 @@ export default function MainPage() {
                                         boxShadow: '0 4px 12px rgba(46, 125, 50, 0.3)'
                                     }
                                 }}
-                                    onClick={() => navigate("/photo-unscrambler-pro")}>
+                                    onClick={() => navigate("/photo-unscrambler-pro-cs")}>
                                     <CardContent sx={{ p: 2 }}>
                                         <Typography variant="h6" sx={{ color: '#ff9800', mb: 1, fontWeight: 'bold' }}>
                                             🔐📸 Unscramble Photo Pro

@@ -27,7 +27,8 @@ import {
   Visibility,
   Download,
   Key,
-  Image as ImageIcon
+  Image as ImageIcon,
+  Fingerprint
 } from '@mui/icons-material';
 import { useNavigate } from 'react-router-dom';
 import { useToast } from '../contexts/ToastContext';
@@ -420,7 +421,8 @@ export default function PhotoUnscrambler() {
           watermark_x: localStorage.getItem('watermarkParams') ? JSON.parse(localStorage.getItem('watermarkParams')).x : 0,
           watermark_y: localStorage.getItem('watermarkParams') ? JSON.parse(localStorage.getItem('watermarkParams')).y : 0,
           watermark_rotation: localStorage.getItem('watermarkParams') ? JSON.parse(localStorage.getItem('watermarkParams')).rotation : 0,
-        }
+        },
+        fingerprint: null // Placeholder for actual fingerprint if implemented
       }).catch(err => {
         console.error('Failed to log analytics event:', err);
 
@@ -617,7 +619,8 @@ export default function PhotoUnscrambler() {
         // freq1, freq2, freq3, pulseRate1: 0.125, pulseRate2: 0.25, pulseRate3: 0.5
         id: Math.ceil(1000 * Math.random())
         // Placeholder for actual watermark parameters if needed
-      }
+      },
+      fingerprint: null // Placeholder for actual fingerprint if implemented
 
     }).catch(err => {
       console.error('Failed to log analytics event:', err);

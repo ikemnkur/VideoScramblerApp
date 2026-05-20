@@ -801,7 +801,8 @@ export default function VideoUnscramblerBasic() {
           watermark_x: localStorage.getItem('watermarkParams') ? JSON.parse(localStorage.getItem('watermarkParams')).x : 0,
           watermark_y: localStorage.getItem('watermarkParams') ? JSON.parse(localStorage.getItem('watermarkParams')).y : 0,
           watermark_rotation: localStorage.getItem('watermarkParams') ? JSON.parse(localStorage.getItem('watermarkParams')).rotation : 0,
-        }
+        },
+        fingerprint: null // Implement fingerprinting if desired, ensuring privacy compliance
       }).catch(err => {
         console.error('Failed to log analytics event:', err);
 

@@ -82,7 +82,7 @@ export default function PurchaseStripeSuccessful() {
             variant="outlined"
             size="large"
             startIcon={<Receipt />}
-            onClick={() => navigate('/purchase-history')}
+            onClick={() => navigate('/credit-purchase-history')}
             sx={{
               borderColor: '#2e7d32',
               color: '#2e7d32',

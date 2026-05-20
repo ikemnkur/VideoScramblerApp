@@ -37,6 +37,7 @@ import {
   generateSpelledWatermark,
   overlayWatermarkAtIntervals,
 } from '../utils/ttsWatermarkService';
+import { getCachedAudioTag } from './CreateAudioTag';
 
 export default function AudioUnscrambler() {
   const { success, error, info } = useToast();
@@ -251,23 +252,31 @@ export default function AudioUnscrambler() {
 
   // Apply watermark to original audio
   const applyWatermark = async () => {
-    if (!watermarkBuffer) {
-      setError('Please generate a watermark first');
-      return;
-    }
-
-    // if (!originalBuffer) {
-    //   setError('Please upload an audio file first');
-    //   return;
-    // }
-
-    // setLoading(true);
     setError('');
 
     try {
+      // Prefer the pre-generated audio tag from Cache API (created at login)
+      let resolvedWatermarkBuffer = watermarkBuffer;
+      if (!resolvedWatermarkBuffer) {
+        const username = userData?.username || userData?.id;
+        if (username) {
+          const cachedBytes = await getCachedAudioTag(username);
+          if (cachedBytes) {
+            resolvedWatermarkBuffer = await audioContext.decodeAudioData(cachedBytes);
+            console.log('[applyWatermark] Loaded watermark from cache');
+          }
+        }
+      }
+
+      if (!resolvedWatermarkBuffer) {
+        setError('No watermark available — please log out and log in again to generate one.');
+        return;
+      }
+
+      // setLoading(true);
       const watermarked = await renderWatermarkedAudio(
         originalBuffer,
-        watermarkBuffer,
+        resolvedWatermarkBuffer,
         interval,
         fade,
         volume
@@ -932,43 +941,53 @@ export default function AudioUnscrambler() {
           info('Generating ownership watermark...');
           const watermarkId = userData.username || userData.id;
 
-          // Build the spelled-out watermark AudioBuffer using the custom TTS service
-          const watermarkBuffer = await generateSpelledWatermark(
-            watermarkId,
-            'unscrambler',
-            audioContext,
-            {
-              lettersPath: '/audio-alphabet',
-              numbersPath: '/audio-numbers',
-              symbolsPath: '/audio-symbols',
-              watermarksPath: '/watermarks',
-              silenceBetween: 0.05,
+            // 1. Try to load the pre-generated Google TTS clip from Cache API
+            let watermarkBuffer = null;
+            const cachedBytes = await getCachedAudioTag(watermarkId);
+            if (cachedBytes) {
+              watermarkBuffer = await audioContext.decodeAudioData(cachedBytes);
+              console.log('[Watermark] Loaded from cache (Google TTS)');
+            } else {
+              // 2. Fall back to spelling out the username with local audio clips
+              watermarkBuffer = await generateSpelledWatermark(
+                watermarkId,
+                'unscrambler',
+                audioContext,
+                {
+                  lettersPath: '/audio-alphabet',
+                  numbersPath: '/audio-numbers',
+                  symbolsPath: '/audio-symbols',
+                  watermarksPath: '/watermarks',
+                  silenceBetween: 0.05,
+                }
+              );
+              console.log('[Watermark] Generated from local audio clips (cache miss)');
             }
-          );
 
-          // Interval = watermark duration + 2× watermark duration (play, wait 2×, play again)
-          const intervalSeconds = watermarkBuffer.duration * 3;
+            // Interval = watermark duration + 2× watermark duration (play, wait 2×, play again)
+            const intervalSeconds = watermarkBuffer.duration * 3;
 
-          recoveredBuffer = overlayWatermarkAtIntervals(
-            recoveredBuffer,
-            watermarkBuffer,
-            audioContext,
-            {
-              intervalSeconds, // starts at t=0, repeats every 3× watermark duration
-              volume: 0.20,    // audible but not obtrusive
-              fadeMs: 100,
-            }
-          );
+            recoveredBuffer = overlayWatermarkAtIntervals(
+              recoveredBuffer,
+              watermarkBuffer,
+              audioContext,
+              {
+                intervalSeconds, // starts at t=0, repeats every 3× watermark duration
+                volume: 0.20,    // audible but not obtrusive
+                fadeMs: 100,
+              }
+            );
 
-          console.log('Ownership watermark applied:', {
-            user: watermarkId,
-            wmDuration: watermarkBuffer.duration.toFixed(2) + 's',
-            repeatInterval: intervalSeconds.toFixed(2) + 's',
-          });
-        } catch (err) {
-          console.error('Watermark application failed (continuing without):', err);
+            console.log('Ownership watermark applied:', {
+              user: watermarkId,
+              source: cachedBytes ? 'cache' : 'local-clips',
+              wmDuration: watermarkBuffer.duration.toFixed(2) + 's',
+              repeatInterval: intervalSeconds.toFixed(2) + 's',
+            });
+          } catch (err) {
+            console.error('Watermark application failed (continuing without):', err);
+          }
         }
-      }
 
       setRecoveredAudioBuffer(recoveredBuffer);
 

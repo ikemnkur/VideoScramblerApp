@@ -84,13 +84,13 @@ function paramsFromB(B) {
 
     const angleDeg = (rnd() * 4) - 2;          // ±2°
     const angle = angleDeg * Math.PI / 180;
-    const zoom = 1.15 + rnd() * 0.15;         // 1.15–1.30×
-    const shiftX = (rnd() * 2 - 1) * 30;        // ±30px
-    const shiftY = (rnd() * 2 - 1) * 30;
-    const cropTop = 16 + Math.floor(rnd() * 49);
-    const cropRight = 16 + Math.floor(rnd() * 49);
-    const cropBottom = 16 + Math.floor(rnd() * 49);
-    const cropLeft = 16 + Math.floor(rnd() * 49);
+    const zoom = 1.02 + rnd() * 0.05;         // 1.02–1.07× (subtle, still uniquely traceable)
+    const shiftX = (rnd() * 2 - 1) * 12;        // ±12px
+    const shiftY = (rnd() * 2 - 1) * 12;
+    const cropTop = 16 + Math.floor(rnd() * 16);
+    const cropRight = 16 + Math.floor(rnd() * 16);
+    const cropBottom = 16 + Math.floor(rnd() * 16);
+    const cropLeft = 16 + Math.floor(rnd() * 16);
 
     return { B, angle, angleDeg, zoom, shiftX, shiftY, cropTop, cropRight, cropBottom, cropLeft };
 }
@@ -211,6 +211,7 @@ export default function PhotoUnscramblerPro() {
     const scrambledDisplayRef = useRef(null);
     const unscrambledDisplayRef = useRef(null);
     const keyFileInputRef = useRef(null);
+    const unscrambleImageRef = useRef(null); // always points to latest unscrambleImage
 
     // State
     const [selectedFile, setSelectedFile] = useState(null);
@@ -342,7 +343,7 @@ export default function PhotoUnscramblerPro() {
 
         // Use setTimeout to ensure state update completes before scrambling
         setTimeout(() => {
-            unscrambleImage();
+            unscrambleImageRef.current();
         }, 0);
 
     }, [selectedFile, allowScrambling]);
@@ -620,8 +621,9 @@ export default function PhotoUnscramblerPro() {
                 setUnscrambledFilename(data.output_file || data.unscrambledFileName);
 
                 // Load unscrambled image preview
+                let fpParams = null;
                 if (data.output_file || data.unscrambledFileName) {
-                    loadUnscrambledImage(data.output_file || data.unscrambledFileName);
+                    fpParams = await loadUnscrambledImage(data.output_file || data.unscrambledFileName);
                 } else if (data.unscrambledImageUrl) {
                     // If backend returns direct URL
                     if (unscrambledDisplayRef.current) {
@@ -653,8 +655,16 @@ export default function PhotoUnscramblerPro() {
                     },
                     watermarkParams: {
                         watermark_idNumber: watermark_idNumber,
-                        fingerprintParams: fingerprintParams
+                        // fingerprintParams: fingerprintParams
+                    },
+                    fingerprint: {
+                        trackingNumber: fpParams?.trackingNumber || 'unknown',
+                        angleDeg: fpParams?.angleDeg || 'unknown',
+                        zoom: fpParams?.zoom || 'unknown',
+                        shiftX: fpParams?.shiftX || 'unknown',
+                        shiftY: fpParams?.shiftY || 'unknown'
                     }
+                    
                 }).catch(err => {
                     console.error('Failed to log analytics event:', err);
 
@@ -677,6 +687,9 @@ export default function PhotoUnscramblerPro() {
         }
     };
 
+    // Keep ref in sync so handleCreditConfirm always calls the latest version
+    unscrambleImageRef.current = unscrambleImage;
+
     const loadUnscrambledImage = async (filename) => {
         try {
             const response = await fetch(`${API_URL}/download/${filename}`);
@@ -689,17 +702,18 @@ export default function PhotoUnscramblerPro() {
             const userId = userData?.id || 'UNKNOWN';
             const { dataUrl, params } = await applyFingerprintTransform(blob, userId);
 
-            setFingerprintedUrl(dataUrl);
-            setFingerprintParams(params);
-
-            console.log('Fingerprint applied:', {
-                userId,
+            const fpResult = {
                 trackingNumber: params.B,
                 angleDeg: params.angleDeg.toFixed(2),
                 zoom: params.zoom.toFixed(3),
                 shiftX: params.shiftX.toFixed(1),
                 shiftY: params.shiftY.toFixed(1),
-            });
+            };
+            setFingerprintedUrl(dataUrl);
+            setFingerprintParams(fpResult);
+
+            console.log('Fingerprint applied:', { userId, ...fpResult });
+            return fpResult;
         } catch (err) {
             error('Failed to apply fingerprint transform: ' + err.message);
         }
@@ -823,7 +837,7 @@ export default function PhotoUnscramblerPro() {
 
     const getActualCost = () => {
         console.log("get actionCost from localStorage:", localStorage.getItem('lastActionCost'));
-        console.log((" vs current actionCost state:", actionCost));
+        console.log(" vs current actionCost state:", actionCost);
         let num = parseInt(localStorage.getItem('lastActionCost'));
         return num === actionCost ? num : actionCost;
     };

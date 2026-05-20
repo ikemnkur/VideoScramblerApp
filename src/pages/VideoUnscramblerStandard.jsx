@@ -420,7 +420,8 @@ export default function VideoUnscramblerPro() {
           },
           watermarkParams: {
             watermark_idNumber: watermark_idNumber,
-          }
+          },
+          fingerprint: null // can use this since the fingerprint is meant to be applied to a image, fingerprinting a video entails rerendering it, since videos have multiple frames so it's not as straightforward to apply a fingerprint, but can be implemented in the future if desired, ensuring privacy compliance
         }).catch(err => {
           console.error('Failed to log analytics event:', err);
 

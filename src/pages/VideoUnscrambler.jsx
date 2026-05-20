@@ -35,7 +35,8 @@ import {
   Movie,
   AutoAwesome,
   CheckCircle,
-  CloudDownload
+  CloudDownload,
+  Fingerprint
 } from '@mui/icons-material';
 import { useToast } from '../contexts/ToastContext';
 import CreditConfirmationModal from '../components/CreditConfirmationModal';
@@ -420,7 +421,8 @@ export default function VideoUnscrambler() {
         },
         watermarkParams: {
           watermark_idNumber: watermark_idNumber,
-        }
+        }, 
+        fingerprint: null // Placeholder for actual fingerprint if implemented
       }).catch(err => {
         console.error('Failed to log analytics event:', err);
 

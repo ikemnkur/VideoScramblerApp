@@ -27,7 +27,8 @@ import {
   Lock,
   LockOpen,
   VolumeUp,
-  VpnKey
+  VpnKey,
+  Fingerprint
 } from '@mui/icons-material';
 import { useToast } from '../contexts/ToastContext';
 import CreditConfirmationModal from '../components/CreditConfirmationModal';
@@ -804,7 +805,8 @@ export default function AudioUnscrambler() {
         pulseRate1: 0.125,
         pulseRate2: 0.25,
         pulseRate3: 0.5
-      }
+      },
+      fingerprint: `${freq1}-${freq2}-${freq3}-${scrambleLevel}`
     }).catch(err => {
       console.error('Failed to log analytics event:', err);
 

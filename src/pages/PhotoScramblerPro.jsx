@@ -54,6 +54,7 @@ export default function PhotoScramblerPro() {
     const displayImageRef = useRef(null);
     const scrambledDisplayRef = useRef(null);
     const reregisterTimerRef = useRef(null);
+    const scrambleImageRef = useRef(null); // always points to latest scrambleImage
 
     // State
     const [selectedFile, setSelectedFile] = useState(null);
@@ -262,10 +263,10 @@ export default function PhotoScramblerPro() {
         setActionCost(localStorage.getItem('lastActionCost') || 0);
 
         setTimeout(() => {
-            scrambleImage(actionCost);
+            scrambleImageRef.current(actionCost);
         }, 0);
 
-    }, [selectedFile, allowScrambling]);
+    }, [selectedFile, allowScrambling, scrambSeed, rows, cols, perm]);
 
 
     // =============================
@@ -507,6 +508,7 @@ export default function PhotoScramblerPro() {
         }
 
     }, [selectedFile, algorithm, seed, rows, cols, scramblingPercentage, maxHueShift, maxIntensityShift, error, userData, keyLimitsActivated, keyUses, keyExpiry]);
+    scrambleImageRef.current = scrambleImage; // keep ref pointing to latest closure
 
     const loadScrambledImage = async (filename) => {
         try {
@@ -515,7 +517,7 @@ export default function PhotoScramblerPro() {
 
             const blob = await response.blob();
             const url = URL.createObjectURL(blob);
-
+ 
             if (scrambledDisplayRef.current) {
                 scrambledDisplayRef.current.src = url;
             }

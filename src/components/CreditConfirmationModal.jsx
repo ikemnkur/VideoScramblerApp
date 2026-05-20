@@ -68,7 +68,7 @@ export default function CreditConfirmationModal({
 
 
   useEffect(() => {
-
+    if (!open) return;
 
     async function fetchData(params) {
       try {
@@ -99,7 +99,7 @@ export default function CreditConfirmationModal({
     }
 
     fetchData();
-  }, []);
+  }, [open]);
 
 
   const spendCredits = async () => {
@@ -178,6 +178,7 @@ export default function CreditConfirmationModal({
   // =============================
 
   useEffect(() => {
+    if (!open) return;
     // Calculate cost based on fileDetails
     let calculatedCost = 0;
 

@@ -52,6 +52,7 @@ export default function PhotoScramblerPro() {
     const fileInputRef = useRef(null);
     const displayImageRef = useRef(null);
     const scrambledDisplayRef = useRef(null);
+    const scrambleImageRef = useRef(null); // always points to latest scrambleImage
 
     // State
     const [selectedFile, setSelectedFile] = useState(null);
@@ -293,10 +294,10 @@ export default function PhotoScramblerPro() {
         setActionCost(localStorage.getItem('lastActionCost') || 0);
 
         setTimeout(() => {
-            scrambleImage(actionCost);
+            scrambleImageRef.current(actionCost);
         }, 0);
 
-    }, [selectedFile, allowScrambling]);
+    }, [selectedFile, allowScrambling, scrambSeed, rows, cols, perm]);
 
 
     // =============================
@@ -559,6 +560,9 @@ export default function PhotoScramblerPro() {
 
     }, [selectedFile, algorithm, seed, rows, cols, scramblingPercentage, maxHueShift, maxIntensityShift, error, userData]);
 
+    // Keep ref in sync so handleCreditConfirm always calls the latest version
+    scrambleImageRef.current = scrambleImage;
+
     const loadScrambledImage = async (filename) => {
         try {
             const response = await fetch(`${API_URL}/download/${filename}`);
@@ -655,18 +659,18 @@ export default function PhotoScramblerPro() {
             <Box sx={{ mb: 4, textAlign: 'center' }}>
                 <Typography variant="h3" color="primary.main" sx={{ mb: 2, fontWeight: 'bold', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 1 }}>
                     <AutoAwesome />
-                    🚀 Standard Photo Scrambler
+                    🚀 Photo Scrambler Standard
                 </Typography>
                 <Typography variant="h6" color="text.secondary" sx={{ mb: 2 }}>
-                    Advanced server-side scrambling with multiple algorithms
+                    Advanced scrambling with multiple algorithms on our servers.
                 </Typography>
 
                 {/* Status indicators */}
-                <Box sx={{ display: 'flex', gap: 1, justifyContent: 'center', flexWrap: 'wrap' }}>
+                {/* <Box sx={{ display: 'flex', gap: 1, justifyContent: 'center', flexWrap: 'wrap' }}>
                     <Chip label="Server Based" size="small" color="success" />
                     <Chip label="Format: PNG/JPG" size="small" />
                     <Chip label="HD/FHD" size="small" color="primary" />
-                </Box>
+                </Box> */}
             </Box>
 
             {/* Main Scramble Section */}

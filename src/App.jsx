@@ -60,6 +60,10 @@ import PhotoUnscramblerStandard from './pages/PhotoUnscramblerStandard';
 
 import PhotoScramblerPro from './pages/PhotoScramblerPro';
 import PhotoUnscramblerPro from './pages/PhotoUnscramblerPro';
+import PhotoScramblerProCS from './pages/PhotoScramblerProCS';
+import PhotoUnscramblerProCS from './pages/PhotoUnscramblerProCS';
+import PhotoScramblerStandardCS from './pages/PhotoScramblerStandardCS';
+import PhotoUnscramblerStandardCS from './pages/PhotoUnscramblerStandardCS';
 
 import VideoScramblerStandard from './pages/VideoScramblerStandard';
 import VideoUnscramblerStandard from './pages/VideoUnscramblerStandard';
@@ -71,6 +75,7 @@ import PhotoLeakChecker from './pages/PhotoLeakChecker';
 import VideoLeakChecker from './pages/VideoLeakChecker';
 import AudioLeakChecker from './pages/AudioLeakChecker';
 import FingerprintRemover from './pages/FingerprintRemover';
+import FingerprintForensics from './pages/FingerprintForensics';
 
 import Plans from './pages/Plans';
 
@@ -90,6 +95,7 @@ import BonusCredits from './pages/BonusCredits';
 import PurchaseStripeSuccessful from './pages/PurchaseStripeSuccesful';
 import NotificationsPage from './pages/NotificationsPage';
 import TestGoogleTTS from './pages/TestGoogleTTS';
+import CreateAudioTag from './pages/CreateAudioTag';
 
 import CreditPurchases from './components/CreditPurchases';
 import CreditSpending from './components/CreditSpending';
@@ -321,6 +327,8 @@ export default function App() {
                 />
 
 
+                <Route path="/create-audio-tag" element={<CreateAudioTag />} />
+
                 <Route path="/dashboard" element={<Main />} />
 
                 <Route path="/notifications" element={<NotificationsPage />} />
@@ -332,9 +340,6 @@ export default function App() {
                 <Route path="/subscribe" element={<Subscribe />} />
 
                 <Route path="/subscribe-confirmation" element={<SubscribeConfirmation />} />
-
-                <Route path="/stripe/success" element={
-                  <ProtectedRoute> <StripeCheckoutForm /> </ProtectedRoute>} />
 
                 <Route path="/stripe-checkout" element={
                   <ProtectedRoute> <StripeCheckoutForm /> </ProtectedRoute>} />
@@ -396,8 +401,10 @@ export default function App() {
                   <>
 
                     <Route path="/photo-scrambler-standard" element={<PhotoScramblerStandard />} />
+                    <Route path="/photo-scrambler-standard-cs" element={<PhotoScramblerStandardCS />} />
 
                     <Route path="/photo-unscrambler-standard" element={<PhotoUnscramblerStandard />} />
+                    <Route path="/photo-unscrambler-standard-cs" element={<PhotoUnscramblerStandardCS />} />
 
                     <Route path="/video-scrambler-standard" element={<VideoScramblerStandard />} />
 
@@ -430,6 +437,10 @@ export default function App() {
 
                     <Route path="/photo-unscrambler-pro" element={<PhotoUnscramblerPro />} />
 
+                    <Route path="/photo-scrambler-pro-cs" element={<PhotoScramblerProCS />} />
+
+                    <Route path="/photo-unscrambler-pro-cs" element={<PhotoUnscramblerProCS />} />
+
                     {/* Leak Checkers - premium feature */}
                     <Route path="/photo-leak-checker" element={<PhotoLeakChecker />} />
 
@@ -438,6 +449,7 @@ export default function App() {
                     <Route path="/audio-leak-checker" element={<AudioLeakChecker />} />
 
                     <Route path="/fingerprint-remover" element={<FingerprintRemover />} />
+                    <Route path="/fingerprint-forensics" element={<FingerprintForensics />} />
                   </>
                 ) : null}
 

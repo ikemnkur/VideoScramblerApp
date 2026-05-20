@@ -138,7 +138,7 @@ export default function Wallet() {
                 </Grid>
 
                 {/* PayPal One-time */}
-                <Grid item xs={12} sm={6} md={3}>
+                {/* <Grid item xs={12} sm={6} md={3}>
                   <Paper elevation={1} sx={{ p: 2, textAlign: 'center', backgroundColor: '#424242' }}>
                     <Typography variant="h6" sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 1, mb: 1, color: 'white' }}>
                       <Payment sx={{ color: '#0070ba' }} />
@@ -160,7 +160,7 @@ export default function Wallet() {
                       $5-10 Credits
                     </Button>
                   </Paper>
-                </Grid>
+                </Grid> */}
 
                 {/* Crypto One-time */}
                 <Grid item xs={12} sm={6} md={3}>
@@ -188,7 +188,7 @@ export default function Wallet() {
                 </Grid>
 
                 {/* CashApp One-time */}
-                <Grid item xs={12} sm={6} md={3}>
+                {/* <Grid item xs={12} sm={6} md={3}>
                   <Paper elevation={1} sx={{ p: 2, textAlign: 'center', backgroundColor: '#424242' }}>
                     <Typography variant="h6" sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 1, mb: 1, color: 'white' }}>
                       <AttachMoney sx={{ color: '#00d632' }} />
@@ -210,7 +210,7 @@ export default function Wallet() {
                       $5-25 Credits
                     </Button>
                   </Paper>
-                </Grid>
+                </Grid> */}
               </Grid>
             </Box>
 

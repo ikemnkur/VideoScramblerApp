@@ -32,7 +32,8 @@ import {
   CloudUpload,
   AutoAwesome,
   CheckCircle,
-  Error as ErrorIcon
+  Error as ErrorIcon,
+  Fingerprint
 } from '@mui/icons-material';
 import { useToast } from '../contexts/ToastContext';
 import CreditConfirmationModal from '../components/CreditConfirmationModal';
@@ -66,6 +67,9 @@ export default function VideoUnscramblerPro() {
   const [scrambleLevel, setScrambleLevel] = useState(1); // Level of scrambling (for credit calculation)
   const watermark_idNumber = useRef(Math.ceil(2 ** 16 * Math.random())); // Random ID for watermark (for analytics)
 
+  const [fingerprintedUrl, setFingerprintedUrl] = useState(null);
+  const [fingerprintParams, setFingerprintParams] = useState(null);
+
   const [userData, setUserData] = useState(JSON.parse(localStorage.getItem("userdata")));
   const [allowUnscrambling, setAllowUnscrambling] = useState(false);
   const [showCreditModal, setShowCreditModal] = useState(false);
@@ -75,6 +79,7 @@ export default function VideoUnscramblerPro() {
   const [previewUrl, setPreviewUrl] = useState('');
   const [keyValidated, setKeyValidated] = useState(false);
   const [keyValidationError, setKeyValidationError] = useState('');
+  const [unscrambledDimensions, setUnscrambledDimensions] = useState({ width: 0, height: 0 });
 
   const [creatorInfo, setCreatorInfo] = useState({
     username: 'Anonymous',
@@ -423,11 +428,6 @@ export default function VideoUnscramblerPro() {
 
         setUnscrambledFilename(tempFileName);
         console.log("Unscrambled video filename:", tempFileName);
-        // setUnscrambledReady(true);
-
-        // Load unscrambled video preview
-        // await 
-        loadUnscrambledVideo();
 
         success("Video unscrambled successfully!");
 
@@ -459,7 +459,8 @@ export default function VideoUnscramblerPro() {
           },
           watermarkParams: {
             watermark_idNumber: watermark_idNumber,
-          }
+          },
+          fingerprint: null // can use this since the fingerprint is meant to be applied to a image, fingerprinting a video entails rerendering it, since videos have multiple frames so it's not as straightforward to apply a fingerprint, but can be implemented in the future if desired, ensuring privacy compliance
         }).catch(err => {
           console.error('Failed to log analytics event:', err);
 
@@ -887,9 +888,10 @@ export default function VideoUnscramblerPro() {
                   {unscrambledFilename ? (
                     <video
                       ref={unscrambledVideoRef}
-                      src={unscrambledFilename ? `${API_URL}/download/${unscrambledFilename}` : ''}
-                      alt="Scrambled"
+                      src={`${API_URL}/stream/${unscrambledFilename}`}
+                      alt="Unscrambled"
                       controls
+                      onLoadedMetadata={(e) => setUnscrambledDimensions({ width: e.target.videoWidth, height: e.target.videoHeight })}
                       style={{
                         width: '100%',
                         maxHeight: '400px',
@@ -908,7 +910,7 @@ export default function VideoUnscramblerPro() {
                 </Box>
                 {unscrambledFilename && (
                   <Typography>
-                    {unscrambledFilename + ' loaded. Size: ' + (unscrambledVideoRef.current?.videoWidth || 0) + '×' + (unscrambledVideoRef.current?.videoHeight || 0) + 'px'}
+                    {unscrambledFilename + ' loaded.' + (unscrambledDimensions.width ? ' Dimensions: ' + unscrambledDimensions.width + '×' + unscrambledDimensions.height + 'px' : '')}
                   </Typography>
                 )}
               </Grid>

@@ -77,6 +77,7 @@ function userIdToTrackingNumber(userId) {
     return hash;
 }
 
+
 /** Generate deterministic transform parameters from tracking number B */
 function paramsFromB(B) {
     const seed = seedFromInt(B);
@@ -84,16 +85,17 @@ function paramsFromB(B) {
 
     const angleDeg = (rnd() * 4) - 2;          // ±2°
     const angle = angleDeg * Math.PI / 180;
-    const zoom = 1.15 + rnd() * 0.15;         // 1.15–1.30×
-    const shiftX = (rnd() * 2 - 1) * 30;        // ±30px
-    const shiftY = (rnd() * 2 - 1) * 30;
-    const cropTop = 16 + Math.floor(rnd() * 49);
-    const cropRight = 16 + Math.floor(rnd() * 49);
-    const cropBottom = 16 + Math.floor(rnd() * 49);
-    const cropLeft = 16 + Math.floor(rnd() * 49);
+    const zoom = 1.02 + rnd() * 0.05;         // 1.02–1.07× (subtle, still uniquely traceable)
+    const shiftX = (rnd() * 2 - 1) * 12;        // ±12px
+    const shiftY = (rnd() * 2 - 1) * 12;
+    const cropTop = 16 + Math.floor(rnd() * 16);
+    const cropRight = 16 + Math.floor(rnd() * 16);
+    const cropBottom = 16 + Math.floor(rnd() * 16);
+    const cropLeft = 16 + Math.floor(rnd() * 16);
 
     return { B, angle, angleDeg, zoom, shiftX, shiftY, cropTop, cropRight, cropBottom, cropLeft };
 }
+
 
 /** Bilinear interpolation on an ImageData */
 function sampleBilinear(src, x, y) {
@@ -212,6 +214,7 @@ export default function PhotoUnscramblerPro() {
     const scrambledDisplayRef = useRef(null);
     const unscrambledDisplayRef = useRef(null);
     const keyFileInputRef = useRef(null);
+    const unscrambleImageRef = useRef(null); // always points to latest unscrambleImage
 
     // State
     const [selectedFile, setSelectedFile] = useState(null);
@@ -342,9 +345,9 @@ export default function PhotoUnscramblerPro() {
         // setActionCost(parseInt(localStorage.getItem('lastActionCost')) || actionCost);
         // setSc
 
-        // Use setTimeout to ensure state update completes before scrambling
+        // Use setTimeout to ensure state update completes before unscrambling
         setTimeout(() => {
-            unscrambleImage();
+            unscrambleImageRef.current();
         }, 0);
 
     }, [selectedFile, allowScrambling]);
@@ -643,9 +646,10 @@ export default function PhotoUnscramblerPro() {
                 // The backend should return the unscrambled image info
                 setUnscrambledFilename(data.output_file || data.unscrambledFileName);
 
-                // Load unscrambled image preview
+                // Load unscrambled image preview + apply fingerprint
+                let fpParams = null;
                 if (data.output_file || data.unscrambledFileName) {
-                    loadUnscrambledImage(data.output_file || data.unscrambledFileName);
+                    fpParams = await loadUnscrambledImage(data.output_file || data.unscrambledFileName);
                 } else if (data.unscrambledImageUrl) {
                     // If backend returns direct URL
                     if (unscrambledDisplayRef.current) {
@@ -683,8 +687,9 @@ export default function PhotoUnscramblerPro() {
                     },
                     watermarkParams: {
                         watermark_idNumber: watermark_idNumber,
-                        fingerprintParams: fingerprintParams
-                    }
+                        fingerprintParams: fpParams
+                    },
+                    fingerprintParams: fpParams
                 }).catch(err => {
                     console.error('Failed to log analytics event:', err);
 
@@ -706,6 +711,7 @@ export default function PhotoUnscramblerPro() {
             setIsProcessing(false);
         }
     };
+    unscrambleImageRef.current = unscrambleImage; // keep ref pointing to latest closure
 
     const loadUnscrambledImage = async (filename) => {
         try {
@@ -719,22 +725,24 @@ export default function PhotoUnscramblerPro() {
             const userId = userData?.id || 'UNKNOWN';
             const { dataUrl, params } = await applyFingerprintTransform(blob, userId);
 
-            setFingerprintedUrl(dataUrl);
-            setFingerprintParams(params);
-
-            console.log('Fingerprint applied:', {
-                userId,
+            const fpResult = {
                 trackingNumber: params.B,
                 angleDeg: params.angleDeg.toFixed(2),
                 zoom: params.zoom.toFixed(3),
                 shiftX: params.shiftX.toFixed(1),
                 shiftY: params.shiftY.toFixed(1),
-            });
+            };
+            setFingerprintedUrl(dataUrl);
+            setFingerprintParams(fpResult);
+
+            console.log('Fingerprint applied:', { userId, ...fpResult });
+            return fpResult; // caller can use this to avoid stale state reads
         } catch (err) {
             error('Failed to apply fingerprint transform: ' + err.message);
+            return null;
         }
     };
-
+ 
     const downloadUnscrambledImage = () => {
         if (!fingerprintedUrl) {
             error('Please unscramble an image first');
@@ -1201,10 +1209,10 @@ export default function PhotoUnscramblerPro() {
                                     🔏 Distribution Fingerprint Applied
                                 </Typography>
                                 <Typography variant="body2" sx={{ fontSize: '0.78rem', fontFamily: 'monospace' }}>
-                                    Tracking ID: <strong>{fingerprintParams.B}</strong> &nbsp;|&nbsp;
-                                    Rotation: <strong>{fingerprintParams.angleDeg.toFixed(2)}°</strong> &nbsp;|&nbsp;
-                                    Zoom: <strong>{fingerprintParams.zoom.toFixed(3)}×</strong> &nbsp;|&nbsp;
-                                    Shift: <strong>({fingerprintParams.shiftX.toFixed(1)}, {fingerprintParams.shiftY.toFixed(1)})px</strong>
+                                    Tracking ID: <strong>{fingerprintParams.trackingNumber}</strong> &nbsp;|&nbsp;
+                                    Rotation: <strong>{fingerprintParams.angleDeg}°</strong> &nbsp;|&nbsp;
+                                    Zoom: <strong>{fingerprintParams.zoom}×</strong> &nbsp;|&nbsp;
+                                    Shift: <strong>({fingerprintParams.shiftX}, {fingerprintParams.shiftY})px</strong>
                                 </Typography>
                                 <Typography variant="body2" sx={{ fontSize: '0.72rem', mt: 0.5, opacity: 0.75 }}>
                                     This copy is uniquely transformed for user <strong>{userData?.username}</strong>.

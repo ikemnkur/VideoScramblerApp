@@ -334,6 +334,7 @@ export async function generateWatermarkWithGoogleTTS(username, type = 'unscrambl
 function createSilenceBuffer(audioContext, duration) {
   const sampleRate = audioContext.sampleRate;
   const length = Math.floor(sampleRate * duration);
+  if (length <= 0) return null; // skip zero-length silence (concatenateAudioBuffers handles null)
   const buffer = audioContext.createBuffer(1, length, sampleRate);
   // Buffer is already filled with zeros (silence)
   return buffer;
@@ -409,6 +410,35 @@ function concatenateAudioBuffers(buffer1, buffer2) {
 }
 
 /**
+ * Trim silence/click from the start and end of an audio buffer
+ * @param {AudioBuffer} buffer - Buffer to trim
+ * @param {number} trimStart - Seconds to remove from the start
+ * @param {number} trimEnd - Seconds to remove from the end
+ * @returns {AudioBuffer} Trimmed buffer, or the original if too short to trim
+ */
+function trimAudioBuffer(buffer, trimStart = 0.15, trimEnd = 0.15) {
+  const sampleRate = buffer.sampleRate;
+  const startSample = Math.floor(trimStart * sampleRate);
+  const endSample = buffer.length - Math.floor(trimEnd * sampleRate);
+
+  // Guard: don't trim more than the buffer has
+  if (endSample <= startSample) return buffer;
+
+  const trimmedLength = endSample - startSample;
+  const channels = buffer.numberOfChannels;
+  const audioContext = new (window.AudioContext || window.webkitAudioContext)();
+  const trimmed = audioContext.createBuffer(channels, trimmedLength, sampleRate);
+
+  for (let c = 0; c < channels; c++) {
+    trimmed.getChannelData(c).set(
+      buffer.getChannelData(c).subarray(startSample, endSample)
+    );
+  }
+
+  return trimmed;
+}
+
+/**
  * Spell out username character by character using audio clips
  * @param {string} username - Username to spell out
  * @param {AudioContext} audioContext - Web Audio API context
@@ -420,7 +450,7 @@ export async function spellOutUsername(username, audioContext, options = {}) {
     lettersPath = '/audio-alphabet',
     numbersPath = '/audio-numbers', 
     symbolsPath = '/audio-symbols',
-    silenceDuration = 0.1 // 100ms between characters
+    silenceDuration = 0.0 // 100ms between characters
   } = options;
 
   try {
@@ -437,9 +467,10 @@ export async function spellOutUsername(username, audioContext, options = {}) {
         
         try {
           const letterBuffer = await loadAudioFromUrl(`${lettersPath}/${letter}.wav`, audioContext);
+          const trimmedLetter = trimAudioBuffer(letterBuffer);
           // Speed up the audio by 25% for better pacing (1.25x faster)
           const speedFactor = 1.25;
-          const speedUpLetterBuffer = speedUpBuffer(letterBuffer, speedFactor, audioContext);
+          const speedUpLetterBuffer = speedUpBuffer(trimmedLetter, speedFactor, audioContext);
           audio_spelling = concatenateAudioBuffers(audio_spelling, speedUpLetterBuffer);
         } catch (error) {
           console.warn(`Failed to load letter sound for '${letter}':`, error);
@@ -451,9 +482,10 @@ export async function spellOutUsername(username, audioContext, options = {}) {
         
         try {
           const numberBuffer = await loadAudioFromUrl(`${numbersPath}/${char}.wav`, audioContext);
+          const trimmedNumber = trimAudioBuffer(numberBuffer);
           // Speed up the audio by 25% for better pacing (1.25x faster)
           const speedFactor = 1.25;
-          const speedUpNumberBuffer = speedUpBuffer(numberBuffer, speedFactor, audioContext);
+          const speedUpNumberBuffer = speedUpBuffer(trimmedNumber, speedFactor, audioContext);
           audio_spelling = concatenateAudioBuffers(audio_spelling, speedUpNumberBuffer);
         } catch (error) {
           console.warn(`Failed to load number sound for '${char}':`, error);
@@ -465,13 +497,13 @@ export async function spellOutUsername(username, audioContext, options = {}) {
         
         try {
           const symbolBuffer = await loadAudioFromUrl(`${symbolsPath}/${char}.mp3`, audioContext);
-          audio_spelling = concatenateAudioBuffers(audio_spelling, symbolBuffer);
+          audio_spelling = concatenateAudioBuffers(audio_spelling, trimAudioBuffer(symbolBuffer));
         } catch (error) {
           console.warn(`No specific sound for symbol '${char}', trying generic symbol sound.`);
           
           try {
             const genericSymbolBuffer = await loadAudioFromUrl(`${symbolsPath}/symbol.mp3`, audioContext);
-            audio_spelling = concatenateAudioBuffers(audio_spelling, genericSymbolBuffer);
+            audio_spelling = concatenateAudioBuffers(audio_spelling, trimAudioBuffer(genericSymbolBuffer));
           } catch (error2) {
             console.warn(`Failed to load generic symbol sound:`, error2);
           }

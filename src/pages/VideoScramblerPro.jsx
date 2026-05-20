@@ -238,6 +238,26 @@ export default function ScramblerVideosPro() {
     }, 600);
   }, [baseKeyObject, KeyLimitsActivated, keyUses, keyExpiry]);
 
+
+  const autoPartitionRowsCols = () => {
+    // try to make partition cells square
+
+    if (!displayVideoRef.current) return;
+    const width = displayVideoRef.current.videoWidth;
+    const height = displayVideoRef.current.videoHeight;
+    const aspectRatio = width / height;
+    let newRows, newCols;
+    if (aspectRatio > 1) {
+      newCols = Math.round(Math.sqrt(rows * cols * aspectRatio));
+      newRows = Math.round((rows * cols) / newCols);
+    } else {
+      newRows = Math.round(Math.sqrt(rows * cols / aspectRatio));
+      newCols = Math.round((rows * cols) / newRows);
+    }
+    setRows(newRows);
+    setCols(newCols);
+  }
+
   const scrambleVideo = useCallback(async () => {
     console.log("scrambleVideo called with current state:", {
       rows, cols, algorithm, seed, maxHueShift, maxIntensityShift, scramblingBlur
@@ -616,7 +636,7 @@ export default function ScramblerVideosPro() {
             {/* Algorithm Parameters */}
             <Grid container spacing={2}>
               {/* Common Parameters */}
-              <Grid item xs={12} md={6}>
+              <Grid item xs={12} md={5}>
                 <TextField
                   fullWidth
                   type="number"
@@ -639,7 +659,7 @@ export default function ScramblerVideosPro() {
               {/* Position, Rotation, Mirror - need rows/cols
               {(algorithm === 'position' || algorithm === 'rotation' || algorithm === 'mirror') && ( */}
                 <>
-                  <Grid item xs={6} md={3}>
+                  <Grid item xs={4} md={3}>
                     <TextField
                       fullWidth
                       type="number"
@@ -654,7 +674,7 @@ export default function ScramblerVideosPro() {
                       InputLabelProps={{ sx: { color: '#e0e0e0' } }}
                     />
                   </Grid>
-                  <Grid item xs={6} md={3}>
+                  <Grid item xs={4} md={3}>
                     <TextField
                       fullWidth
                       type="number"
@@ -668,6 +688,13 @@ export default function ScramblerVideosPro() {
                       InputProps={{ sx: { backgroundColor: '#353535', color: 'white' } }}
                       InputLabelProps={{ sx: { color: '#e0e0e0' } }}
                     />
+                  </Grid>
+                  <Grid item xs={4} md={1}>
+                    <Button
+                      onClick={autoPartitionRowsCols}
+                    >
+                      Auto
+                    </Button>
                   </Grid>
                 </>
               {/* )} */}
