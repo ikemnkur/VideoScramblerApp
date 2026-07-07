@@ -657,11 +657,11 @@ export default function PhotoScramblerProCS() {
                     sx={{ backgroundColor: '#7c3aed', px: 5, py: 1.5, fontSize: '1.1rem' }}>
                     {isProcessing ? 'Scrambling…' : 'Scramble Image'}
                 </Button>
-                {isProcessing && (
+                {/* {isProcessing && (
                     <Typography variant="body2" sx={{ color: '#aaa', mt: 1 }}>
                         Processing in browser — this may take a few seconds for large images…
                     </Typography>
-                )}
+                )} */}
             </Box>
 
             {/* ── Result ── */}

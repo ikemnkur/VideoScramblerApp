@@ -54,7 +54,7 @@ function paramsFromB(B) {
     const rnd  = mulberry32(seed);
     const angleDeg = (rnd() * 4) - 2;          // ±2°
     const angle    = angleDeg * Math.PI / 180;
-    const zoom     = 1.02 + rnd() * 0.05;      // 1.02–1.07×
+    const zoom     = 1.05 + rnd() * 0.05;      // 1.05–1.07×
     const shiftX   = (rnd() * 2 - 1) * 12;    // ±12 px
     const shiftY   = (rnd() * 2 - 1) * 12;
     return { B, angle, angleDeg, zoom, shiftX, shiftY };
@@ -450,7 +450,7 @@ export default function FingerprintForensics() {
                 <Typography variant="body2">
                     <strong>How the fingerprint works:</strong> Each user's copy is uniquely transformed with a
                     deterministic rotate + zoom + shift derived from their user ID.
-                    Ranges: <strong>angle ±2°</strong>, <strong>zoom 1.02–1.07×</strong>, <strong>shift ±12 px</strong>.
+                    Ranges: <strong>angle ±2°</strong>, <strong>zoom 1.05–1.07×</strong>, <strong>shift ±12 px</strong>.
                     The score shown is 100 − (MAD / 2.55) where MAD is the mean absolute pixel difference
                     after applying each candidate's expected transform to the original.
                     A genuine match typically scores <strong>≥ 95%</strong>.
@@ -713,7 +713,7 @@ export default function FingerprintForensics() {
 
                                 {[  // slider definitions
                                     { label: 'Angle',   hint: '±2° range',       val: mAngle,  set: setMAngle,  min: -5,   max: 5,    step: 0.005   },
-                                    { label: 'Zoom',    hint: '1.02–1.07 range', val: mZoom,   set: setMZoom,   min: 0.97, max: 1.12, step: 0.00005 },
+                                    { label: 'Zoom',    hint: '1.05–1.07 range', val: mZoom,   set: setMZoom,   min: 0.97, max: 1.12, step: 0.00005 },
                                     { label: 'Shift X', hint: '±12 px range',    val: mShiftX, set: setMShiftX, min: -20,  max: 20,   step: 0.05    },
                                     { label: 'Shift Y', hint: '±12 px range',    val: mShiftY, set: setMShiftY, min: -20,  max: 20,   step: 0.05    },
                                 ].map(({ label, hint, val, set, min, max, step }) => (

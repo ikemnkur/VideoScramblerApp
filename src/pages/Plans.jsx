@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useRef } from 'react';
+import React, { useEffect, useState } from 'react';
 import {
   Container,
   Stack,
@@ -16,19 +16,15 @@ import {
   Alert,
   Chip,
   CircularProgress,
-  Divider,
 } from '@mui/material';
 import {
   CreditCard,
   Star,
   AttachMoney,
   Warning,
-  OpenInNew,
   Cancel,
   Settings,
-  CheckCircle,
   ArrowDownward,
-  ArrowUpward,
 } from '@mui/icons-material';
 import api from '../api/client';
 import { useToast } from '../contexts/ToastContext';
@@ -43,6 +39,7 @@ const PLANS = {
     title: 'Free',
     priceLabel: 'Free',
     color: '#757575',
+    priceId: null,
     features: [
       'Ads displayed',
       'Limited file sizes',
@@ -56,6 +53,7 @@ const PLANS = {
     title: 'Basic',
     priceLabel: '$2.50',
     color: '#009cde',
+    priceId: import.meta.env.VITE_BASIC_PRICE_ID || 'price_1SR08eEViYxfJNd2ihaRH9Fk',
     features: [
       'No ads',
       'Standard quality video',
@@ -70,6 +68,7 @@ const PLANS = {
     title: 'Standard',
     priceLabel: '$5',
     color: '#93b2f0',
+    priceId: import.meta.env.VITE_STANDARD_PRICE_ID || 'price_1SR09uEViYxfJNd2jL3JklFl',
     features: [
       'Faster processing',
       'Longer videos',
@@ -83,6 +82,7 @@ const PLANS = {
     title: 'Premium',
     priceLabel: '$10',
     color: '#5ad64e',
+    priceId: import.meta.env.VITE_PREMIUM_PRICE_ID || 'price_1SR0A9EViYxfJNd258I14txA',
     features: [
       'No wait times',
       'Advanced video scrambling',
@@ -94,37 +94,17 @@ const PLANS = {
   },
 };
 
-const STRIPE_CHECKOUT_URLS = {
-  basic: import.meta.env.VITE_BASIC_PLAN || 'https://buy.stripe.com/test_5kQ3co2pZg021AVbjj0sU0b',
-  standard: import.meta.env.VITE_STANDARD_PLAN || 'https://buy.stripe.com/test_aFa3cod4D29cgvP9bb0sU0a',
-  premium: import.meta.env.VITE_PREMIUM_PLAN || 'https://buy.stripe.com/test_eVq5kw2pZ6ps7Zj8770sU09',
-};
-
-async function fetchUserIP() {
-  try {
-    const res = await fetch('https://api.ipify.org?format=json');
-    const data = await res.json();
-    return data.ip;
-  } catch {
-    return null;
-  }
-}
-
 
 export default function Plans() {
   const { success, error } = useToast();
 
   const [userdata, setUserData] = useState({});
   const [selectedPlan, setSelectedPlan] = useState('premium');
+  const [loading, setLoading] = useState(false);
 
-  // Upgrade flow
+  // Confirm upgrade modal
   const [showUpgradeModal, setShowUpgradeModal] = useState(false);
   const [pendingPlan, setPendingPlan] = useState(null);
-  const [startTimestamp, setStartTimestamp] = useState(null);
-  const [isWaitingForReturn, setIsWaitingForReturn] = useState(false);
-  const [isVerifying, setIsVerifying] = useState(false);
-  const paymentWindowRef = useRef(null);
-  const checkIntervalRef = useRef(null);
 
   // Cancel / Downgrade flow
   const [showCancelModal, setShowCancelModal] = useState(false);
@@ -147,14 +127,7 @@ export default function Plans() {
     load();
   }, []);
 
-  // ─── Cleanup on unmount ───────────────────────────────────────────────────
-  useEffect(() => {
-    return () => {
-      if (checkIntervalRef.current) clearInterval(checkIntervalRef.current);
-    };
-  }, []);
-
-  // ─── Upgrade flow ─────────────────────────────────────────────────────────
+  // ─── Subscribe: create Stripe checkout session and redirect ───────────────
 
   function handleSubscribeClick() {
     if (currentPlan === selectedPlan) {
@@ -170,90 +143,32 @@ export default function Plans() {
     }
   }
 
-  function handleCancelUpgrade() {
+  async function handleConfirmUpgrade() {
+    if (!pendingPlan || !pendingPlan.priceId) return;
+    setLoading(true);
     setShowUpgradeModal(false);
-    setPendingPlan(null);
-  }
-
-  function handleConfirmUpgrade() {
-    if (!pendingPlan) return;
-    const stripeUrl = STRIPE_CHECKOUT_URLS[selectedPlan];
-    if (!stripeUrl) {
-      error('No payment URL configured for this plan.');
-      setShowUpgradeModal(false);
-      return;
-    }
-    const timestamp = Date.now();
-    setStartTimestamp(timestamp);
-    paymentWindowRef.current = window.open(
-      `${stripeUrl}?client_reference_id=${userdata.id || ''}`,
-      '_blank'
-    );
-    setIsWaitingForReturn(true);
-    setShowUpgradeModal(false);
-  }
-
-  function handleReturnFromPayment() {
-    const endTimestamp = Date.now();
-    if (checkIntervalRef.current) {
-      clearInterval(checkIntervalRef.current);
-      checkIntervalRef.current = null;
-    }
-    setIsWaitingForReturn(false);
-    verifyPayment(startTimestamp, endTimestamp);
-  }
-
-  async function verifyPayment(startTime, endTime) {
-    if (!pendingPlan) return;
-    setIsVerifying(true);
     try {
-      const planPrice =
-        pendingPlan.priceLabel === 'Free'
-          ? 0
-          : parseFloat(pendingPlan.priceLabel.replace('$', ''));
-
-      const paymentData = {
-        timeRange: { start: startTime, end: endTime },
-        subscriptionData: {
-          amount: Math.ceil(planPrice * 100),
-          dollars: planPrice,
-          plan: pendingPlan.title,
-          planType: selectedPlan,
-        },
-        user: {
-          id: userdata.id || '',
-          email: userdata.email || '',
-          username: userdata.username || '',
-          phone: userdata.phoneNumber || '',
-          name: `${userdata.firstName || ''} ${userdata.lastName || ''}`.trim(),
-          ip: (await fetchUserIP()) || '',
-          userAgent: navigator.userAgent || '',
-        },
-      };
-
-      const response = await api.post('/api/verify-stripe-subscription', paymentData);
-      if (response.data && response.data.success !== false) {
-        showMessage(`${pendingPlan.title} plan activated! Welcome aboard.`, 'success');
-        success(`${pendingPlan.title} plan activated!`);
-        const updated = await fetchUserData();
-        if (updated) setUserData(updated);
+      const response = await api.post('/api/subscription/create-checkout', {
+        userId: userdata.id,
+        username: userdata.username,
+        email: userdata.email,
+        priceId: pendingPlan.priceId,
+        planId: selectedPlan,
+        planName: pendingPlan.title,
+        successUrl: `${window.location.origin}/subscription/success?session_id={CHECKOUT_SESSION_ID}`,
+        cancelUrl: `${window.location.origin}/plans`,
+      });
+      if (response.data?.url) {
+        window.location.href = response.data.url;
       } else {
-        showMessage(
-          "Subscription verification pending. If your plan doesn't activate within 5 minutes, contact support.",
-          'warning'
-        );
+        throw new Error('No checkout URL returned');
       }
     } catch (err) {
-      console.error('Subscription verification error:', err);
-      showMessage(
-        `Unable to verify automatically. Contact support with your transaction time: ${new Date(startTime).toISOString()}`,
-        'error'
-      );
-    } finally {
-      setIsVerifying(false);
+      console.error('Checkout error:', err);
+      error('Failed to start checkout. Please try again.');
       setPendingPlan(null);
-      setStartTimestamp(null);
-      paymentWindowRef.current = null;
+    } finally {
+      setLoading(false);
     }
   }
 
@@ -322,7 +237,7 @@ export default function Plans() {
         returnUrl: window.location.href,
       });
       if (response.data?.url) {
-        window.open(response.data.url, '_blank');
+        window.location.href = response.data.url;
       } else {
         error('Unable to open subscription portal.');
       }
@@ -340,19 +255,18 @@ export default function Plans() {
   }
 
   function getPlanActionLabel() {
-    if (currentPlan === selectedPlan) return `Already on ${p.title}`;
-    if (selectedPlan === 'free') return 'Cancel Subscription (Go Free)';
-    if (PLAN_HIERARCHY[selectedPlan] < PLAN_HIERARCHY[currentPlan])
-      return `Downgrade to ${p.title} — ${p.priceLabel}/mo`;
-    return `Subscribe — ${p.title} ${p.priceLabel}/mo`;
+    if (loading) return 'Redirecting to Stripe…';
+    if (currentPlan === selectedPlan) return 'Current Plan';
+    if (selectedPlan === 'free') return 'Downgrade to Free';
+    if (PLAN_HIERARCHY[selectedPlan] < PLAN_HIERARCHY[currentPlan]) return `Downgrade to ${p.title}`;
+    return `Subscribe to ${p.title}`;
   }
 
   function getPlanActionIcon() {
+    if (loading) return <CircularProgress size={16} color="inherit" />;
     if (PLAN_HIERARCHY[selectedPlan] < PLAN_HIERARCHY[currentPlan]) return <ArrowDownward />;
-    if (PLAN_HIERARCHY[selectedPlan] > PLAN_HIERARCHY[currentPlan]) return <ArrowUpward />;
-    return <CheckCircle />;
+    return <CreditCard />;
   }
-
 
   // ─── Render ───────────────────────────────────────────────────────────────
 
@@ -549,7 +463,7 @@ export default function Plans() {
                         ? () => setShowCancelModal(true)
                         : handleSubscribeClick
                     }
-                    disabled={currentPlan === selectedPlan}
+                    disabled={currentPlan === selectedPlan || loading}
                     startIcon={getPlanActionIcon()}
                     sx={{
                       backgroundColor:
@@ -617,10 +531,9 @@ export default function Plans() {
       ═══════════════════════════════════════════════════════ */}
       <Dialog
         open={showUpgradeModal}
-        onClose={handleCancelUpgrade}
+        onClose={() => { setShowUpgradeModal(false); setPendingPlan(null); }}
         maxWidth="sm"
         fullWidth
-        disableEscapeKeyDown
       >
         <DialogTitle
           sx={{
@@ -638,8 +551,8 @@ export default function Plans() {
           {pendingPlan && (
             <Box>
               <Typography variant="body1" sx={{ mb: 2 }}>
-                A new tab will open to complete payment securely through Stripe.
-                Please do not close this page until your payment is complete.
+                You'll be redirected to Stripe to complete your payment securely.
+                You'll be brought back here automatically once it's done.
               </Typography>
               <Paper sx={{ p: 2, backgroundColor: '#353535', mb: 2 }}>
                 <Typography
@@ -664,16 +577,12 @@ export default function Plans() {
                   </Typography>
                 )}
               </Paper>
-              <Alert severity="info">
-                After completing payment, return here and click "I've Completed
-                Payment" to activate your plan.
-              </Alert>
             </Box>
           )}
         </DialogContent>
         <DialogActions sx={{ backgroundColor: '#424242', p: 2 }}>
           <Button
-            onClick={handleCancelUpgrade}
+            onClick={() => { setShowUpgradeModal(false); setPendingPlan(null); }}
             variant="outlined"
             sx={{ color: '#bdbdbd', borderColor: '#bdbdbd' }}
           >
@@ -682,92 +591,14 @@ export default function Plans() {
           <Button
             onClick={handleConfirmUpgrade}
             variant="contained"
-            startIcon={<OpenInNew />}
+            disabled={loading}
+            startIcon={loading ? <CircularProgress size={16} color="inherit" /> : <CreditCard />}
             sx={{ backgroundColor: '#4caf50', color: 'white', fontWeight: 'bold' }}
           >
-            Proceed to Payment
+            {loading ? 'Redirecting…' : 'Proceed to Payment'}
           </Button>
         </DialogActions>
       </Dialog>
-
-      {/* ═══════════════════════════════════════════════════════
-          WAITING FOR RETURN MODAL
-      ═══════════════════════════════════════════════════════ */}
-      <Dialog
-        open={isWaitingForReturn && !isVerifying}
-        maxWidth="sm"
-        fullWidth
-        disableEscapeKeyDown
-        onClose={(_, reason) => {
-          if (reason === 'backdropClick' || reason === 'escapeKeyDown') return;
-        }}
-      >
-        <DialogTitle
-          sx={{
-            backgroundColor: '#424242',
-            color: 'white',
-            textAlign: 'center',
-            pb: 1,
-          }}
-        >
-          <OpenInNew sx={{ fontSize: 40, color: '#4caf50' }} />
-        </DialogTitle>
-        <DialogContent
-          sx={{ backgroundColor: '#424242', color: 'white', pt: 2, textAlign: 'center' }}
-        >
-          <Typography variant="h5" sx={{ mb: 2, fontWeight: 'bold' }}>
-            Complete Your Payment
-          </Typography>
-          <Typography variant="body1" sx={{ color: '#e0e0e0', mb: 2 }}>
-            A payment tab has been opened. After completing your subscription, click
-            the button below to verify and activate your plan.
-          </Typography>
-          <Alert severity="info" sx={{ mb: 1, textAlign: 'left' }}>
-            Haven't completed payment yet? The payment window should still be open.
-          </Alert>
-        </DialogContent>
-        <DialogActions sx={{ backgroundColor: '#424242', p: 2, justifyContent: 'center' }}>
-          <Button
-            variant="contained"
-            size="large"
-            onClick={handleReturnFromPayment}
-            sx={{
-              backgroundColor: '#4caf50',
-              color: 'white',
-              fontWeight: 'bold',
-              px: 4,
-              py: 1.5,
-            }}
-          >
-            I've Completed Payment
-          </Button>
-        </DialogActions>
-      </Dialog>
-
-      {/* ═══════════════════════════════════════════════════════
-          VERIFICATION PROGRESS SNACKBAR
-      ═══════════════════════════════════════════════════════ */}
-      {isVerifying && (
-        <Paper
-          elevation={6}
-          sx={{
-            position: 'fixed',
-            bottom: 24,
-            right: 24,
-            p: 2,
-            backgroundColor: '#424242',
-            color: 'white',
-            display: 'flex',
-            alignItems: 'center',
-            gap: 2,
-            zIndex: 1400,
-            borderRadius: 2,
-          }}
-        >
-          <CircularProgress size={24} sx={{ color: '#4caf50' }} />
-          <Typography variant="body2">Verifying subscription…</Typography>
-        </Paper>
-      )}
 
       {/* ═══════════════════════════════════════════════════════
           CANCEL SUBSCRIPTION MODAL

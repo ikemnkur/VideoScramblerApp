@@ -161,7 +161,7 @@ export default function CoinAnimationCanvas() {
     <canvas
       ref={canvasRef}
       width={660}
-      height={120}
+      height={200}
       style={{
         display: 'block',
         backgroundColor: 'transparent',

@@ -54,7 +54,7 @@ function paramsFromB(B) {
     const rnd = mulberry32(seed);
     const angleDeg = (rnd() * 4) - 2;
     const angle = angleDeg * Math.PI / 180;
-    const zoom = 1.02 + rnd() * 0.05;
+    const zoom = 1.05 + rnd() * 0.05;
     const shiftX = (rnd() * 2 - 1) * 12;
     const shiftY = (rnd() * 2 - 1) * 12;
     const cropTop = 16 + Math.floor(rnd() * 16);
@@ -683,11 +683,11 @@ export default function PhotoUnscramblerProCS() {
                     sx={{ backgroundColor: '#7c3aed', px: 5, py: 1.5, fontSize: '1.1rem' }}>
                     {isProcessing ? 'Unscrambling…' : 'Unscramble Image'}
                 </Button>
-                {isProcessing && (
+                {/* {isProcessing && (
                     <Typography variant="body2" sx={{ color: '#aaa', mt: 1 }}>
                         Reconstructing in browser — this may take a few seconds for large images…
                     </Typography>
-                )}
+                )} */}
             </Box>
 
             {/* ── Result ── */}

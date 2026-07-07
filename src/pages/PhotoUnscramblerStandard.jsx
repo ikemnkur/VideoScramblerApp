@@ -84,7 +84,7 @@ function paramsFromB(B) {
 
     const angleDeg = (rnd() * 4) - 2;          // ±2°
     const angle = angleDeg * Math.PI / 180;
-    const zoom = 1.02 + rnd() * 0.05;         // 1.02–1.07× (subtle, still uniquely traceable)
+    const zoom = 1.05 + rnd() * 0.05;         // 1.05–1.07× (subtle, still uniquely traceable)
     const shiftX = (rnd() * 2 - 1) * 12;        // ±12px
     const shiftY = (rnd() * 2 - 1) * 12;
     const cropTop = 16 + Math.floor(rnd() * 16);

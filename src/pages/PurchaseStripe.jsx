@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect } from "react";
 import {
   Container,
   Typography,
@@ -15,7 +15,6 @@ import {
   DialogContent,
   DialogActions,
   CircularProgress,
-  LinearProgress
 } from '@mui/material';
 import {
   CreditCard,
@@ -24,54 +23,8 @@ import {
   CheckCircle,
   OpenInNew,
   Warning,
-  Timer,
-  CheckCircleOutline
 } from '@mui/icons-material';
 
-const VERIFICATION_WINDOW_SECONDS = 5 * 60; // 5 minutes
-
-function CountdownTimer({ secondsRemaining, totalSeconds }) {
-  const mins = Math.floor(secondsRemaining / 60);
-  const secs = secondsRemaining % 60;
-  const progress = (secondsRemaining / totalSeconds) * 100;
-  const isUrgent = secondsRemaining <= 60;
-  const expired = secondsRemaining <= 0;
-
-  return (
-    <Box sx={{ width: '100%', mt: 2, mb: 1 }}>
-      <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 1, mb: 1 }}>
-        <Timer sx={{ color: isUrgent ? '#f44336' : '#ff9800', fontSize: 20 }} />
-        <Typography
-          variant="h5"
-          sx={{
-            fontFamily: 'monospace',
-            fontWeight: 'bold',
-            color: expired ? '#9e9e9e' : isUrgent ? '#f44336' : '#ff9800',
-            letterSpacing: 2,
-          }}
-        >
-          {expired ? '0:00' : `${mins}:${String(secs).padStart(2, '0')}`}
-        </Typography>
-      </Box>
-      <LinearProgress
-        variant="determinate"
-        value={Math.max(0, progress)}
-        sx={{
-          height: 6,
-          borderRadius: 3,
-          backgroundColor: '#555',
-          '& .MuiLinearProgress-bar': {
-            backgroundColor: expired ? '#9e9e9e' : isUrgent ? '#f44336' : '#ff9800',
-            transition: 'width 1s linear',
-          },
-        }}
-      />
-      <Typography variant="caption" sx={{ color: '#9e9e9e', display: 'block', textAlign: 'center', mt: 0.5 }}>
-        {expired ? 'Automatic window closed — manual verification will be used' : `The server actively listens for new transactions for ${mins}m ${String(secs).padStart(2, '0')}s`}
-      </Typography>
-    </Box>
-  );
-}
 import Stripe from "../components/Stripe";
 import api from '../api/client';
 
@@ -105,13 +58,7 @@ export default function PurchaseStripe() {
   const [message, setMessage] = useState(null);
   const [showModal, setShowModal] = useState(false);
   const [pendingPackage, setPendingPackage] = useState(null);
-  const [startTimestamp, setStartTimestamp] = useState(null);
-  const [isVerifying, setIsVerifying] = useState(false);
-  const [isWaitingForReturn, setIsWaitingForReturn] = useState(false);
-  const [countdown, setCountdown] = useState(VERIFICATION_WINDOW_SECONDS);
-  const paymentWindowRef = useRef(null);
-  const checkIntervalRef = useRef(null);
-  const countdownIntervalRef = useRef(null);
+  const [isRedirecting, setIsRedirecting] = useState(false);
 
   const [userData, setUserData] = useState(() => {
     const stored = localStorage.getItem('userdata');
@@ -119,8 +66,6 @@ export default function PurchaseStripe() {
   });
 
   const [balance, setBalance] = useState(0);
-  const [currency, setCurrency] = useState('usd');
-  const [rate, setRate] = useState(1); // credits per unit currency
 
 
   const packageInfos = PACKAGES.map(p => ({
@@ -135,27 +80,15 @@ export default function PurchaseStripe() {
     setSelected(pkgInfo);
   }
 
-  // const stripeCheckoutUrl_2_5 = `https://buy.stripe.com/test_14A9ATed1blP9RO8HG5AQ03?client_reference_id=${userData.id}`;
-  // const stripeCheckoutUrl_5 = `https://buy.stripe.com/test_28E4gz0mb61v5By1fe5AQ04?client_reference_id=${userData.id}`;
-  // const stripeCheckoutUrl_10 = `https://buy.stripe.com/test_bJefZh7ODdtXbZWe205AQ05?client_reference_id=${userData.id}`;
-  // const stripeCheckoutUrl_20 = `https://buy.stripe.com/test_3cIeVded14XraVS9LK5AQ06?client_reference_id=${userData.id}`;
-
-  const stripeCheckoutUrl_2_5 = `https://buy.stripe.com/test_00w14g0hReVYenH5YZ0sU08?client_reference_id=${userData.id}`;
-  const stripeCheckoutUrl_5 = `https://buy.stripe.com/test_6oUbIUd4D6psbbvdrr0sU06?client_reference_id=${userData.id}`;
-  const stripeCheckoutUrl_10 = `https://buy.stripe.com/test_4gM28kd4D3dgbbv4UV0sU07?client_reference_id=${userData.id}`;
-  const stripeCheckoutUrl_20 = `https://buy.stripe.com/test_fZu6oAggP1580wR4UV0sU0c?client_reference_id=${userData.id}`;
-
   function handleOpenStripePaymentPage(pkgInfo) {
     setMessage(null);
     setPendingPackage(pkgInfo);
     setShowModal(true);
   }
 
-
   const load = async () => {
     try {
       const { data } = await api.post(`/api/wallet/balance/${userData.username}`, { Password: userData.password, email: userData.email });
-
       setBalance(data?.balance ?? 0);
     } catch (e) {
       console.error(e);
@@ -163,218 +96,44 @@ export default function PurchaseStripe() {
     }
   };
 
-
   useEffect(() => {
     load();
-    // Fetch initial rate
-    // fetchCryptoRate(currency).then(setRate);
   }, []);
 
-
-  function handleConfirmPayment() {
+  async function handleConfirmPayment() {
     if (!pendingPackage) return;
-
-    // Record start timestamp
-    const timestamp = Date.now();
-    setStartTimestamp(timestamp);
-    console.log("Payment Start Timestamp (Unix epoch ms):", timestamp);
-    console.log("Payment Start Time:", new Date(timestamp).toISOString());
-
-    // Open Stripe payment page in new window
-    let stripeUrl = '';
-    if (pendingPackage.dollars === 2.5) stripeUrl = stripeCheckoutUrl_2_5;
-    else if (pendingPackage.dollars === 5) stripeUrl = stripeCheckoutUrl_5;
-    else if (pendingPackage.dollars === 10) stripeUrl = stripeCheckoutUrl_10;
-    else if (pendingPackage.dollars === 20) stripeUrl = stripeCheckoutUrl_20;
-
-    if (stripeUrl) {
-      paymentWindowRef.current = window.open(stripeUrl, '_blank');
-      console.log("Opening Stripe payment page for:", pendingPackage);
-
-      // Start checking if window is closed
-      startWindowCheck();
-
-      // Start 5-minute countdown
-      setCountdown(VERIFICATION_WINDOW_SECONDS);
-      countdownIntervalRef.current = setInterval(() => {
-        setCountdown(prev => (prev > 0 ? prev - 1 : 0));
-      }, 1000);
-
-      // Show waiting state
-      setIsWaitingForReturn(true);
-    }
-
-    setSelected(pendingPackage);
+    setIsRedirecting(true);
     setShowModal(false);
-  }
-
-  function startWindowCheck() {
-    // Check every 1 second if the payment window was closed
-    checkIntervalRef.current = setInterval(() => {
-      try {
-        // Only trigger if the window is actually closed, not just inaccessible
-        if (paymentWindowRef.current && paymentWindowRef.current.closed) {
-          // Double-check by trying to access the window
-          // If it throws, it might be cross-origin but still open
-          try {
-            const stillOpen = !paymentWindowRef.current.closed;
-            if (!stillOpen) {
-              handlePaymentWindowClosed();
-            }
-          } catch (e) {
-            // Cross-origin error means window is likely still open
-            // Only close if we're certain it's closed
-            if (paymentWindowRef.current.closed) {
-              handlePaymentWindowClosed();
-            }
-          }
-        }
-      } catch (error) {
-        // If we can't access the window at all, it's likely still open but cross-origin
-        console.log("Window check error (window likely still open):", error);
-      }
-    }, 1000);
-  }
-
-  function handlePaymentWindowClosed() {
-    // Clear the intervals
-    if (checkIntervalRef.current) {
-      clearInterval(checkIntervalRef.current);
-      checkIntervalRef.current = null;
-    }
-    if (countdownIntervalRef.current) {
-      clearInterval(countdownIntervalRef.current);
-      countdownIntervalRef.current = null;
-    }
-
-    // Record end timestamp
-    const endTimestamp = Date.now();
-    console.log("Payment End Timestamp (Unix epoch ms):", endTimestamp);
-    console.log("Payment End Time:", new Date(endTimestamp).toISOString());
-    console.log("Time Range:", {
-      start: startTimestamp,
-      end: endTimestamp,
-      duration: `${((endTimestamp - startTimestamp) / 1000).toFixed(2)} seconds`
-    });
-
-    // Verify payment with backend
-    verifyPayment(startTimestamp, endTimestamp);
-  }
-
-  async function fetchUserIP() {
-    // Simple function to fetch user's IP address
-    // In production, consider using a more reliable method or service
-    return fetch('https://api.ipify.org?format=json')
-      .then(response => response.json())
-      .then(data => data.ip)
-      .catch(error => {
-        console.error("Error fetching user IP:", error);
-        return null;
-      });
-  }
-
-  async function verifyPayment(startTime, endTime) {
-    if (!pendingPackage) return;
-
-    setIsVerifying(true);
-
     try {
-      // Get user data from localStorage
-      const userData = JSON.parse(localStorage.getItem('userdata') || '{}');
-
-      const paymentData = {
-        timeRange: {
-          start: startTime,
-          end: endTime
-        },
-        packageData: {
-          amount: Math.ceil(pendingPackage.dollars * 100), // in cents
-          dollars: pendingPackage.dollars,
-          credits: pendingPackage.credits,
-          priceId: pendingPackage.priceId
-        },
-        user: {
-          id: userData.id || '',
-          email: userData.email || '',
-          username: userData.username || '',
-          phone: userData.phoneNumber || '',
-          name: userData.firstname + " " + userData.lastname || '',
-          ip: await fetchUserIP() || '',
-          userAgent: navigator.userAgent || '',
-
-        }
-      };
-
-      console.log("Sending payment verification to backend:", paymentData);
-
-      // Send to backend for verification
-      const response = await api.post('/api/verify-stripe-payment', paymentData);
-
-      if (response.data && response.data.success) {
-        setMessage(`Payment verified! ${pendingPackage.credits.toLocaleString()} credits have been added to your account.`);
-        console.log("Payment verification successful:", response.data);
+      const response = await api.post('/api/stripe-purchase/create-checkout', {
+        userId:   userData.id,
+        username: userData.username,
+        email:    userData.email,
+        priceId:  pendingPackage.priceId,
+        credits:  pendingPackage.credits,
+        dollars:  pendingPackage.dollars,
+        label:    pendingPackage.label || `$${pendingPackage.dollars.toFixed(2)}`,
+      });
+      if (response.data?.url) {
+        window.location.href = response.data.url;
       } else {
-        setMessage("Payment verification pending. Please check your account or contact support if credits don't appear within 5 minutes.");
-        console.log("Payment verification response:", response.data);
+        throw new Error(response.data?.message || 'No checkout URL returned');
       }
     } catch (error) {
-      console.error("Payment verification error:", error);
-      setMessage("Unable to verify payment automatically. Please contact support with your transaction time: " + new Date(startTime).toISOString());
-    } finally {
-      setIsVerifying(false);
-      setIsWaitingForReturn(false);
-      setPendingPackage(null);
-      setStartTimestamp(null);
-      paymentWindowRef.current = null;
+      console.error('Checkout error:', error);
+      setMessage('Failed to start checkout. Please try again.');
+      setIsRedirecting(false);
     }
   }
 
   function handleCancelPayment() {
     setShowModal(false);
     setPendingPackage(null);
-    console.log("Payment cancelled by user");
   }
-
-  function handleReturnFromPayment() {
-    // User manually confirms they've returned
-    const endTimestamp = Date.now();
-    console.log("User returned from payment (manual confirmation)");
-    console.log("Payment End Timestamp (Unix epoch ms):", endTimestamp);
-    console.log("Payment End Time:", new Date(endTimestamp).toISOString());
-    console.log("Time Range:", {
-      start: startTimestamp,
-      end: endTimestamp,
-      duration: `${((endTimestamp - startTimestamp) / 1000).toFixed(2)} seconds`
-    });
-
-    // Clear intervals and verify
-    if (checkIntervalRef.current) {
-      clearInterval(checkIntervalRef.current);
-      checkIntervalRef.current = null;
-    }
-    if (countdownIntervalRef.current) {
-      clearInterval(countdownIntervalRef.current);
-      countdownIntervalRef.current = null;
-    }
-
-    setIsWaitingForReturn(false);
-    verifyPayment(startTimestamp, endTimestamp);
-  }
-
-  // Cleanup on unmount
-  useEffect(() => {
-    return () => {
-      if (checkIntervalRef.current) clearInterval(checkIntervalRef.current);
-      if (countdownIntervalRef.current) clearInterval(countdownIntervalRef.current);
-    };
-  }, []);
-
 
   function handleSuccess(sessionOrResult) {
-    // Called after successful payment (whatever your Stripe.jsx returns).
-    setMessage("Payment successful — credits will appear in your account shortly.");
+    setMessage('Payment successful — credits will appear in your account shortly.');
     setSelected(null);
-    // TODO: call your backend to grant credits using sessionOrResult metadata
   }
 
   return (
@@ -585,7 +344,7 @@ export default function PurchaseStripe() {
               </Paper>
             )}
             <Alert severity="info" sx={{ backgroundColor: '#1976d2', color: 'white' }}>
-              After completing payment, return to this page. Your credits will be verified and added automatically.
+              You will be redirected to Stripe's secure checkout. After payment you'll return here automatically.
             </Alert>
           </Box>
         </DialogContent>
@@ -593,6 +352,7 @@ export default function PurchaseStripe() {
           <Button
             onClick={handleCancelPayment}
             variant="outlined"
+            disabled={isRedirecting}
             sx={{ color: '#bdbdbd', borderColor: '#bdbdbd' }}
           >
             Cancel
@@ -600,79 +360,22 @@ export default function PurchaseStripe() {
           <Button
             onClick={handleConfirmPayment}
             variant="contained"
-            startIcon={<OpenInNew />}
+            disabled={isRedirecting}
+            startIcon={isRedirecting ? <CircularProgress size={18} sx={{ color: 'white' }} /> : <OpenInNew />}
             sx={{ backgroundColor: '#4caf50', color: 'white', fontWeight: 'bold' }}
           >
-            Proceed to Payment
+            {isRedirecting ? 'Redirecting...' : 'Proceed to Payment'}
           </Button>
         </DialogActions>
       </Dialog>
 
-      {/* Waiting for Return from Payment */}
-      {isWaitingForReturn && !isVerifying && (
-        <Paper elevation={4} sx={{ p: 3, backgroundColor: '#424242', color: 'white', mb: 3, textAlign: 'center' }}>
-          <OpenInNew sx={{ fontSize: 60, color: '#4caf50', mb: 2 }} />
-          <Typography variant="h5" sx={{ mb: 1, fontWeight: 'bold' }}>
-            Complete Your Payment
-          </Typography>
-          <Typography variant="body1" sx={{ color: '#e0e0e0', mb: 2 }}>
-            A payment window has been opened. After completing payment, return here and click the button below.
-          </Typography>
-
-          {/* Countdown timer */}
-          <Paper sx={{ p: 2, mb: 2, backgroundColor: '#353535', borderRadius: 2 }}>
-            <Typography variant="subtitle2" sx={{ color: '#bdbdbd', mb: 0.5, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 0.5 }}>
-              <Timer fontSize="small" />
-              Automatic Verification Window
-            </Typography>
-            <Typography variant="body2" sx={{ color: '#e0e0e0', mb: 1 }}>
-              You have <strong style={{ color: '#ff9800' }}>5 minutes</strong> to complete the transaction for
-              automatic verification. After that, manual verification will be performed.
-            </Typography>
-            <CountdownTimer secondsRemaining={countdown} totalSeconds={VERIFICATION_WINDOW_SECONDS} />
-          </Paper>
-
-          {countdown === 0 && (
-            <Alert severity="warning" sx={{ mb: 2, textAlign: 'left' }}>
-              The automatic verification window has closed. You can still click below — manual verification will be used to confirm your payment.
-            </Alert>
-          )}
-
-          <Button
-            variant="contained"
-            size="large"
-            onClick={handleReturnFromPayment}
-            startIcon={<CheckCircleOutline />}
-            sx={{ backgroundColor: '#4caf50', color: 'white', fontWeight: 'bold', px: 4, py: 1.5 }}
-          >
-            I've Completed Payment
-          </Button>
-          <Typography variant="caption" sx={{ display: 'block', mt: 2, color: '#bdbdbd' }}>
-            Haven't completed payment yet? The payment window should still be open in another tab.
-          </Typography>
-        </Paper>
-      )}
-
-      {/* Verification Progress */}
-      {isVerifying && (
-        <Paper elevation={4} sx={{ p: 3, backgroundColor: '#424242', color: 'white', mb: 3, textAlign: 'center' }}>
-          <CircularProgress sx={{ color: '#4caf50', mb: 2 }} />
-          <Typography variant="h6" sx={{ mb: 1 }}>
-            Verifying Payment...
-          </Typography>
-          <Typography variant="body2" sx={{ color: '#e0e0e0' }}>
-            Please wait while we confirm your transaction and credit your account.
-          </Typography>
-        </Paper>
-      )}
-
-      {/* Success Message */}
+      {/* Success / error message */}
       {message && (
         <Alert
-          severity="success"
+          severity={message.startsWith('Failed') ? 'error' : 'success'}
           sx={{
             mt: 3,
-            backgroundColor: '#2e7d32',
+            backgroundColor: message.startsWith('Failed') ? '#c62828' : '#2e7d32',
             color: 'white',
             '& .MuiAlert-icon': { color: 'white' }
           }}

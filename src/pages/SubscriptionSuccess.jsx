@@ -35,7 +35,7 @@ const SubscriptionSuccess = () => {
   const [session, setSession] = useState(null);
   const [error, setError] = useState(null);
   const navigate = useNavigate();
-  const { showToast } = useToast();
+  const { success: showSuccess, error: showError } = useToast();
 
   useEffect(() => {
     const sessionId = searchParams.get('session_id');
@@ -51,7 +51,9 @@ const SubscriptionSuccess = () => {
 
   const verifySession = async (sessionId) => {
     try {
-      const API_URL = import.meta.env.VITE_API_SERVER_URL || 'http://localhost:3001';        const response = await fetch(`${API_URL}/api/subscription/verify-session?session_id=${sessionId}`);
+      const API_URL = import.meta.env.VITE_API_SERVER_URL || 'http://localhost:3001';    
+          
+      const response = await fetch(`${API_URL}/api/subscription/verify-session?session_id=${sessionId}&username=${JSON.parse(localStorage.getItem('userdata')).username}`);
       
       if (!response.ok) {
         throw new Error('Failed to verify session');
@@ -67,14 +69,14 @@ const SubscriptionSuccess = () => {
         userData.subscription = data.session.subscription;
         localStorage.setItem('userdata', JSON.stringify(userData));
         
-        showToast('Subscription activated successfully!', 'success');
+        showSuccess('Subscription activated successfully!');
       } else {
         throw new Error(data.message || 'Verification failed');
       }
     } catch (err) {
       console.error('Verification error:', err);
       setError(err.message);
-      showToast('Failed to verify subscription', 'error');
+      showError('Failed to verify subscription');
     } finally {
       setLoading(false);
     }
@@ -108,7 +110,7 @@ const SubscriptionSuccess = () => {
         </Alert>
         <Button
           variant="contained"
-          onClick={() => navigate('/subscription/plans')}
+          onClick={() => navigate('/plans')}
           fullWidth
         >
           Back to Plans
