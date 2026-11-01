@@ -6,6 +6,7 @@
 // - Adds watermark before scrambling
 
 import React, { useCallback, useEffect, useRef, useState } from "react";
+import { genRandomSeed, mulberry32, oneBased, seededPermutation } from "../utils/seededRandom";
 import {
   Container,
   Typography,
@@ -170,33 +171,6 @@ export default function PhotoScrambler() {
   // UTILS
   // =============================
   function clamp(v, min, max) { return Math.max(min, Math.min(max, v)); }
-  function mulberry32(a) {
-    return function () {
-      let t = (a += 0x6D2B79F5);
-      t = Math.imul(t ^ (t >>> 15), t | 1);
-      t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
-      return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
-    };
-  }
-  function genRandomSeed() {
-    if (window.crypto?.getRandomValues) {
-      const buf = new Uint32Array(1);
-      window.crypto.getRandomValues(buf);
-      return buf[0] >>> 0;
-    }
-    return (Math.floor(Math.random() * 2 ** 32) >>> 0);
-  }
-  function seededPermutation(size, seed) {
-    const rand = mulberry32(seed >>> 0);
-    const srcs = Array.from({ length: size }, (_, i) => i);
-    for (let i = size - 1; i > 0; i--) {
-      const j = Math.floor(rand() * (i + 1));
-      [srcs[i], srcs[j]] = [srcs[j], srcs[i]];
-    }
-    return srcs; // dest index i will take from source srcs[i]
-  }
-  function oneBased(a) { return a.map((x) => x + 1); }
-
   // Added in noise parameter so it is no longer needered here
   // function paramsToJSON(seed, n, m, perm) {
 
@@ -305,17 +279,6 @@ export default function PhotoScrambler() {
       success(`Auto grid: ${result.rows}×${result.cols} (tiles: ${tileW}×${tileH}px)`);
     }
   };
-
-  // Mulberry32 PRNG (seeded, fast, deterministic)
-  function mulberry32(seed) {
-    let t = seed >>> 0;
-    return function () {
-      t += 0x6D2B79F5;
-      let x = Math.imul(t ^ (t >>> 15), 1 | t);
-      x ^= x + Math.imul(x ^ (x >>> 7), 61 | x);
-      return ((x ^ (x >>> 14)) >>> 0) / 4294967296; // [0,1)
-    };
-  }
 
   // async function fileToImage(file) {
   //   const url = URL.createObjectURL(file);

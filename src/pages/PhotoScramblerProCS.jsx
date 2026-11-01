@@ -3,6 +3,7 @@
 // Key format: version 5 "hpf" — compatible with scramble_photo_pro.py
 
 import React, { useState, useRef, useEffect, useCallback } from 'react';
+import { genRandomSeed, mulberry32, seededPermutation } from '../utils/seededRandom';
 import {
     Container, Typography, Card, CardContent, Button, TextField,
     Box, Grid, Chip, Alert, Slider, CircularProgress
@@ -28,35 +29,6 @@ function blurSigmaFromKsize(k) { return 0.3 * ((k - 1) * 0.5 - 1) + 0.8; }
 // ═══════════════════════════════════════════════════════
 // PURE ALGORITHM FUNCTIONS  (no React, no side-effects)
 // ═══════════════════════════════════════════════════════
-
-function mulberry32(seed) {
-    let s = seed >>> 0;
-    return () => {
-        let t = (s += 0x6D2B79F5) >>> 0;
-        t = Math.imul(t ^ (t >>> 15), t | 1);
-        t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
-        return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
-    };
-}
-
-function genRandomSeed() {
-    if (window.crypto?.getRandomValues) {
-        const buf = new Uint32Array(1);
-        window.crypto.getRandomValues(buf);
-        return buf[0] >>> 0;
-    }
-    return Math.floor(Math.random() * 2 ** 32) >>> 0;
-}
-
-function seededPermutation(size, seed) {
-    const rnd = mulberry32(seed >>> 0);
-    const arr = Array.from({ length: size }, (_, i) => i);
-    for (let i = size - 1; i > 0; i--) {
-        const j = Math.floor(rnd() * (i + 1));
-        [arr[i], arr[j]] = [arr[j], arr[i]];
-    }
-    return arr;
-}
 
 function autoGridForAspect(w, h) {
     let bestN = 2, bestM = 2, bestScore = Infinity;
